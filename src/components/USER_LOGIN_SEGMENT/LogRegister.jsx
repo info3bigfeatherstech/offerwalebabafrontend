@@ -1,197 +1,208 @@
-import React, { useState } from 'react';
-import { X, Zap, ShieldCheck, Sparkles } from 'lucide-react';
-import Login from './Login';
-import Register from './Register';
-import LOGO from '../../assets/logo.jpg';
+// components/USER_LOGIN_SEGMENT/LogRegister.jsx
+import React, { useState } from "react";
+import { X } from "lucide-react";
+import Login from "./Login";
+import Register from "./Register";
+import ForgotPassword from "./ForgotPassword";
+import { useDispatch } from "react-redux";
+import { clearError, clearSuccess } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
 
 const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
-    const [mode, setMode] = useState('login');
+  const dispatch = useDispatch();
+  const [activeTab, setActiveTab] = useState("login");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
-    if (!isOpen) return null;
+  if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md transition-all duration-500">
-            <div className="relative w-full max-w-5xl bg-[#0d0d0d] border border-white/10 rounded-[2.5rem] shadow-2xl flex flex-col md:row-reverse md:flex-row overflow-hidden max-h-[95vh]">
-                
-                <button onClick={onClose} className="absolute top-6 right-6 z-[110] p-2 text-gray-500 hover:text-white transition-colors bg-white/5 rounded-full">
-                    <X size={24} />
-                </button>
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setShowForgotPassword(false);
+    dispatch(clearError());
+    dispatch(clearSuccess());
+  };
 
-                {/* LEFT SIDE: BRANDING */}
-                <div className="hidden md:flex flex-1 p-12 bg-gradient-to-br from-[#121212] to-black flex-col justify-center relative overflow-hidden border-r border-white/5">
-                    <div className="absolute -top-20 -left-20 w-64 h-64 bg-[#f7a221]/10 blur-[120px] rounded-full"></div>
-                    
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-10">
-                            <img src={LOGO} alt="Logo" className="h-12 w-auto rounded-xl border border-white/10" />
-                            <h2 className="text-3xl font-black text-white  tracking-tighter">
-                                OFFERWALE<span className="text-[#f7a221]">BABA</span>
-                            </h2>
-                        </div>
+  const handleClose = () => {
+    dispatch(clearError());
+    dispatch(clearSuccess());
+    onClose();
+  };
 
-                        <h3 className="text-2xl text-gray-300 mb-10 font-medium leading-tight">
-                            The secret portal for <span className="text-[#f7a221] font-black underline underline-offset-4">Viral Gadgets</span> at factory prices.
-                        </h3>
+  const handleForgotPasswordClick = () => {
+    dispatch(clearError());
+    dispatch(clearSuccess());
+    setShowForgotPassword(true);
+  };
 
-                        <div className="space-y-8">
-                            {[
-                                { icon: <Zap size={20} />, title: "Hyper Deals", desc: "Prices that make retailers cry." },
-                                { icon: <ShieldCheck size={20} />, title: "Baba Verified", desc: "Quality checks on every loot." },
-                                { icon: <Sparkles size={20} />, title: "VIP Access", desc: "Members get deals 15m earlier." }
-                            ].map((item, i) => (
-                                <div key={i} className="flex items-center gap-5">
-                                    <div className="p-3 rounded-2xl bg-[#f7a221]/10 text-[#f7a221] border border-[#f7a221]/20">
-                                        {item.icon}
-                                    </div>
-                                    <div>
-                                        <p className="text-white font-black uppercase tracking-widest text-xs">{item.title}</p>
-                                        <p className="text-gray-500 text-xs mt-1">{item.desc}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+  const handleBackFromForgot = () => {
+    dispatch(clearError());
+    dispatch(clearSuccess());
+    setShowForgotPassword(false);
+  };
 
-                {/* RIGHT SIDE: FORM WRAPPER */}
-                <div className="flex-1 p-8 md:p-16 flex flex-col justify-center bg-[#0d0d0d] relative">
-                    <div className="max-w-md mx-auto w-full flex flex-col h-full">
-                        
-                        {/* SWAP BETWEEN LOGIN AND REGISTER */}
-                        <div className="flex-grow flex items-center">
-                            {mode === 'login' ? 
-                                <Login onLoginSuccess={onLoginSuccess} /> : 
-                                <Register onRegisterSuccess={onLoginSuccess} />
-                            }
-                        </div>
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
+      <div className="relative w-full max-w-md bg-[#0d0d0d] border border-white/10 rounded-[2rem] shadow-2xl overflow-hidden">
 
-                        {/* BOTTOM TOGGLE SWITCH */}
-                        <div className="mt-8 pt-6 border-t border-white/5 text-center">
-                            {mode === 'login' ? (
-                                <p className="text-gray-500 text-sm">
-                                    Don't have an account?{' '}
-                                    <button 
-                                        onClick={() => setMode('register')}
-                                        className="text-[#f7a221] font-black uppercase tracking-tighter hover:underline"
-                                    >
-                                        Create it now
-                                    </button>
-                                </p>
-                            ) : (
-                                <p className="text-gray-500 text-sm">
-                                    Already have an account?{' '}
-                                    <button 
-                                        onClick={() => setMode('login')}
-                                        className="text-[#f7a221] font-black uppercase tracking-tighter hover:underline"
-                                    >
-                                        Login here
-                                    </button>
-                                </p>
-                            )}
-                        </div>
-                    </div>
-                </div>
+        {/* Close Button */}
+        <button
+          onClick={handleClose}
+          className="absolute right-4 top-4 z-10 p-2 text-gray-500 hover:text-white transition-colors"
+        >
+          <X size={20} />
+        </button>
 
+        {!showForgotPassword ? (
+          <>
+            {/* Tabs */}
+            <div className="flex border-b border-white/10">
+              <button
+                onClick={() => handleTabChange("login")}
+                className={`flex-1 py-4 text-center font-medium transition-colors ${
+                  activeTab === "login"
+                    ? "text-[#f7a221] border-b-2 border-[#f7a221]"
+                    : "text-gray-500 hover:text-white"
+                }`}
+              >
+                LOGIN
+              </button>
+              <button
+                onClick={() => handleTabChange("register")}
+                className={`flex-1 py-4 text-center font-medium transition-colors ${
+                  activeTab === "register"
+                    ? "text-[#f7a221] border-b-2 border-[#f7a221]"
+                    : "text-gray-500 hover:text-white"
+                }`}
+              >
+                REGISTER
+              </button>
             </div>
-        </div>
-    );
+
+            {/* Content */}
+            <div className="p-8">
+              {activeTab === "login" ? (
+                <Login
+                  onLoginSuccess={onLoginSuccess}
+                  onRegisterClick={() => handleTabChange("register")}
+                  onForgotPasswordClick={handleForgotPasswordClick}
+                />
+              ) : (
+                <Register
+                  onRegisterSuccess={onLoginSuccess}
+                  onLoginClick={() => handleTabChange("login")}
+                />
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="p-8">
+            <ForgotPassword
+              onBack={handleBackFromForgot}
+              onLoginClick={() => {
+                handleBackFromForgot();
+                handleTabChange("login");
+              }}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default LogRegister;
 
 
+// // components/USER_LOGIN_SEGMENT/LogRegister.jsx
 // import React, { useState } from 'react';
-// import { X, Zap, ShieldCheck, Sparkles } from 'lucide-react';
+// import { X } from 'lucide-react';
 // import Login from './Login';
 // import Register from './Register';
-// import LOGO from '../../assets/logo.jpg';
+// import ForgotPassword from './ForgotPassword';
 
 // const LogRegister = ({ isOpen, onClose }) => {
-//     const [mode, setMode] = useState('login'); // 'login' or 'register'
+//     const [activeTab, setActiveTab] = useState('login');
+//     const [showForgotPassword, setShowForgotPassword] = useState(false);
 
 //     if (!isOpen) return null;
 
+//     const handleLoginSuccess = () => {
+//         alert('Login successful! (Demo)');
+//         onClose();
+//     };
+
+//     const handleForgotPasswordClick = () => {
+//         setShowForgotPassword(true);
+//     };
+
+//     const handleBackFromForgot = () => {
+//         setShowForgotPassword(false);
+//     };
+
 //     return (
-//         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md transition-all duration-500">
-//             <div className="relative w-full max-w-5xl bg-[#0d0d0d] border border-white/10 rounded-[2.5rem] shadow-2xl flex flex-col md:row-reverse md:flex-row overflow-hidden max-h-[95vh]">
+//         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
+//             <div className="relative w-full max-w-md bg-[#0d0d0d] border border-white/10 rounded-[2rem] shadow-2xl overflow-hidden">
                 
-//                 {/* CLOSE BUTTON */}
-//                 <button onClick={onClose} className="absolute top-6 right-6 z-[110] p-2 text-gray-500 hover:text-white transition-colors bg-white/5 rounded-full">
-//                     <X size={24} />
+//                 {/* Close Button */}
+//                 <button 
+//                     onClick={onClose}
+//                     className="absolute right-4 top-4 z-10 p-2 text-gray-500 hover:text-white transition-colors"
+//                 >
+//                     <X size={20} />
 //                 </button>
 
-//                 {/* LEFT SIDE: BRANDING (Shared) */}
-//                 <div className="hidden md:flex flex-1 p-12 bg-gradient-to-br from-[#121212] to-black flex-col justify-center relative overflow-hidden border-r border-white/5">
-//                     <div className="absolute -top-20 -left-20 w-64 h-64 bg-[#f7a221]/10 blur-[120px] rounded-full"></div>
-                    
-//                     <div className="relative z-10">
-//                         <div className="flex items-center gap-3 mb-10">
-//                             <img src={LOGO} alt="Logo" className="h-12 w-auto rounded-xl border border-white/10" />
-//                             <h2 className="text-3xl font-black text-white italic tracking-tighter">
-//                                 OFFERWALE<span className="text-[#f7a221]">BABA</span>
-//                             </h2>
+//                 {!showForgotPassword ? (
+//                     <>
+//                         {/* Tabs */}
+//                         <div className="flex border-b border-white/10">
+//                             <button
+//                                 onClick={() => setActiveTab('login')}
+//                                 className={`flex-1 py-4 text-center font-medium transition-colors ${
+//                                     activeTab === 'login' 
+//                                         ? 'text-[#f7a221] border-b-2 border-[#f7a221]' 
+//                                         : 'text-gray-500 hover:text-white'
+//                                 }`}
+//                             >
+//                                 LOGIN
+//                             </button>
+//                             <button
+//                                 onClick={() => setActiveTab('register')}
+//                                 className={`flex-1 py-4 text-center font-medium transition-colors ${
+//                                     activeTab === 'register' 
+//                                         ? 'text-[#f7a221] border-b-2 border-[#f7a221]' 
+//                                         : 'text-gray-500 hover:text-white'
+//                                 }`}
+//                             >
+//                                 REGISTER
+//                             </button>
 //                         </div>
 
-//                         <h3 className="text-2xl text-gray-300 mb-10 font-medium leading-tight">
-//                             The secret portal for <span className="text-[#f7a221] font-black underline underline-offset-4">Viral Gadgets</span> at factory prices.
-//                         </h3>
-
-//                         <div className="space-y-8">
-//                             {[
-//                                 { icon: <Zap size={20} />, title: "Hyper Deals", desc: "Prices that make retailers cry." },
-//                                 { icon: <ShieldCheck size={20} />, title: "Baba Verified", desc: "Quality checks on every loot." },
-//                                 { icon: <Sparkles size={20} />, title: "VIP Access", desc: "Members get deals 15m earlier." }
-//                             ].map((item, i) => (
-//                                 <div key={i} className="flex items-center gap-5">
-//                                     <div className="p-3 rounded-2xl bg-[#f7a221]/10 text-[#f7a221] border border-[#f7a221]/20">
-//                                         {item.icon}
-//                                     </div>
-//                                     <div>
-//                                         <p className="text-white font-black uppercase tracking-widest text-xs">{item.title}</p>
-//                                         <p className="text-gray-500 text-xs mt-1">{item.desc}</p>
-//                                     </div>
-//                                 </div>
-//                             ))}
-//                         </div>
-//                     </div>
-//                 </div>
-
-//                 {/* RIGHT SIDE: FORM WRAPPER */}
-//                 <div className="flex-1 p-8 md:p-16 flex flex-col justify-center bg-[#0d0d0d] relative">
-//                     <div className="max-w-md mx-auto w-full flex flex-col h-full">
-                        
-//                         {/* THE SWAP ENGINE */}
-//                         <div className="flex-grow flex items-center">
-//                             {mode === 'login' ? <Login /> : <Register />}
-//                         </div>
-
-//                         {/* BOTTOM TOGGLE SWITCH */}
-//                         <div className="mt-8 pt-6 border-t border-white/5 text-center">
-//                             {mode === 'login' ? (
-//                                 <p className="text-gray-500 text-sm">
-//                                     Don't have an account?{' '}
-//                                     <button 
-//                                         onClick={() => setMode('register')}
-//                                         className="text-[#f7a221] font-black uppercase tracking-tighter hover:underline"
-//                                     >
-//                                         Create it now
-//                                     </button>
-//                                 </p>
+//                         {/* Content */}
+//                         <div className="p-8">
+//                             {activeTab === 'login' ? (
+//                                 <Login 
+//                                     onLoginSuccess={handleLoginSuccess}
+//                                     onRegisterClick={() => setActiveTab('register')}
+//                                     onForgotPasswordClick={handleForgotPasswordClick}
+//                                 />
 //                             ) : (
-//                                 <p className="text-gray-500 text-sm">
-//                                     Already have an account?{' '}
-//                                     <button 
-//                                         onClick={() => setMode('login')}
-//                                         className="text-[#f7a221] font-black uppercase tracking-tighter hover:underline"
-//                                     >
-//                                         Login here
-//                                     </button>
-//                                 </p>
+//                                 <Register 
+//                                     onRegisterSuccess={handleLoginSuccess}
+//                                     onLoginClick={() => setActiveTab('login')}
+//                                 />
 //                             )}
 //                         </div>
+//                     </>
+//                 ) : (
+//                     <div className="p-8">
+//                         <ForgotPassword 
+//                             onBack={handleBackFromForgot}
+//                             onLoginClick={() => {
+//                                 setShowForgotPassword(false);
+//                                 setActiveTab('login');
+//                             }}
+//                         />
 //                     </div>
-//                 </div>
-
+//                 )}
 //             </div>
 //         </div>
 //     );

@@ -1,23 +1,27 @@
-import React, { useCallback, memo, useState, useRef, useEffect, } from 'react';
+import React, { useCallback, memo, useState, useRef, useEffect } from 'react';
+import { useDispatch } from 'react-redux';
+import { forceLogout } from '../components/REDUX_FEATURES/REDUX_SLICES/authSlice';
 import {
     Search, User, Heart, ShoppingCart, Menu, X, Phone, Mail, Clock,
     ChevronRight, Home, Flame, Package, Tag, Ticket, HeadphonesIcon,
     Smartphone, ChefHat, Shirt, Dumbbell, Plane, Book, Baby, Car, Box, Gift,
-    MapPin
+    MapPin, LogOut, UserCircle, Settings, Shield
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import logo from "../assets/logo2.png";
-
 
 // --- Sub-Components ---
 
-const ActionIcon = memo(({ item }) => (
-    <div className="flex flex-col items-center cursor-pointer relative group text-black hover:text-[#F7A221] transition-colors min-w-[50px]">
+const ActionIcon = memo(({ item, onClick, isLoggedIn }) => (
+    <div 
+        onClick={onClick}
+        className="flex flex-col items-center cursor-pointer relative group text-black hover:text-[#F7A221] transition-colors min-w-[50px]"
+    >
         <div className="p-1 md:p-2 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
             {item.icon}
         </div>
         {item.count !== undefined && (
-            <span className={`absolute top-0 right-1 md:top-1 md:right-2 ${item.badge} text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white font-bold shadow-sm group-hover:animate-bounce`}>
+            <span className={`absolute -top-1 right-1 md:-top-1 md:right-2 ${item.badge} text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white font-bold shadow-sm group-hover:animate-bounce`}>
                 {item.count}
             </span>
         )}
@@ -26,6 +30,81 @@ const ActionIcon = memo(({ item }) => (
         </span>
     </div>
 ));
+
+// User Account Dropdown Component
+const UserAccountDropdown = ({ user, onLogout, onClose }) => {
+    const navigate = useNavigate();
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                onClose();
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [onClose]);
+
+    const menuItems = [
+        { icon: <UserCircle size={16} />, label: 'My Profile', path: '/profile' },
+        { icon: <Heart size={16} />, label: 'My Wishlist', path: '/wishlist' },
+        { icon: <ShoppingCart size={16} />, label: 'My Orders', path: '/orders' },
+        { icon: <Settings size={16} />, label: 'Settings', path: '/settings' },
+        // { icon: <Shield size={16} />, label: 'Become a Seller', path: '/seller' },
+    ];
+
+    return (
+        <div 
+            ref={dropdownRef}
+            className="absolute top-full right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[100] animate-slideDown"
+        >
+            {/* User Info Header */}
+            <div className="bg-gradient-to-r from-[#F7A221]/10 to-transparent p-4 border-b">
+                <p className="text-xs text-gray-500 mb-1">Welcome back,</p><span className='text-lg' >🤡🤡🤡🤡</span>
+                <p className="font-black text-black text-lg truncate">
+                    {user.name || 'Guest'} </p>
+                <p className="text-xs text-gray-500 mt-1 truncate">{user?.email}</p>
+            </div>
+
+            {/* Menu Items */}
+            <div className="py-2">
+                {menuItems.map((item, index) => (
+                    <button
+                        key={index}
+                        onClick={() => {
+                            navigate(item.path);
+                            onClose();
+                        }}
+                        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-orange-50 transition-colors text-left group"
+                    >
+                        <span className="text-gray-500 group-hover:text-[#F7A221] transition-colors">
+                            {item.icon}
+                        </span>
+                        <span className="text-sm font-bold text-gray-700 group-hover:text-black">
+                            {item.label}
+                        </span>
+                    </button>
+                ))}
+            </div>
+
+            {/* Logout Button */}
+            <div className="border-t p-2">
+                <button
+                    onClick={() => {
+                        onLogout();
+                        onClose();
+                    }}
+                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-red-50 transition-colors rounded-xl text-left group"
+                >
+                    <LogOut size={16} className="text-red-500 group-hover:scale-110 transition-transform" />
+                    <span className="text-sm font-bold text-red-600">Logout</span>
+                </button>
+            </div>
+        </div>
+    );
+};
 
 const MegaDropdown = ({ isOpen }) => {
     if (!isOpen) return null;
@@ -88,35 +167,51 @@ const NavItemWithDropdown = ({ link }) => {
     );
 };
 
-const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen }) => {
+const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLoggedIn, user, onOpenAuth }) => {
+    const dispatch = useDispatch();
+    const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
+    const [isLogoHovered, setIsLogoHovered] = useState(false);
+    const [burstIcons, setBurstIcons] = useState([]);
     
     const handleSearchChange = useCallback((e) => {
         setSearchQuery(e.target.value);
     }, [setSearchQuery]);
-const [isLogoHovered, setIsLogoHovered] = useState(false);
-    const [burstIcons, setBurstIcons] = useState([]);
+
+    const handleLogout = async () => {
+        await dispatch(forceLogout());
+        setIsAccountDropdownOpen(false);
+    };
+
+    const handleAccountClick = () => {
+        if (isLoggedIn) {
+            setIsAccountDropdownOpen(!isAccountDropdownOpen);
+        } else {
+            onOpenAuth();
+        }
+    };
+
     useEffect(() => {
         let interval;
         if (isLogoHovered) {
             interval = setInterval(() => {
                 const newIcon = {
-                    id: Date.now(), // unique key for React
+                    id: Date.now(),
                     ...iconPool[Math.floor(Math.random() * iconPool.length)],
-                    // Randomize direction and distance
                     x: (Math.random() - 0.5) * 200 + "px", 
                     y: (Math.random() - 0.5) * 200 + "px",
                     rotation: Math.random() * 360 + "deg"
                 };
                 
-                setBurstIcons((prev) => [...prev.slice(-15), newIcon]); // Keep last 15 icons for performance
-            }, 150); // Speed of the flush (150ms)
+                setBurstIcons((prev) => [...prev.slice(-15), newIcon]);
+            }, 150);
         } else {
-            setBurstIcons([]); // Clear icons when mouse leaves
+            setBurstIcons([]);
         }
         return () => clearInterval(interval);
     }, [isLogoHovered]);
-// Define the icons that will "flush" out
-  const iconPool = [
+
+    // Define the icons that will "flush" out
+    const iconPool = [
         { icon: <Smartphone size={18} />, color: "text-blue-500" },
         { icon: <Shirt size={18} />, color: "text-orange-500" },
         { icon: <Dumbbell size={18} />, color: "text-green-500" },
@@ -126,13 +221,18 @@ const [isLogoHovered, setIsLogoHovered] = useState(false);
         { icon: <Car size={18} />, color: "text-gray-600" },
         { icon: <HeadphonesIcon size={18} />, color: "text-yellow-500" }
     ];
+
     const actionIcons = [
-        { icon: <User size={22} />, label: "Account" },
+        { 
+            icon: <User size={22} />, 
+            label: isLoggedIn  ? (user?.name || "Account") : "Account",
+            onClick: handleAccountClick
+        },
         { icon: <Heart size={22} />, label: "Wishlist", count: 0, badge: "bg-red-600" },
         { icon: <ShoppingCart size={22} />, label: "Cart", count: 0, badge: "bg-black" }
     ];
 
-   const bottomNavLinks = [
+    const bottomNavLinks = [
         { 
             label: "Todays' Deal", 
             path: "/", 
@@ -192,41 +292,34 @@ const [isLogoHovered, setIsLogoHovered] = useState(false);
                             <button onClick={() => setIsMenuOpen(true)} className="lg:hidden p-2 text-black bg-gray-50 rounded-lg">
                                 <Menu size={24} />
                             </button>
-                            {/* <Link to="/" className="flex-shrink-0 flex items-center justify-center p-1 group">
+
+                            {/* Enhanced Logo Section */}
+                            <Link 
+                                to="/" 
+                                className="relative flex-shrink-0 flex items-center justify-center p-1 group"
+                                onMouseEnter={() => setIsLogoHovered(true)}
+                                onMouseLeave={() => setIsLogoHovered(false)}
+                            >
+                                {/* The Continuous Burst */}
+                                {burstIcons.map((item) => (
+                                    <div 
+                                        key={item.id}
+                                        className={`absolute z-[-1] ${item.color} animate-flush-continuous`}
+                                        style={{ 
+                                            '--target-x': item.x, 
+                                            '--target-y': item.y,
+                                            '--target-rot': item.rotation
+                                        }}
+                                    >
+                                        {item.icon}
+                                    </div>
+                                ))}
+
                                 <img 
-                                    className="object-contain transition-transform duration-500  w-[100px] md:w-[160px] max-h-[55px] md:max-h-[85px]" 
-                                    style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.05))' }} 
+                                    className="relative z-10 object-contain transition-transform duration-500 w-[100px] md:w-[160px] max-h-[55px] md:max-h-[85px]" 
                                     src={logo} alt="Logo" 
                                 />
-                            </Link> */}
-
-                            {/* --- ENHANCED LOGO SECTION --- */}
-                           <Link 
-                to="/" 
-                className="relative flex-shrink-0 flex items-center justify-center p-1 group"
-                onMouseEnter={() => setIsLogoHovered(true)}
-                onMouseLeave={() => setIsLogoHovered(false)}
-            >
-                {/* The Continuous Burst */}
-                {burstIcons.map((item) => (
-                    <div 
-                        key={item.id}
-                        className={`absolute z-[-1] ${item.color} animate-flush-continuous`}
-                        style={{ 
-                            '--target-x': item.x, 
-                            '--target-y': item.y,
-                            '--target-rot': item.rotation
-                        }}
-                    >
-                        {item.icon}
-                    </div>
-                ))}
-
-                <img 
-                    className="relative z-10 object-contain transition-transform duration-500 w-[100px] md:w-[160px] max-h-[55px] md:max-h-[85px]" 
-                    src={logo} alt="Logo" 
-                />
-            </Link>
+                            </Link>
                         </div>
 
                         {/* Location - Desktop Only */}
@@ -254,8 +347,24 @@ const [isLogoHovered, setIsLogoHovered] = useState(false);
                         </div>
 
                         {/* Action Icons - Labels Always Visible */}
-                        <div className="flex items-center gap-2 md:gap-4 lg:gap-8">
-                            {actionIcons.map((item, idx) => <ActionIcon key={idx} item={item} />)}
+                        <div className="flex items-center gap-2 md:gap-4 lg:gap-8 relative">
+                            {actionIcons.map((item, idx) => (
+                                <ActionIcon 
+                                    key={idx} 
+                                    item={item} 
+                                    onClick={item.onClick}
+                                    isLoggedIn={isLoggedIn}
+                                />
+                            ))}
+                            
+                            {/* Account Dropdown */}
+                            {isLoggedIn && isAccountDropdownOpen && (
+                                <UserAccountDropdown 
+                                    user={user}
+                                    onLogout={handleLogout}
+                                    onClose={() => setIsAccountDropdownOpen(false)}
+                                />
+                            )}
                         </div>
                     </div>
 
@@ -291,7 +400,7 @@ const [isLogoHovered, setIsLogoHovered] = useState(false);
                                     <div className="transition-transform duration-300 group-hover:scale-125">
                                         {link.icon}
                                     </div>
-                                    <span className="font-bold text-black relative z-10">{link.label}</span>
+                                    <span className="font-bold text-white relative z-10">{link.label}</span>
                                 </Link>
                             ))}
                         </div>
@@ -304,7 +413,6 @@ const [isLogoHovered, setIsLogoHovered] = useState(false);
                 <div className="fixed inset-0 bg-black/60 z-[60] lg:hidden backdrop-blur-sm transition-opacity" onClick={() => setIsMenuOpen(false)}>
                     <div className="w-[85%] max-w-[320px] h-full bg-white shadow-2xl animate-slideRight" onClick={(e) => e.stopPropagation()}>
                         <div className="p-6 border-b flex justify-between items-center bg-gray-50">
-                            {/* Logo Removed from sidebar header per request */}
                             <span className="text-lg font-black uppercase tracking-tighter text-[#F7A221]">Menu</span>
                             <button onClick={() => setIsMenuOpen(false)} className="p-2 bg-white rounded-full shadow-sm text-black hover:rotate-90 transition-transform">
                                 <X size={20} />
@@ -312,6 +420,15 @@ const [isLogoHovered, setIsLogoHovered] = useState(false);
                         </div>
                         <div className="overflow-y-auto h-[calc(100%-80px)]">
                             <div className="p-4 space-y-4">
+                                {/* User Info in Mobile Menu if logged in */}
+                                {isLoggedIn && user && (
+                                    <div className="bg-gradient-to-r from-[#F7A221]/10 to-transparent p-4 rounded-xl mb-4">
+                                        <p className="text-xs text-gray-500">Welcome back,</p>
+                                        <p className="font-black text-black">{user.name ? user.name :"x"}</p>
+                                        <p className="text-xs text-gray-600 mt-1">{user.email}</p>
+                                    </div>
+                                )}
+
                                 <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mb-2">Shopping</p>
                                 {bottomNavLinks.map((link, idx) => (
                                     <Link key={idx} to={link.path} onClick={() => setIsMenuOpen(false)} className="flex items-center gap-4 p-3 hover:bg-orange-50 rounded-xl transition-colors font-bold text-sm">
@@ -368,6 +485,12 @@ const [isLogoHovered, setIsLogoHovered] = useState(false);
                 }
                 .animate-slideRight { animation: slideRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
+                @keyframes slideDown {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-slideDown { animation: slideDown 0.3s ease-out forwards; }
+
                 @keyframes swing {
                     0% { transform: rotate(0deg); }
                     20% { transform: rotate(15deg); }
@@ -410,38 +533,476 @@ const [isLogoHovered, setIsLogoHovered] = useState(false);
                 }
                 .animate-shake { animation: shake 0.5s ease-in-out infinite; }
 
-                @keyframes slideDown {
-                    from { opacity: 0; transform: translateY(-15px); }
-                    to { opacity: 1; transform: translateY(0); }
+                @keyframes flush-continuous {
+                    0% {
+                        transform: translate(0, 0) scale(0.5) rotate(0deg);
+                        opacity: 0;
+                    }
+                    20% {
+                        opacity: 1;
+                    }
+                    100% {
+                        transform: translate(var(--target-x), var(--target-y)) scale(1.2) rotate(var(--target-rot));
+                        opacity: 0;
+                    }
                 }
-                .animate-slideDown { animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
-
-
-               @keyframes flush-continuous {
-    0% {
-        transform: translate(0, 0) scale(0.5) rotate(0deg);
-        opacity: 0;
-    }
-    20% {
-        opacity: 1;
-    }
-    100% {
-        transform: translate(var(--target-x), var(--target-y)) scale(1.2) rotate(var(--target-rot));
-        opacity: 0;
-    }
-}
-
-.animate-flush-continuous {
-    pointer-events: none; /* Icons won't block mouse movements */
-    animation: flush-continuous 1s ease-out forwards;
-}
+                .animate-flush-continuous {
+                    pointer-events: none;
+                    animation: flush-continuous 1s ease-out forwards;
+                }
             `}</style>
         </>
     );
 };
 
 export default memo(Navbar);
+
+
+// import React, { useCallback, memo, useState, useRef, useEffect, } from 'react';
+// import {
+//     Search, User, Heart, ShoppingCart, Menu, X, Phone, Mail, Clock,
+//     ChevronRight, Home, Flame, Package, Tag, Ticket, HeadphonesIcon,
+//     Smartphone, ChefHat, Shirt, Dumbbell, Plane, Book, Baby, Car, Box, Gift,
+//     MapPin
+// } from 'lucide-react';
+// import { Link } from 'react-router-dom';
+// import logo from "../assets/logo2.png";
+
+
+// // --- Sub-Components ---
+
+// const ActionIcon = memo(({ item }) => (
+//     <div className="flex flex-col items-center cursor-pointer relative group text-black hover:text-[#F7A221] transition-colors min-w-[50px]">
+//         <div className="p-1 md:p-2 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
+//             {item.icon}
+//         </div>
+//         {item.count !== undefined && (
+//             <span className={`absolute top-0 right-1 md:top-1 md:right-2 ${item.badge} text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white font-bold shadow-sm group-hover:animate-bounce`}>
+//                 {item.count}
+//             </span>
+//         )}
+//         <span className="text-[9px] md:text-[10px] mt-0.5 font-bold uppercase tracking-tighter whitespace-nowrap">
+//             {item.label}
+//         </span>
+//     </div>
+// ));
+
+// const MegaDropdown = ({ isOpen }) => {
+//     if (!isOpen) return null;
+
+//     const categories = [
+//         { label: "Smart Life - Gadgets", icon: <Smartphone size={18} className="text-blue-600" /> },
+//         { label: "Home & Kitchen", icon: <ChefHat size={18} className="text-red-600" /> },
+//         { label: "Fashion World", icon: <Shirt size={18} className="text-[#F7A221]" /> },
+//         { label: "Sports & Fitness", icon: <Dumbbell size={18} className="text-blue-600" /> },
+//         { label: "Tours & Travels", icon: <Plane size={18} className="text-[#F7A221]" /> },
+//         { label: "Stationary", icon: <Book size={18} className="text-red-600" /> },
+//         { label: "Baby Items", icon: <Baby size={18} className="text-blue-600" /> },
+//         { label: "Car Accessories", icon: <Car size={18} className="text-[#F7A221]" /> },
+//         { label: "Mix Items Daily use", icon: <Box size={18} className="text-red-600" /> },
+//         { label: "Gifts", icon: <Gift size={18} className="text-blue-600" /> }
+//     ];
+
+//     return (
+//         <div className="absolute top-[100%] left-0 w-full bg-white shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] border-t-2 border-[#F7A221] animate-slideDown z-50 hidden lg:block">
+//             <div className="container mx-auto px-4 py-10">
+//                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+//                     {categories.map((category, index) => (
+//                         <a 
+//                             key={index} 
+//                             href="#" 
+//                             className="flex items-center gap-4 p-4 rounded-2xl hover:bg-orange-50 transition-all group border border-transparent hover:border-orange-100 shadow-sm"
+//                         >
+//                             <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 group-hover:shadow-md group-hover:rotate-3 transition-all duration-300">
+//                                 {category.icon}
+//                             </div>
+//                             <span className="font-bold text-black group-hover:text-[#F7A221] transition-colors text-[13px] uppercase tracking-tight">
+//                                 {category.label}
+//                             </span>
+//                         </a>
+//                     ))}
+//                 </div>
+//             </div>
+//         </div>
+//     );
+// };
+
+// const NavItemWithDropdown = ({ link }) => {
+//     const [isOpen, setIsOpen] = useState(false);
+    
+//     return (
+//         <div 
+//             className="static"
+//             onMouseEnter={() => setIsOpen(true)}
+//             onMouseLeave={() => setIsOpen(false)}
+//         >
+//             <div className="nav-link flex items-center gap-2 group cursor-pointer">
+//                 <div className={`transition-all duration-300 ${isOpen ? 'scale-110 rotate-12' : ''}`}>
+//                     {link.icon}
+//                 </div>
+//                 <span className="font-black text-black group-hover:text-black transition-colors">{link.label}</span>
+//                 <ChevronRight size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-90 text-black' : 'text-white/70'}`} />
+//             </div>
+//             <MegaDropdown isOpen={isOpen} />
+//         </div>
+//     );
+// };
+
+// const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen }) => {
+    
+//     const handleSearchChange = useCallback((e) => {
+//         setSearchQuery(e.target.value);
+//     }, [setSearchQuery]);
+// const [isLogoHovered, setIsLogoHovered] = useState(false);
+//     const [burstIcons, setBurstIcons] = useState([]);
+//     useEffect(() => {
+//         let interval;
+//         if (isLogoHovered) {
+//             interval = setInterval(() => {
+//                 const newIcon = {
+//                     id: Date.now(), // unique key for React
+//                     ...iconPool[Math.floor(Math.random() * iconPool.length)],
+//                     // Randomize direction and distance
+//                     x: (Math.random() - 0.5) * 200 + "px", 
+//                     y: (Math.random() - 0.5) * 200 + "px",
+//                     rotation: Math.random() * 360 + "deg"
+//                 };
+                
+//                 setBurstIcons((prev) => [...prev.slice(-15), newIcon]); // Keep last 15 icons for performance
+//             }, 150); // Speed of the flush (150ms)
+//         } else {
+//             setBurstIcons([]); // Clear icons when mouse leaves
+//         }
+//         return () => clearInterval(interval);
+//     }, [isLogoHovered]);
+// // Define the icons that will "flush" out
+//   const iconPool = [
+//         { icon: <Smartphone size={18} />, color: "text-blue-500" },
+//         { icon: <Shirt size={18} />, color: "text-orange-500" },
+//         { icon: <Dumbbell size={18} />, color: "text-green-500" },
+//         { icon: <Package size={18} />, color: "text-purple-500" },
+//         { icon: <Baby size={18} />, color: "text-pink-500" },
+//         { icon: <ChefHat size={18} />, color: "text-red-500" },
+//         { icon: <Car size={18} />, color: "text-gray-600" },
+//         { icon: <HeadphonesIcon size={18} />, color: "text-yellow-500" }
+//     ];
+//     const actionIcons = [
+//         { icon: <User size={22} />, label: "Account" },
+//         { icon: <Heart size={22} />, label: "Wishlist", count: 0, badge: "bg-red-600" },
+//         { icon: <ShoppingCart size={22} />, label: "Cart", count: 0, badge: "bg-black" }
+//     ];
+
+//    const bottomNavLinks = [
+//         { 
+//             label: "Todays' Deal", 
+//             path: "/", 
+//             icon: <Tag size={20} className="text-[#22C55E] animate-swing drop-shadow-[0_0_8px_rgba(34,197,94,0.6)]" /> 
+//         },
+//         { 
+//             label: "Just Arrived", 
+//             path: "/", 
+//             icon: <Package size={18} className="text-[#00D2FF] animate-float drop-shadow-[0_0_8px_rgba(0,210,255,0.5)]" /> 
+//         },
+//         { 
+//             label: "Sale", 
+//             path: "/", 
+//             icon: <Flame size={20} className="text-[#FF4D4D] animate-flicker drop-shadow-[0_0_10px_rgba(255,77,77,0.7)]" />
+//         },
+//         { 
+//             label: "Coupons", 
+//             path: "/", 
+//             icon: <Ticket size={18} className="text-[#FFD700] animate-bounce-soft drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]" /> 
+//         },
+//         { 
+//             label: "Customer Care", 
+//             path: "/customer-care", 
+//             icon: <HeadphonesIcon size={18} className="text-white animate-tilt drop-shadow-[0_0_5px_rgba(255,255,255,0.4)]" /> 
+//         }
+//     ];
+
+//     const mobileCategories = [
+//         "Smart Life", "Home & Kitchen", "Fashion", "Sports", "Travel", "Stationary", "Baby Items", "Car Accessories"
+//     ];
+
+//     return (
+//         <>
+//             {/* Top Info Bar */}
+//             <div className="bg-black text-white py-2 px-4 hidden lg:block border-b border-white/10">
+//                 <div className="container mx-auto flex justify-between text-[11px] font-bold uppercase tracking-wider">
+//                     <div className="flex items-center gap-8">
+//                         <span className="flex items-center gap-2 hover:text-[#F7A221] cursor-pointer transition-colors group">
+//                             <Phone size={12} className="text-[#F7A221] group-hover:animate-shake" /> +91 93200 01717
+//                         </span>
+//                         <span className="flex items-center gap-2 hover:text-[#F7A221] cursor-pointer transition-colors group">
+//                             <Mail size={12} className="text-[#F7A221] group-hover:scale-110" /> support@offerwale.com
+//                         </span>
+//                     </div>
+//                     <div className="flex items-center gap-4">
+//                         <Clock size={12} className="text-[#F7A221] animate-pulse" /> <span className="text-white/90">Pan India Delivery • 24/7 Support</span>
+//                     </div>
+//                 </div>
+//             </div>
+
+//             <header className="bg-white sticky top-0 z-50 text-black shadow-md">
+//                 <div className="container mx-auto px-4"> 
+//                     <div className="flex items-center justify-between gap-2 md:gap-8 h-20 md:h-24">
+                        
+//                         {/* Logo & Mobile Menu Toggle */}
+//                         <div className="flex items-center gap-2">
+//                             <button onClick={() => setIsMenuOpen(true)} className="lg:hidden p-2 text-black bg-gray-50 rounded-lg">
+//                                 <Menu size={24} />
+//                             </button>
+//                             {/* <Link to="/" className="flex-shrink-0 flex items-center justify-center p-1 group">
+//                                 <img 
+//                                     className="object-contain transition-transform duration-500  w-[100px] md:w-[160px] max-h-[55px] md:max-h-[85px]" 
+//                                     style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.05))' }} 
+//                                     src={logo} alt="Logo" 
+//                                 />
+//                             </Link> */}
+
+//                             {/* --- ENHANCED LOGO SECTION --- */}
+//                            <Link 
+//                 to="/" 
+//                 className="relative flex-shrink-0 flex items-center justify-center p-1 group"
+//                 onMouseEnter={() => setIsLogoHovered(true)}
+//                 onMouseLeave={() => setIsLogoHovered(false)}
+//             >
+//                 {/* The Continuous Burst */}
+//                 {burstIcons.map((item) => (
+//                     <div 
+//                         key={item.id}
+//                         className={`absolute z-[-1] ${item.color} animate-flush-continuous`}
+//                         style={{ 
+//                             '--target-x': item.x, 
+//                             '--target-y': item.y,
+//                             '--target-rot': item.rotation
+//                         }}
+//                     >
+//                         {item.icon}
+//                     </div>
+//                 ))}
+
+//                 <img 
+//                     className="relative z-10 object-contain transition-transform duration-500 w-[100px] md:w-[160px] max-h-[55px] md:max-h-[85px]" 
+//                     src={logo} alt="Logo" 
+//                 />
+//             </Link>
+//                         </div>
+
+//                         {/* Location - Desktop Only */}
+//                         <div className="hidden xl:flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-xl transition-all border border-transparent hover:border-gray-100 group">
+//                             <MapPin size={22} className="text-red-600 animate-bounce" />
+//                             <div className="flex flex-col">
+//                                 <span className="text-[10px] text-gray-500 font-bold uppercase leading-none">Deliver to</span>
+//                                 <span className="text-sm font-black text-gray-900 leading-tight">Mumbai 421004</span>
+//                             </div>
+//                         </div>
+
+//                         {/* Search Bar - Hidden on Mobile */}
+//                         <div className="flex-1 max-w-xl relative hidden lg:block">
+//                             <input
+//                                 type="text"
+//                                 placeholder="Search products, brands and more..."
+//                                 className="w-full py-3.5 px-14 rounded-2xl text-black focus:outline-none bg-gray-100 border-2 border-transparent focus:border-[#F7A221] focus:bg-white transition-all font-bold text-sm"
+//                                 value={searchQuery}
+//                                 onChange={handleSearchChange}
+//                             />
+//                             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+//                             <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-black text-white py-2 px-5 rounded-xl hover:bg-[#F7A221] transition-all shadow-md font-bold text-xs uppercase hover:tracking-widest duration-300">
+//                                 Search
+//                             </button>
+//                         </div>
+
+//                         {/* Action Icons - Labels Always Visible */}
+//                         <div className="flex items-center gap-2 md:gap-4 lg:gap-8">
+//                             {actionIcons.map((item, idx) => <ActionIcon key={idx} item={item} />)}
+//                         </div>
+//                     </div>
+
+//                     {/* Mobile Search Bar - Visible on Mobile */}
+//                     <div className="pb-4 lg:hidden">
+//                         <div className="relative">
+//                             <input
+//                                 type="text"
+//                                 placeholder="Search products..."
+//                                 className="w-full py-3 px-12 rounded-xl text-black focus:outline-none bg-gray-100 border border-gray-200 font-bold text-xs"
+//                                 value={searchQuery}
+//                                 onChange={handleSearchChange}
+//                             />
+//                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+//                         </div>
+//                     </div>
+//                 </div>
+
+//                 {/* Bottom Desktop Nav */}
+//                 <nav className="bg-[linear-gradient(90deg,rgba(247,162,33,0.9),rgba(242,140,0,0.6))] shadow-inner hidden lg:block relative">
+//                     <div className="container mx-auto px-4">
+//                         <div className="flex items-center justify-center gap-2 py-2">
+//                             <NavItemWithDropdown 
+//                                 link={{ label: "All Categories", path: "/products", icon: <Home size={18} className="text-white" /> }} 
+//                             />
+//                             <div className="h-6 w-[1px] bg-white/20 mx-2"></div>
+//                             {bottomNavLinks.map((link, idx) => (
+//                                 <Link 
+//                                     key={idx} 
+//                                     to={link.path} 
+//                                     className="nav-link flex items-center gap-2 hover:bg-white/10 group overflow-hidden"
+//                                 >
+//                                     <div className="transition-transform duration-300 group-hover:scale-125">
+//                                         {link.icon}
+//                                     </div>
+//                                     <span className="font-bold text-black relative z-10">{link.label}</span>
+//                                 </Link>
+//                             ))}
+//                         </div>
+//                     </div>
+//                 </nav>
+//             </header>
+
+//             {/* Mobile Sidebar Overlay */}
+//             {isMenuOpen && (
+//                 <div className="fixed inset-0 bg-black/60 z-[60] lg:hidden backdrop-blur-sm transition-opacity" onClick={() => setIsMenuOpen(false)}>
+//                     <div className="w-[85%] max-w-[320px] h-full bg-white shadow-2xl animate-slideRight" onClick={(e) => e.stopPropagation()}>
+//                         <div className="p-6 border-b flex justify-between items-center bg-gray-50">
+//                             {/* Logo Removed from sidebar header per request */}
+//                             <span className="text-lg font-black uppercase tracking-tighter text-[#F7A221]">Menu</span>
+//                             <button onClick={() => setIsMenuOpen(false)} className="p-2 bg-white rounded-full shadow-sm text-black hover:rotate-90 transition-transform">
+//                                 <X size={20} />
+//                             </button>
+//                         </div>
+//                         <div className="overflow-y-auto h-[calc(100%-80px)]">
+//                             <div className="p-4 space-y-4">
+//                                 <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mb-2">Shopping</p>
+//                                 {bottomNavLinks.map((link, idx) => (
+//                                     <Link key={idx} to={link.path} onClick={() => setIsMenuOpen(false)} className="flex items-center gap-4 p-3 hover:bg-orange-50 rounded-xl transition-colors font-bold text-sm">
+//                                         <span className="p-2 bg-gray-50 rounded-lg">{link.icon}</span>
+//                                         {link.label}
+//                                     </Link>
+//                                 ))}
+                                
+//                                 <div className="pt-4 border-t">
+//                                     <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mb-4">Top Categories</p>
+//                                     <div className="grid grid-cols-2 gap-2">
+//                                         {mobileCategories.map((cat, i) => (
+//                                             <div key={i} className="p-3 bg-gray-50 rounded-lg text-[11px] font-bold text-center border border-gray-100 text-gray-800">
+//                                                 {cat}
+//                                             </div>
+//                                         ))}
+//                                     </div>
+//                                 </div>
+                                
+//                                 <div className="pt-6">
+//                                     <div className="bg-black rounded-2xl p-4 text-white">
+//                                         <p className="text-[10px] font-bold opacity-60 uppercase mb-2">Need Help?</p>
+//                                         <div className="flex flex-col gap-1">
+//                                             <p className="text-sm font-black">+91 93200 01717</p>
+//                                             <p className="text-[11px] opacity-80">support@offerwale.com</p>
+//                                         </div>
+//                                     </div>
+//                                 </div>
+//                             </div>
+//                         </div>
+//                     </div>
+//                 </div>
+//             )}
+
+//             <style jsx>{`
+//                 .nav-link {
+//                     padding: 10px 18px;
+//                     font-size: 12px;
+//                     font-weight: 800;
+//                     text-transform: uppercase;
+//                     border-radius: 12px;
+//                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+//                     letter-spacing: 0.03em;
+//                     color: #ffffff !important;
+//                 }
+//                 .nav-link:hover {
+//                     background: rgba(255, 255, 255, 0.15);
+//                     transform: translateY(-2px);
+//                 }
+
+//                 @keyframes slideRight {
+//                     from { transform: translateX(-100%); }
+//                     to { transform: translateX(0); }
+//                 }
+//                 .animate-slideRight { animation: slideRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+//                 @keyframes swing {
+//                     0% { transform: rotate(0deg); }
+//                     20% { transform: rotate(15deg); }
+//                     40% { transform: rotate(-10deg); }
+//                     60% { transform: rotate(5deg); }
+//                     80% { transform: rotate(-5deg); }
+//                     100% { transform: rotate(0deg); }
+//                 }
+//                 .animate-swing { animation: swing 2.5s ease-in-out infinite; transform-origin: top center; }
+
+//                 @keyframes flicker {
+//                     0%, 100% { transform: scale(1); opacity: 1; }
+//                     50% { transform: scale(1.15); opacity: 0.9; }
+//                     70% { transform: scale(1.05); opacity: 1; }
+//                 }
+//                 .animate-flicker { animation: flicker 1s ease-in-out infinite; }
+
+//                 @keyframes float {
+//                     0%, 100% { transform: translateY(0); }
+//                     50% { transform: translateY(-4px); }
+//                 }
+//                 .animate-float { animation: float 3s ease-in-out infinite; }
+
+//                 @keyframes bounce-soft {
+//                     0%, 100% { transform: translateY(0); }
+//                     50% { transform: translateY(-3px); }
+//                 }
+//                 .animate-bounce-soft { animation: bounce-soft 2s ease-in-out infinite; }
+
+//                 @keyframes tilt {
+//                     0%, 100% { transform: rotate(0deg); }
+//                     50% { transform: rotate(10deg); }
+//                 }
+//                 .animate-tilt { animation: tilt 3s ease-in-out infinite; }
+
+//                 @keyframes shake {
+//                     0%, 100% { transform: translateX(0); }
+//                     25% { transform: translateX(-2px); }
+//                     75% { transform: translateX(2px); }
+//                 }
+//                 .animate-shake { animation: shake 0.5s ease-in-out infinite; }
+
+//                 @keyframes slideDown {
+//                     from { opacity: 0; transform: translateY(-15px); }
+//                     to { opacity: 1; transform: translateY(0); }
+//                 }
+//                 .animate-slideDown { animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+
+
+//                @keyframes flush-continuous {
+//     0% {
+//         transform: translate(0, 0) scale(0.5) rotate(0deg);
+//         opacity: 0;
+//     }
+//     20% {
+//         opacity: 1;
+//     }
+//     100% {
+//         transform: translate(var(--target-x), var(--target-y)) scale(1.2) rotate(var(--target-rot));
+//         opacity: 0;
+//     }
+// }
+
+// .animate-flush-continuous {
+//     pointer-events: none; /* Icons won't block mouse movements */
+//     animation: flush-continuous 1s ease-out forwards;
+// }
+//             `}</style>
+//         </>
+//     );
+// };
+
+// export default memo(Navbar);
 
 // import React, { useCallback, memo, useState } from 'react';
 // import {
