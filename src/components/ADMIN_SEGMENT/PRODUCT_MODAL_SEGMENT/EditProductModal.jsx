@@ -1,211 +1,355 @@
-import React, { useState } from 'react';
-import ProductFormBody from '../Shared_components/ProductFormBody';
-import VariantModal, { defaultVariant } from '../Shared_components/VariantModal';
-import CategoryModal from '../Shared_components/CategoryModal';
-import BrandModal from '../Shared_components/BrandModal';
-import AttributeModal from '../Shared_components/AttributeModal';
-import CustomMessageModal from '../Shared_components/CustomMessageModal';
+import React, { useState, useEffect, useRef } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import ProductFormBody from "../Shared_components/ProductFormBody";
+import VariantModal, { defaultVariant } from "../Shared_components/VariantModal";
+import CategoryModal from "../Shared_components/CategoryModal";
+import BrandModal from "../Shared_components/BrandModal";
+import AttributeModal from "../Shared_components/AttributeModal";
+import CustomMessageModal from "../Shared_components/CustomMessageModal";
+import {
+  updateProduct,
+  resetUpdateSuccess,
+  addVariantToProduct,updateVariantByBarcode
+} from "../ADMIN_REDUX_MANAGEMENT/adminProductsSlice";
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  toFormData — convert a backend product document to local form state
+//  FIXED: Now properly loads main product images
+// ─────────────────────────────────────────────────────────────────────────────
+const toFormData = (product) => {
+  console.log("🔄 Converting product to form data:", {
+    productName: product.name,
+    hasImages: !!product.images,
+    imagesCount: product.images?.length || 0,
+    images: product.images // Log the actual images
+  });
+
+  return {
+    name:        product.name        || "",
+    title:       product.title       || "",
+    description: product.description || "",
+    brand:       product.brand       || "Generic",
+    category:
+      typeof product.category === "object" && product.category !== null
+        ? product.category._id
+        : product.category || "",
+    // product-level barcode — display-only, NOT persisted to backend
+    // (backend has no product.barcode field — only variants have barcodes)
+    barcode: product.barcode || "",
+    price: {
+      base:      product.priceRange?.min ?? product.variants?.[0]?.price?.base ?? "",
+      sale:      product.variants?.[0]?.price?.sale ?? "",
+      costPrice: product.price?.costPrice || "",
+    },
+    inventory: product.inventory || { quantity: 0, lowStockThreshold: 5, trackInventory: true },
+    shipping:  product.shipping  || { weight: 0, dimensions: { length: "", width: "", height: "" } },
+    soldInfo:  product.soldInfo  || { enabled: false, count: 0 },
+    fomo:      product.fomo      || { enabled: false, type: "viewing_now", viewingNow: 0, productLeft: 0, customMessage: "" },
+    
+    // ✅ FIXED: Properly load main product images with stable IDs
+    images:    (product.images || []).map((img, index) => {
+      console.log(`📸 Loading main product image ${index}:`, img.url);
+      return {
+        ...img,
+        id: img._id || img.publicId || img.url || `main-img-${index}-${Date.now()}`,  // stable UI key
+        isMain: img.isMain || index === 0, // First image is main if not specified
+      };
+    }),
+    
+    attributes: product.attributes || [],
+    
+    // Full variant objects preserved — barcode + sku + all DB fields kept intact
+    variants: (product.variants || []).map((v, vIdx) => {
+      console.log(`🎨 Loading variant ${vIdx} images:`, v.images?.length || 0);
+      return {
+        ...v,
+        barcode:  v.barcode,              // number from DB — preserved exactly
+        sku:      v.sku,                  // auto-generated string — preserved exactly
+        price:    { base: v.price?.base ?? "", sale: v.price?.sale ?? "" },
+        // Normalise existing DB images so UI can render them (they have url but no File)
+        images:   (v.images || []).map((img, iIdx) => ({
+          ...img,
+          id: img._id || img.publicId || img.url || `var-${vIdx}-img-${iIdx}-${Date.now()}`,  // stable UI key
+        })),
+        isActive: v.isActive !== false,
+      };
+    }),
+    isFeatured: product.isFeatured || false,
+    status:     product.status     || "draft",
+  };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  syncVariants — map backend variants back to form state after any API save
+// ─────────────────────────────────────────────────────────────────────────────
+const syncVariants = (updatedProduct) =>
+  (updatedProduct.variants || []).map((v, vIdx) => ({
+    ...v,
+    barcode:  v.barcode,
+    sku:      v.sku,
+    price:    { base: v.price?.base ?? "", sale: v.price?.sale ?? "" },
+    images:   (v.images || []).map((img, iIdx) => ({
+      ...img,
+      id: img._id || img.publicId || img.url || `var-${vIdx}-img-${iIdx}-${Date.now()}`,
+    })),
+    isActive: v.isActive !== false,
+  }));
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Component
+// ─────────────────────────────────────────────────────────────────────────────
 const EditProductModal = ({
   product,
   onClose,
-  onSave,
-  categories,
   brands,
-  setCategories,
   setBrands,
   formatIndianRupee,
-  getDiscountPercentage
+  getDiscountPercentage,
 }) => {
+  const dispatch = useDispatch();
+  const { updateLoading, updateError, updateSuccess, actionLoading, actionError } =
+    useSelector((s) => s.adminProducts);
+  const { categories } = useSelector((s) => s.categories);
 
-  // ================= FORM STATE (pre-filled from product) =================
-  const [formData, setFormData] = useState({
-    name: product.name || '',
-    title: product.title || '',
-    description: product.description || '',
-    brand: product.brand || 'Generic',
-    category: product.category?._id || '',
-    price: {
-      base: product.price?.base || '',
-      sale: product.price?.sale || '',
-      costPrice: product.price?.costPrice || ''
-    },
-    inventory: {
-      quantity: product.inventory?.quantity || 0,
-      lowStockThreshold: product.inventory?.lowStockThreshold || 5,
-      trackInventory: product.inventory?.trackInventory !== undefined ? product.inventory.trackInventory : true
-    },
-    shipping: {
-      weight: product.shipping?.weight || 0,
-      dimensions: {
-        length: product.shipping?.dimensions?.length || '',
-        width: product.shipping?.dimensions?.width || '',
-        height: product.shipping?.dimensions?.height || ''
-      }
-    },
-    soldInfo: {
-      enabled: product.soldInfo?.enabled || false,
-      count: product.soldInfo?.count || 0
-    },
-    fomo: {
-      enabled: product.fomo?.enabled || false,
-      type: product.fomo?.type || 'viewing_now',
-      viewingNow: product.fomo?.viewingNow || 0,
-      productLeft: product.fomo?.productLeft || 0,
-      customMessage: product.fomo?.customMessage || ''
-    },
-    images: product.images || [],
-    attributes: product.attributes || [],
-    variants: product.variants || [],
-    isFeatured: product.isFeatured || false,
-    status: product.status || 'draft'
+  // Log the incoming product
+  console.log("📦 EditProductModal received product:", {
+    name: product.name,
+    mainImagesCount: product.images?.length || 0,
+    mainImages: product.images,
+    variantsCount: product.variants?.length || 0,
   });
 
-  // ================= MODAL VISIBILITY STATES =================
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [showBrandModal, setShowBrandModal] = useState(false);
-  const [showCustomMessageModal, setShowCustomMessageModal] = useState(false);
-  const [showAttributeModal, setShowAttributeModal] = useState(false);
-  const [showVariantModal, setShowVariantModal] = useState(false);
-
-  // ================= VARIANT STATE =================
-  const [variantForm, setVariantForm] = useState(defaultVariant);
+  const [formData,            setFormData]            = useState(() => toFormData(product));
+  const [variantForm,         setVariantForm]         = useState(defaultVariant);
   const [editingVariantIndex, setEditingVariantIndex] = useState(null);
+  const [variantSaving,       setVariantSaving]       = useState(false);
+  const [variantSaveError,    setVariantSaveError]    = useState(null);
 
-  // ================= VARIANT HANDLERS =================
+  const [showCategoryModal,      setShowCategoryModal]      = useState(false);
+  const [showBrandModal,         setShowBrandModal]         = useState(false);
+  const [showAttributeModal,     setShowAttributeModal]     = useState(false);
+  const [showCustomMessageModal, setShowCustomMessageModal] = useState(false);
+  const [showVariantModal,       setShowVariantModal]       = useState(false);
+
+  // Log formData after it's set
+  useEffect(() => {
+    console.log("📋 formData after conversion:", {
+      mainImagesCount: formData.images?.length || 0,
+      mainImages: formData.images,
+      variantsCount: formData.variants?.length || 0,
+    });
+  }, [formData]);
+
+  // Keep a stable ref to formData for use inside toggleVariantActive async callback
+  const formDataRef = useRef(formData);
+  useEffect(() => { formDataRef.current = formData; }, [formData]);
+
+  // Re-sync when the product prop changes (Redux updates it after operations)
+  useEffect(() => { 
+    console.log("🔄 Product prop changed, re-syncing form data");
+    setFormData(toFormData(product)); 
+  }, [product._id]);
+
+  // Close modal when full product save succeeds
+  useEffect(() => {
+    if (updateSuccess) { dispatch(resetUpdateSuccess()); onClose(); }
+  }, [updateSuccess]);
+
+  // ── Variant modal helpers ──────────────────────────────────────────────────
+
   const openAddVariant = () => {
     setVariantForm(defaultVariant);
     setEditingVariantIndex(null);
+    setVariantSaveError(null);
     setShowVariantModal(true);
   };
 
   const openEditVariant = (index) => {
     const v = formData.variants[index];
+    console.log(`✏️ Opening edit for variant ${index}:`, {
+      barcode: v.barcode,
+      imagesCount: v.images?.length || 0,
+      images: v.images
+    });
+    
     setVariantForm({
-      // safe fallback for existing products that may not have all variant fields
-      attributes: v.attributes && v.attributes.length > 0 ? v.attributes : [{ key: '', value: '' }],
-      price: { base: v.price?.base ?? '', sale: v.price?.sale ?? '' },
+      barcode:   v.barcode != null ? String(v.barcode) : "",
+      attributes: v.attributes?.length > 0
+        ? v.attributes.map((a) => ({ key: a.key || "", value: a.value || "" }))
+        : [{ key: "", value: "" }],
+      price:     { base: v.price?.base ?? "", sale: v.price?.sale ?? "" },
       inventory: {
-        quantity: v.inventory?.quantity ?? 0,
+        quantity:          v.inventory?.quantity          ?? 0,
         lowStockThreshold: v.inventory?.lowStockThreshold ?? 5,
-        trackInventory: v.inventory?.trackInventory !== undefined ? v.inventory.trackInventory : true
+        trackInventory:    v.inventory?.trackInventory    !== false,
       },
-      images: v.images || [],
-      isActive: v.isActive !== undefined ? v.isActive : true
+      // Pass existing DB images so VariantModal can display them
+      // These have .url but no .file (File object)
+      images:   v.images || [],
+      isActive: v.isActive !== false,
     });
     setEditingVariantIndex(index);
+    setVariantSaveError(null);
     setShowVariantModal(true);
   };
 
-  const handleVariantSave = (variantToSave) => {
+  const closeVariantModal = () => {
+    setShowVariantModal(false);
+    setVariantForm(defaultVariant);
+    setEditingVariantIndex(null);
+    setVariantSaveError(null);
+  };
+
+  // ── handleVariantSave ──────────────────────────────────────────────────────
+  const handleVariantSave = async (variantToSave) => {
+    setVariantSaveError(null);
+
     if (editingVariantIndex !== null) {
-      setFormData(prev => ({
-        ...prev,
-        variants: prev.variants.map((v, i) => i === editingVariantIndex ? variantToSave : v)
-      }));
+      // EDIT EXISTING VARIANT
+      setVariantSaving(true);
+
+      const existingVariant = formData.variants[editingVariantIndex];
+
+      try {
+        const result = await dispatch(
+          updateVariantByBarcode({
+            slug: product.slug,
+            barcode: existingVariant.barcode,
+            attributes: variantToSave.attributes,
+            price: variantToSave.price,
+            inventory: variantToSave.inventory,
+            images: variantToSave.images,
+            isActive: variantToSave.isActive,
+          })
+        ).unwrap();
+
+        const updatedProduct = result?.product || result;
+        if (updatedProduct?.variants) {
+          setFormData((prev) => ({ 
+            ...prev, 
+            variants: updatedProduct.variants.map(v => ({
+              ...v,
+              price: { base: v.price?.base ?? "", sale: v.price?.sale ?? "" },
+              images: v.images || [],
+            }))
+          }));
+        }
+        closeVariantModal();
+      } catch (err) {
+        console.error("[EditProductModal] edit variant failed:", err);
+        setVariantSaveError(typeof err === "string" ? err : err?.message || "Failed to save variant");
+      } finally {
+        setVariantSaving(false);
+      }
     } else {
-      setFormData(prev => ({
+      // ADD NEW VARIANT
+      setVariantSaving(true);
+      try {
+        const result = await dispatch(
+          addVariantToProduct({ slug: product.slug, variantData: variantToSave })
+        ).unwrap();
+
+        const updatedProduct = result?.product || result;
+        if (updatedProduct?.variants) {
+          setFormData((prev) => ({ ...prev, variants: updatedProduct.variants }));
+        }
+        closeVariantModal();
+      } catch (err) {
+        console.error("[EditProductModal] add variant failed:", err);
+        setVariantSaveError(typeof err === "string" ? err : err?.message || "Failed to add variant");
+      } finally {
+        setVariantSaving(false);
+      }
+    }
+  };
+  
+  // ── toggleVariantActive ────────────────────────────────────────────────────
+  const toggleVariantActive = async (index) => {
+    const optimisticVariants = formData.variants.map((v, i) =>
+      i === index ? { ...v, isActive: !v.isActive } : v
+    );
+    setFormData((prev) => ({ ...prev, variants: optimisticVariants }));
+
+    try {
+      const result = await dispatch(
+        updateProduct({
+          slug:     product.slug,
+          formData: { ...formDataRef.current, variants: optimisticVariants },
+          silent:   true,
+        })
+      ).unwrap();
+
+      const updatedProduct = result?.product || result;
+      if (updatedProduct?.variants) {
+        setFormData((prev) => ({ ...prev, variants: syncVariants(updatedProduct) }));
+      }
+    } catch (err) {
+      console.error("[EditProductModal] toggleVariantActive failed:", err);
+      setFormData((prev) => ({
         ...prev,
-        variants: [...prev.variants, variantToSave]
+        variants: formDataRef.current.variants,
       }));
     }
-    setShowVariantModal(false);
-    setVariantForm(defaultVariant);
-    setEditingVariantIndex(null);
   };
 
-  const handleVariantModalClose = () => {
-    setShowVariantModal(false);
-    setVariantForm(defaultVariant);
-    setEditingVariantIndex(null);
-  };
+  // ── Other handlers ─────────────────────────────────────────────────────────
+  const handleAddAttribute   = (a)   => setFormData((prev) => ({ ...prev, attributes: [...prev.attributes, a] }));
+  const removeAttribute      = (id)  => setFormData((prev) => ({ ...prev, attributes: prev.attributes.filter((a) => a.id !== id) }));
+  const handleCustomMessageSave = (msg) => setFormData((prev) => ({ ...prev, fomo: { ...prev.fomo, customMessage: msg } }));
 
-  const deleteVariant = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      variants: prev.variants.filter((_, i) => i !== index)
-    }));
-  };
-
-  const toggleVariantActive = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      variants: prev.variants.map((v, i) =>
-        i === index ? { ...v, isActive: !v.isActive } : v
-      )
-    }));
-  };
-
-  // ================= ATTRIBUTE HANDLERS =================
-  const handleAddAttribute = (newAttr) => {
-    setFormData(prev => ({
-      ...prev,
-      attributes: [...prev.attributes, newAttr]
-    }));
-  };
-
-  const removeAttribute = (attributeId) => {
-    setFormData(prev => ({
-      ...prev,
-      attributes: prev.attributes.filter(attr => attr.id !== attributeId)
-    }));
-  };
-
-  // ================= CUSTOM MESSAGE HANDLER =================
-  const handleCustomMessageSave = (message) => {
-    setFormData(prev => ({
-      ...prev,
-      fomo: { ...prev.fomo, customMessage: message }
-    }));
-  };
-
-  // ================= SUBMIT =================
+  // ── Full product save ───────────────────────────────────────────────
   const handleSubmit = (e) => {
     e.preventDefault();
-
-    const categoryObj = categories.find(c => c._id === formData.category);
-
-    const updatedProduct = {
-      ...formData,
-      _id: product._id,                          // preserve original _id
-      category: categoryObj,
-      createdAt: product.createdAt,              // preserve original createdAt
-      inventory: { ...formData.inventory },
-      shipping: { ...formData.shipping, dimensions: { ...formData.shipping.dimensions } },
-      soldInfo: { ...formData.soldInfo },
-      fomo: { ...formData.fomo },
-      variants: formData.variants.map(v => ({ ...v, attributes: [...v.attributes], images: [...(v.images || [])] }))
-    };
-
-    onSave(updatedProduct);
-    onClose();
+    if (!formData.name.trim())  { alert("Product name is required");  return; }
+    if (!formData.title.trim()) { alert("Product title is required"); return; }
+    if (!formData.category)     { alert("Please select a category");  return; }
+    dispatch(updateProduct({ slug: product.slug, formData }));
   };
 
-  // ============================================================
+  const isAnySaving = variantSaving || actionLoading;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 z-50 overflow-y-auto">
       <div className="bg-white rounded-2xl max-w-6xl w-full my-8 shadow-2xl">
 
-        {/* Modal Header */}
+        {/* ── Header ── */}
         <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Edit Product</h2>
-            <p className="text-sm text-gray-500 mt-1">Update your product details</p>
+            <p className="text-sm text-gray-500 mt-1">
+              <span className="font-medium text-gray-700">{product.name}</span>
+              <span className="ml-2 text-xs text-indigo-400 font-mono">{product.slug}</span>
+            </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
-          >
+          <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
             <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="p-6">
+        {/* ── Error banners ── */}
+        {updateError && !variantSaving && (
+          <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+            <p className="text-red-700 text-sm font-medium">❌ {updateError}</p>
+          </div>
+        )}
+        {actionError && (
+          <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+            <p className="text-red-700 text-sm font-medium">❌ {actionError}</p>
+          </div>
+        )}
 
-          {/* All form sections rendered by ProductFormBody */}
+        {/* ── Saving indicator ── */}
+        {isAnySaving && (
+          <div className="mx-6 mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center gap-2">
+            <span className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+            <p className="text-indigo-700 text-sm font-medium">Saving to database...</p>
+          </div>
+        )}
+
+        {/* ── Form ── */}
+        <form onSubmit={handleSubmit} className="p-6">
           <ProductFormBody
             formData={formData}
             setFormData={setFormData}
@@ -218,83 +362,890 @@ const EditProductModal = ({
             onOpenAddVariant={openAddVariant}
             onOpenEditVariant={openEditVariant}
             onRemoveAttribute={removeAttribute}
-            onDeleteVariant={deleteVariant}
+            onDeleteVariant={() => {}}              // edit mode: ProductFormBody handles delete via productSlug
             onToggleVariantActive={toggleVariantActive}
             formatIndianRupee={formatIndianRupee}
             getDiscountPercentage={getDiscountPercentage}
+            productSlug={product.slug}              // enables direct API delete inside ProductFormBody
           />
 
-          {/* Submit Buttons — inside form, after ProductFormBody */}
           <div className="flex gap-3 mt-6">
             <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50"
-            >
+              type="button" onClick={onClose} disabled={updateLoading || isAnySaving}
+              className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 disabled:opacity-60 transition-colors">
               Cancel
             </button>
             <button
-              type="submit"
-              className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700"
-            >
-              Update
+              type="submit" disabled={updateLoading || isAnySaving}
+              className="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-medium rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-60 flex items-center justify-center gap-2 transition-colors">
+              {updateLoading
+                ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving...</>
+                : "Save Changes"}
             </button>
           </div>
-
         </form>
       </div>
 
-      {/* ================= SHARED MODALS ================= */}
-
+      {/* ── Sub-modals ── */}
       {showCategoryModal && (
         <CategoryModal
-          categories={categories}
-          setCategories={setCategories}
-          onSelect={(catId) => setFormData(prev => ({ ...prev, category: catId }))}
-          onClose={() => setShowCategoryModal(false)}
-        />
+          onSelect={(catId) => setFormData((p) => ({ ...p, category: catId }))}
+          onClose={() => setShowCategoryModal(false)} />
       )}
-
       {showBrandModal && (
         <BrandModal
-          brands={brands}
-          setBrands={setBrands}
-          onSelect={(brand) => setFormData(prev => ({ ...prev, brand }))}
-          onClose={() => setShowBrandModal(false)}
-        />
+          brands={brands} setBrands={setBrands}
+          onSelect={(brand) => setFormData((p) => ({ ...p, brand }))}
+          onClose={() => setShowBrandModal(false)} />
       )}
-
       {showAttributeModal && (
-        <AttributeModal
-          onAdd={handleAddAttribute}
-          onClose={() => setShowAttributeModal(false)}
-        />
+        <AttributeModal onAdd={handleAddAttribute} onClose={() => setShowAttributeModal(false)} />
       )}
-
       {showCustomMessageModal && (
         <CustomMessageModal
           currentMessage={formData.fomo.customMessage}
           onSave={handleCustomMessageSave}
-          onClose={() => setShowCustomMessageModal(false)}
-        />
+          onClose={() => setShowCustomMessageModal(false)} />
       )}
-
       {showVariantModal && (
         <VariantModal
           variantForm={variantForm}
           setVariantForm={setVariantForm}
           editingVariantIndex={editingVariantIndex}
           onSave={handleVariantSave}
-          onClose={handleVariantModalClose}
+          onClose={closeVariantModal}
           getDiscountPercentage={getDiscountPercentage}
-        />
+          isSaving={variantSaving}
+          saveError={variantSaveError} />
       )}
-
     </div>
   );
 };
 
 export default EditProductModal;
+// fixed some other issue like barcode issue not update product properlly
+
+// // PRODUCT_MODAL_SEGMENT/EditProductModal.jsx
+// //
+// // VARIANT OPS IN EDIT MODE — all hit real API:
+// //  ADD    → addVariantToProduct  → POST /admin/products/:slug/variants
+// //  DELETE → deleteVariantFromProduct → DELETE /admin/products/:slug/variants (via ProductFormBody)
+// //  EDIT   → updateVariantByBarcode   → PUT /admin/products/:slug { barcode, price, inventory }
+// //
+// // After every variant API call the backend returns the full updated product.
+// // We sync formData.variants from that response so UI stays in sync with DB.
+
+// import React, { useState, useEffect } from "react";
+// import { useDispatch, useSelector } from "react-redux";
+// import ProductFormBody from "../Shared_components/ProductFormBody";
+// import VariantModal, { defaultVariant } from "../Shared_components/VariantModal";
+// import CategoryModal from "../Shared_components/CategoryModal";
+// import BrandModal from "../Shared_components/BrandModal";
+// import AttributeModal from "../Shared_components/AttributeModal";
+// import CustomMessageModal from "../Shared_components/CustomMessageModal";
+// import {
+//   updateProduct, resetUpdateSuccess,
+//   addVariantToProduct, updateVariantByBarcode,
+// } from "../ADMIN_REDUX_MANAGEMENT/adminProductsSlice";
+
+// // Convert backend product → local formData shape
+// const toFormData = (product) => ({
+//   name:        product.name        || "",
+//   title:       product.title       || "",
+//   description: product.description || "",
+//   brand:       product.brand       || "Generic",
+//   category:    typeof product.category === "object" && product.category !== null
+//                  ? product.category._id
+//                  : product.category || "",
+//   barcode:     product.barcode     || "",
+//   price: {
+//     base:      product.priceRange?.min ?? product.variants?.[0]?.price?.base ?? "",
+//     sale:      product.variants?.[0]?.price?.sale ?? "",
+//     costPrice: product.price?.costPrice || "",
+//   },
+//   inventory: product.inventory || { quantity: 0, lowStockThreshold: 5, trackInventory: true },
+//   shipping:  product.shipping  || { weight: 0, dimensions: { length: "", width: "", height: "" } },
+//   soldInfo:  product.soldInfo  || { enabled: false, count: 0 },
+//   fomo:      product.fomo      || { enabled: false, type: "viewing_now", viewingNow: 0, productLeft: 0, customMessage: "" },
+//   images:    product.images    || [],
+//   attributes: product.attributes || [],
+//   // Keep full variant objects from backend — barcode + sku preserved
+//   variants: (product.variants || []).map(v => ({
+//     ...v,
+//     price:  { base: v.price?.base ?? "", sale: v.price?.sale ?? "" },
+//     images: v.images || [],
+//   })),
+//   isFeatured: product.isFeatured || false,
+//   status:     product.status     || "draft",
+// });
+
+// // Sync formData.variants from an updated backend product response
+// const syncVariants = (updatedProduct) =>
+//   (updatedProduct.variants || []).map(v => ({
+//     ...v,
+//     price:  { base: v.price?.base ?? "", sale: v.price?.sale ?? "" },
+//     images: v.images || [],
+//   }));
+
+// const EditProductModal = ({ product, onClose, brands, setBrands, formatIndianRupee, getDiscountPercentage }) => {
+//   const dispatch = useDispatch();
+//   const { updateLoading, updateError, updateSuccess, actionLoading, actionError } =
+//     useSelector(s => s.adminProducts);
+//   const { categories } = useSelector(s => s.categories);
+
+//   const [formData, setFormData] = useState(() => toFormData(product));
+//   const [variantForm, setVariantForm] = useState(defaultVariant);
+//   const [editingVariantIndex, setEditingVariantIndex] = useState(null);
+//   const [showCategoryModal, setShowCategoryModal] = useState(false);
+//   const [showBrandModal, setShowBrandModal] = useState(false);
+//   const [showAttributeModal, setShowAttributeModal] = useState(false);
+//   const [showCustomMessageModal, setShowCustomMessageModal] = useState(false);
+//   const [showVariantModal, setShowVariantModal] = useState(false);
+
+//   // Re-sync if product prop changes
+//   useEffect(() => { setFormData(toFormData(product)); }, [product._id]);
+
+//   // Close on full-product update success
+//   useEffect(() => {
+//     if (updateSuccess) { dispatch(resetUpdateSuccess()); onClose(); }
+//   }, [updateSuccess]);
+
+//   // ── Variant modal openers ─────────────────────────────────────
+//   const openAddVariant = () => {
+//     setVariantForm(defaultVariant);
+//     setEditingVariantIndex(null);
+//     setShowVariantModal(true);
+//   };
+
+//   const openEditVariant = (index) => {
+//     const v = formData.variants[index];
+//     setVariantForm({
+//       barcode:    v.barcode != null ? String(v.barcode) : "",
+//       attributes: v.attributes?.length > 0 ? v.attributes : [{ key: "", value: "" }],
+//       price:      { base: v.price?.base ?? "", sale: v.price?.sale ?? "" },
+//       inventory:  { ...v.inventory },
+//       images:     v.images || [],
+//       isActive:   v.isActive !== false,
+//     });
+//     setEditingVariantIndex(index);
+//     setShowVariantModal(true);
+//   };
+
+//   const closeVariantModal = () => {
+//     setShowVariantModal(false);
+//     setVariantForm(defaultVariant);
+//     setEditingVariantIndex(null);
+//   };
+
+//   // ── handleVariantSave ─────────────────────────────────────────
+//   // ADD  → addVariantToProduct thunk  (POST /:slug/variants)
+//   // EDIT → updateVariantByBarcode thunk (PUT /:slug with barcode in JSON body)
+//   // Both return updated product from backend; we sync formData.variants from it.
+//   const handleVariantSave = (variantToSave) => {
+
+//     if (editingVariantIndex !== null) {
+//       // ── EDIT: update price + inventory via barcode ─────────────
+//       const existingVariant = formData.variants[editingVariantIndex];
+//       const barcode = existingVariant.barcode;  // barcode is locked, taken from existing
+
+//       if (!barcode && barcode !== 0) {
+//         alert("Cannot update: this variant has no barcode in the database.");
+//         return;
+//       }
+
+//       dispatch(updateVariantByBarcode({
+//         slug: product.slug,
+//         barcode,
+//         price: {
+//           base: Number(variantToSave.price?.base) || 0,
+//           sale: (variantToSave.price?.sale !== "" && variantToSave.price?.sale != null)
+//             ? Number(variantToSave.price.sale) : null,
+//         },
+//         inventory: {
+//           quantity:          Number(variantToSave.inventory?.quantity) || 0,
+//           lowStockThreshold: Number(variantToSave.inventory?.lowStockThreshold) || 5,
+//           trackInventory:    variantToSave.inventory?.trackInventory !== false,
+//         },
+//       }))
+//         .unwrap()
+//         .then(({ product: updatedProduct }) => {
+//           setFormData(prev => ({ ...prev, variants: syncVariants(updatedProduct) }));
+//           closeVariantModal();
+//         })
+//         .catch((err) => {
+//           // actionError in Redux shows in the UI banner below
+//           console.error("[EditProductModal] updateVariantByBarcode failed:", err);
+//         });
+
+//     } else {
+//       // ── ADD: POST new variant with barcode ─────────────────────
+//       dispatch(addVariantToProduct({
+//         slug: product.slug,
+//         variantData: variantToSave,
+//       }))
+//         .unwrap()
+//         .then(({ product: updatedProduct }) => {
+//           setFormData(prev => ({ ...prev, variants: syncVariants(updatedProduct) }));
+//           closeVariantModal();
+//         })
+//         .catch((err) => {
+//           console.error("[EditProductModal] addVariantToProduct failed:", err);
+//         });
+//     }
+//   };
+
+//   // Variant active toggle — stays local until full product save
+//   const toggleVariantActive = (index) =>
+//     setFormData(prev => ({
+//       ...prev,
+//       variants: prev.variants.map((v, i) => i === index ? { ...v, isActive: !v.isActive } : v),
+//     }));
+
+//   const handleAddAttribute = (a) => setFormData(prev => ({ ...prev, attributes: [...prev.attributes, a] }));
+//   const removeAttribute = (id) => setFormData(prev => ({ ...prev, attributes: prev.attributes.filter(a => a.id !== id) }));
+//   const handleCustomMessageSave = (msg) => setFormData(prev => ({ ...prev, fomo: { ...prev.fomo, customMessage: msg } }));
+
+//   // ── Full product update (product-level fields) ────────────────
+//   const handleSubmit = (e) => {
+//     e.preventDefault();
+//     if (!formData.name.trim())  { alert("Product name is required");  return; }
+//     if (!formData.title.trim()) { alert("Product title is required"); return; }
+//     if (!formData.category)     { alert("Please select a category");  return; }
+//     dispatch(updateProduct({ slug: product.slug, formData }));
+//   };
+
+//   return (
+//     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 z-50 overflow-y-auto">
+//       <div className="bg-white rounded-2xl max-w-6xl w-full my-8 shadow-2xl">
+
+//         {/* Header */}
+//         <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
+//           <div>
+//             <h2 className="text-2xl font-bold text-gray-900">Edit Product</h2>
+//             <p className="text-sm text-gray-500 mt-1">
+//               Editing: <span className="font-medium text-gray-700">{product.name}</span>
+//               <span className="ml-2 text-xs text-indigo-400">slug: {product.slug}</span>
+//             </p>
+//           </div>
+//           <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl">
+//             <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+//           </button>
+//         </div>
+
+//         {/* Error banners */}
+//         {updateError && (
+//           <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+//             <p className="text-red-700 text-sm font-medium">❌ {updateError}</p>
+//           </div>
+//         )}
+//         {actionError && (
+//           <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+//             <p className="text-red-700 text-sm font-medium">❌ Variant error: {actionError}</p>
+//           </div>
+//         )}
+
+//         {/* Variant action loading indicator */}
+//         {actionLoading && (
+//           <div className="mx-6 mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center gap-2">
+//             <span className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+//             <p className="text-indigo-700 text-sm">Saving variant to database...</p>
+//           </div>
+//         )}
+
+//         <form onSubmit={handleSubmit} className="p-6">
+//           <ProductFormBody
+//             formData={formData} setFormData={setFormData}
+//             categories={categories} brands={brands}
+//             onOpenCategoryModal={() => setShowCategoryModal(true)}
+//             onOpenBrandModal={() => setShowBrandModal(true)}
+//             onOpenAttributeModal={() => setShowAttributeModal(true)}
+//             onOpenCustomMessage={() => setShowCustomMessageModal(true)}
+//             onOpenAddVariant={openAddVariant}
+//             onOpenEditVariant={openEditVariant}
+//             onRemoveAttribute={removeAttribute}
+//             onDeleteVariant={() => {}}       // not used in edit mode — ProductFormBody handles delete via productSlug
+//             onToggleVariantActive={toggleVariantActive}
+//             formatIndianRupee={formatIndianRupee}
+//             getDiscountPercentage={getDiscountPercentage}
+//             productSlug={product.slug}       // KEY: enables direct API calls for delete inside ProductFormBody
+//           />
+
+//           <div className="flex gap-3 mt-6">
+//             <button type="button" onClick={onClose} disabled={updateLoading}
+//               className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 disabled:opacity-60">
+//               Cancel
+//             </button>
+//             <button type="submit" disabled={updateLoading}
+//               className="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-medium rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-60 flex items-center justify-center gap-2">
+//               {updateLoading
+//                 ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Saving...</>
+//                 : "Save Changes"}
+//             </button>
+//           </div>
+//         </form>
+//       </div>
+
+//       {showCategoryModal && <CategoryModal onSelect={(catId) => setFormData(prev => ({ ...prev, category: catId }))} onClose={() => setShowCategoryModal(false)} />}
+//       {showBrandModal && <BrandModal brands={brands} setBrands={setBrands} onSelect={(brand) => setFormData(prev => ({ ...prev, brand }))} onClose={() => setShowBrandModal(false)} />}
+//       {showAttributeModal && <AttributeModal onAdd={handleAddAttribute} onClose={() => setShowAttributeModal(false)} />}
+//       {showCustomMessageModal && <CustomMessageModal currentMessage={formData.fomo.customMessage} onSave={handleCustomMessageSave} onClose={() => setShowCustomMessageModal(false)} />}
+//       {showVariantModal && (
+//         <VariantModal
+//           variantForm={variantForm} setVariantForm={setVariantForm}
+//           editingVariantIndex={editingVariantIndex}
+//           onSave={handleVariantSave}
+//           onClose={closeVariantModal}
+//           getDiscountPercentage={getDiscountPercentage} />
+//       )}
+//     </div>
+//   );
+// };
+
+// export default EditProductModal;
+
+// CODE IS WORKING BUT SO SOME MORE CHANGES TEH BARCIODE API INTGRATION THE VARIENTS API UPDATE 
+
+// // PRODUCT_MODAL_SEGMENT/EditProductModal.jsx
+
+// import React, { useState, useEffect } from "react";
+// import { useDispatch, useSelector } from "react-redux";
+
+// import ProductFormBody from "../Shared_components/ProductFormBody";
+// import VariantModal, { defaultVariant } from "../Shared_components/VariantModal";
+// import CategoryModal from "../Shared_components/CategoryModal";
+// import BrandModal from "../Shared_components/BrandModal";
+// import AttributeModal from "../Shared_components/AttributeModal";
+// import CustomMessageModal from "../Shared_components/CustomMessageModal";
+
+// import { updateProduct, resetUpdateSuccess } from "../ADMIN_REDUX_MANAGEMENT/adminProductsSlice";
+
+// // ── Convert backend product → formData shape ──────────────────
+// const productToFormData = (product) => ({
+//   name: product.name || "",
+//   title: product.title || "",
+//   description: product.description || "",
+//   brand: product.brand || "Generic",
+//   category:
+//     typeof product.category === "object" && product.category !== null
+//       ? product.category._id
+//       : product.category || "",
+//   price: {
+//     base: product.priceRange?.min || product.variants?.[0]?.price?.base || "",
+//     sale: product.variants?.[0]?.price?.sale ?? "",
+//     costPrice: product.price?.costPrice || "",
+//   },
+//   inventory: product.inventory || { quantity: 0, lowStockThreshold: 5, trackInventory: true },
+//   shipping: product.shipping || { weight: 0, dimensions: { length: "", width: "", height: "" } },
+//   soldInfo: product.soldInfo || { enabled: false, count: 0 },
+//   fomo: product.fomo || {
+//     enabled: false, type: "viewing_now", viewingNow: 0, productLeft: 0, customMessage: "",
+//   },
+//   images: product.images || [],
+//   attributes: product.attributes || [],
+//   variants: (product.variants || []).map((v) => ({
+//     ...v,
+//     price: { base: v.price?.base || "", sale: v.price?.sale ?? "" },
+//     images: v.images || [],
+//   })),
+//   isFeatured: product.isFeatured || false,
+//   status: product.status || "draft",
+// });
+
+// const EditProductModal = ({
+//   product,
+//   onClose,
+//   brands,
+//   setBrands,
+//   formatIndianRupee,
+//   getDiscountPercentage,
+// }) => {
+//   const dispatch = useDispatch();
+
+//   const { updateLoading, updateError, updateSuccess } = useSelector(
+//     (state) => state.adminProducts
+//   );
+//   // ✅ Categories come from Redux — real MongoDB _id values
+//   const { categories } = useSelector((state) => state.categories);
+
+//   const [formData, setFormData] = useState(() => productToFormData(product));
+
+//   useEffect(() => {
+//     if (updateSuccess) {
+//       dispatch(resetUpdateSuccess());
+//       onClose();
+//     }
+//   }, [updateSuccess]);
+
+//   useEffect(() => {
+//     setFormData(productToFormData(product));
+//   }, [product]);
+
+//   const [showCategoryModal, setShowCategoryModal] = useState(false);
+//   const [showBrandModal, setShowBrandModal] = useState(false);
+//   const [showCustomMessageModal, setShowCustomMessageModal] = useState(false);
+//   const [showAttributeModal, setShowAttributeModal] = useState(false);
+//   const [showVariantModal, setShowVariantModal] = useState(false);
+
+//   const [variantForm, setVariantForm] = useState(defaultVariant);
+//   const [editingVariantIndex, setEditingVariantIndex] = useState(null);
+
+//   const openAddVariant = () => {
+//     setVariantForm(defaultVariant);
+//     setEditingVariantIndex(null);
+//     setShowVariantModal(true);
+//   };
+
+//   const openEditVariant = (index) => {
+//     const v = formData.variants[index];
+//     setVariantForm({
+//       attributes: v.attributes.length > 0 ? v.attributes : [{ key: "", value: "" }],
+//       price: { base: v.price.base, sale: v.price.sale ?? "" },
+//       inventory: { ...v.inventory },
+//       images: v.images || [],
+//       isActive: v.isActive,
+//     });
+//     setEditingVariantIndex(index);
+//     setShowVariantModal(true);
+//   };
+
+//   const handleVariantSave = (variantToSave) => {
+//     if (editingVariantIndex !== null) {
+//       setFormData((prev) => ({
+//         ...prev,
+//         variants: prev.variants.map((v, i) => i === editingVariantIndex ? variantToSave : v),
+//       }));
+//     } else {
+//       setFormData((prev) => ({ ...prev, variants: [...prev.variants, variantToSave] }));
+//     }
+//     setShowVariantModal(false);
+//     setVariantForm(defaultVariant);
+//     setEditingVariantIndex(null);
+//   };
+
+//   const handleVariantModalClose = () => {
+//     setShowVariantModal(false);
+//     setVariantForm(defaultVariant);
+//     setEditingVariantIndex(null);
+//   };
+
+//   const deleteVariant = (index) =>
+//     setFormData((prev) => ({ ...prev, variants: prev.variants.filter((_, i) => i !== index) }));
+
+//   const toggleVariantActive = (index) =>
+//     setFormData((prev) => ({
+//       ...prev,
+//       variants: prev.variants.map((v, i) => i === index ? { ...v, isActive: !v.isActive } : v),
+//     }));
+
+//   const handleAddAttribute = (newAttr) =>
+//     setFormData((prev) => ({ ...prev, attributes: [...prev.attributes, newAttr] }));
+
+//   const removeAttribute = (attributeId) =>
+//     setFormData((prev) => ({
+//       ...prev,
+//       attributes: prev.attributes.filter((attr) => attr.id !== attributeId),
+//     }));
+
+//   const handleCustomMessageSave = (message) =>
+//     setFormData((prev) => ({ ...prev, fomo: { ...prev.fomo, customMessage: message } }));
+
+//   const handleSubmit = (e) => {
+//     e.preventDefault();
+//     if (!formData.name.trim()) { alert("Product name is required"); return; }
+//     if (!formData.title.trim()) { alert("Product title is required"); return; }
+//     if (!formData.category) { alert("Please select a category"); return; }
+//     // if (formData.variants.length === 0) { alert("At least one variant is required"); return; }
+//     dispatch(updateProduct({ slug: product.slug, formData }));
+//   };
+
+//   return (
+//     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 z-50 overflow-y-auto">
+//       <div className="bg-white rounded-2xl max-w-6xl w-full my-8 shadow-2xl">
+
+//         {/* Header */}
+//         <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
+//           <div>
+//             <h2 className="text-2xl font-bold text-gray-900">Edit Product</h2>
+//             <p className="text-sm text-gray-500 mt-1">
+//               Updating: <span className="font-medium text-gray-700">{product.name}</span>
+//             </p>
+//           </div>
+//           <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+//             <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+//             </svg>
+//           </button>
+//         </div>
+
+//         {/* Error Banner */}
+//         {updateError && (
+//           <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+//             <p className="text-red-700 text-sm font-medium">❌ {updateError}</p>
+//           </div>
+//         )}
+
+//         <form onSubmit={handleSubmit} className="p-6">
+//           <ProductFormBody
+//             formData={formData}
+//             setFormData={setFormData}
+//             categories={categories}       // ✅ real categories from Redux
+//             brands={brands}
+//             onOpenCategoryModal={() => setShowCategoryModal(true)}
+//             onOpenBrandModal={() => setShowBrandModal(true)}
+//             onOpenAttributeModal={() => setShowAttributeModal(true)}
+//             onOpenCustomMessage={() => setShowCustomMessageModal(true)}
+//             onOpenAddVariant={openAddVariant}
+//             onOpenEditVariant={openEditVariant}
+//             onRemoveAttribute={removeAttribute}
+//             onDeleteVariant={deleteVariant}
+//             onToggleVariantActive={toggleVariantActive}
+//             formatIndianRupee={formatIndianRupee}
+//             getDiscountPercentage={getDiscountPercentage}
+//           />
+
+//           <div className="flex gap-3 mt-6">
+//             <button type="button" onClick={onClose} disabled={updateLoading}
+//               className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50">
+//               Cancel
+//             </button>
+//             <button type="submit" disabled={updateLoading}
+//               className="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-medium rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+//               {updateLoading ? (
+//                 <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Saving...</>
+//               ) : "Save Changes"}
+//             </button>
+//           </div>
+//         </form>
+//       </div>
+
+//       {/* ── Shared Modals ── */}
+//       {showCategoryModal && (
+//         <CategoryModal
+//           onSelect={(catId) => setFormData((prev) => ({ ...prev, category: catId }))}
+//           onClose={() => setShowCategoryModal(false)}
+//         />
+//       )}
+//       {showBrandModal && (
+//         <BrandModal brands={brands} setBrands={setBrands}
+//           onSelect={(brand) => setFormData((prev) => ({ ...prev, brand }))}
+//           onClose={() => setShowBrandModal(false)} />
+//       )}
+//       {showAttributeModal && (
+//         <AttributeModal onAdd={handleAddAttribute} onClose={() => setShowAttributeModal(false)} />
+//       )}
+//       {showCustomMessageModal && (
+//         <CustomMessageModal currentMessage={formData.fomo.customMessage}
+//           onSave={handleCustomMessageSave} onClose={() => setShowCustomMessageModal(false)} />
+//       )}
+//       {showVariantModal && (
+//         <VariantModal variantForm={variantForm} setVariantForm={setVariantForm}
+//           editingVariantIndex={editingVariantIndex} onSave={handleVariantSave}
+//           onClose={handleVariantModalClose} getDiscountPercentage={getDiscountPercentage} />
+//       )}
+//     </div>
+//   );
+// };
+
+// export default EditProductModal;
+
+// CODE IS WORKING UPSIDE CODE INTEGRATE API 
+// import React, { useState } from 'react';
+// import ProductFormBody from '../Shared_components/ProductFormBody';
+// import VariantModal, { defaultVariant } from '../Shared_components/VariantModal';
+// import CategoryModal from '../Shared_components/CategoryModal';
+// import BrandModal from '../Shared_components/BrandModal';
+// import AttributeModal from '../Shared_components/AttributeModal';
+// import CustomMessageModal from '../Shared_components/CustomMessageModal';
+
+// const EditProductModal = ({
+//   product,
+//   onClose,
+//   onSave,
+//   categories,
+//   brands,
+//   setCategories,
+//   setBrands,
+//   formatIndianRupee,
+//   getDiscountPercentage
+// }) => {
+
+//   // ================= FORM STATE (pre-filled from product) =================
+//   const [formData, setFormData] = useState({
+//     name: product.name || '',
+//     title: product.title || '',
+//     description: product.description || '',
+//     brand: product.brand || 'Generic',
+//     category: product.category?._id || '',
+//     price: {
+//       base: product.price?.base || '',
+//       sale: product.price?.sale || '',
+//       costPrice: product.price?.costPrice || ''
+//     },
+//     inventory: {
+//       quantity: product.inventory?.quantity || 0,
+//       lowStockThreshold: product.inventory?.lowStockThreshold || 5,
+//       trackInventory: product.inventory?.trackInventory !== undefined ? product.inventory.trackInventory : true
+//     },
+//     shipping: {
+//       weight: product.shipping?.weight || 0,
+//       dimensions: {
+//         length: product.shipping?.dimensions?.length || '',
+//         width: product.shipping?.dimensions?.width || '',
+//         height: product.shipping?.dimensions?.height || ''
+//       }
+//     },
+//     soldInfo: {
+//       enabled: product.soldInfo?.enabled || false,
+//       count: product.soldInfo?.count || 0
+//     },
+//     fomo: {
+//       enabled: product.fomo?.enabled || false,
+//       type: product.fomo?.type || 'viewing_now',
+//       viewingNow: product.fomo?.viewingNow || 0,
+//       productLeft: product.fomo?.productLeft || 0,
+//       customMessage: product.fomo?.customMessage || ''
+//     },
+//     images: product.images || [],
+//     attributes: product.attributes || [],
+//     variants: product.variants || [],
+//     isFeatured: product.isFeatured || false,
+//     status: product.status || 'draft'
+//   });
+
+//   // ================= MODAL VISIBILITY STATES =================
+//   const [showCategoryModal, setShowCategoryModal] = useState(false);
+//   const [showBrandModal, setShowBrandModal] = useState(false);
+//   const [showCustomMessageModal, setShowCustomMessageModal] = useState(false);
+//   const [showAttributeModal, setShowAttributeModal] = useState(false);
+//   const [showVariantModal, setShowVariantModal] = useState(false);
+
+//   // ================= VARIANT STATE =================
+//   const [variantForm, setVariantForm] = useState(defaultVariant);
+//   const [editingVariantIndex, setEditingVariantIndex] = useState(null);
+
+//   // ================= VARIANT HANDLERS =================
+//   const openAddVariant = () => {
+//     setVariantForm(defaultVariant);
+//     setEditingVariantIndex(null);
+//     setShowVariantModal(true);
+//   };
+
+//   const openEditVariant = (index) => {
+//     const v = formData.variants[index];
+//     setVariantForm({
+//       // safe fallback for existing products that may not have all variant fields
+//       attributes: v.attributes && v.attributes.length > 0 ? v.attributes : [{ key: '', value: '' }],
+//       price: { base: v.price?.base ?? '', sale: v.price?.sale ?? '' },
+//       inventory: {
+//         quantity: v.inventory?.quantity ?? 0,
+//         lowStockThreshold: v.inventory?.lowStockThreshold ?? 5,
+//         trackInventory: v.inventory?.trackInventory !== undefined ? v.inventory.trackInventory : true
+//       },
+//       images: v.images || [],
+//       isActive: v.isActive !== undefined ? v.isActive : true
+//     });
+//     setEditingVariantIndex(index);
+//     setShowVariantModal(true);
+//   };
+
+//   const handleVariantSave = (variantToSave) => {
+//     if (editingVariantIndex !== null) {
+//       setFormData(prev => ({
+//         ...prev,
+//         variants: prev.variants.map((v, i) => i === editingVariantIndex ? variantToSave : v)
+//       }));
+//     } else {
+//       setFormData(prev => ({
+//         ...prev,
+//         variants: [...prev.variants, variantToSave]
+//       }));
+//     }
+//     setShowVariantModal(false);
+//     setVariantForm(defaultVariant);
+//     setEditingVariantIndex(null);
+//   };
+
+//   const handleVariantModalClose = () => {
+//     setShowVariantModal(false);
+//     setVariantForm(defaultVariant);
+//     setEditingVariantIndex(null);
+//   };
+
+//   const deleteVariant = (index) => {
+//     setFormData(prev => ({
+//       ...prev,
+//       variants: prev.variants.filter((_, i) => i !== index)
+//     }));
+//   };
+
+//   const toggleVariantActive = (index) => {
+//     setFormData(prev => ({
+//       ...prev,
+//       variants: prev.variants.map((v, i) =>
+//         i === index ? { ...v, isActive: !v.isActive } : v
+//       )
+//     }));
+//   };
+
+//   // ================= ATTRIBUTE HANDLERS =================
+//   const handleAddAttribute = (newAttr) => {
+//     setFormData(prev => ({
+//       ...prev,
+//       attributes: [...prev.attributes, newAttr]
+//     }));
+//   };
+
+//   const removeAttribute = (attributeId) => {
+//     setFormData(prev => ({
+//       ...prev,
+//       attributes: prev.attributes.filter(attr => attr.id !== attributeId)
+//     }));
+//   };
+
+//   // ================= CUSTOM MESSAGE HANDLER =================
+//   const handleCustomMessageSave = (message) => {
+//     setFormData(prev => ({
+//       ...prev,
+//       fomo: { ...prev.fomo, customMessage: message }
+//     }));
+//   };
+
+//   // ================= SUBMIT =================
+//   const handleSubmit = (e) => {
+//     e.preventDefault();
+
+//     const categoryObj = categories.find(c => c._id === formData.category);
+
+//     const updatedProduct = {
+//       ...formData,
+//       _id: product._id,                          // preserve original _id
+//       category: categoryObj,
+//       createdAt: product.createdAt,              // preserve original createdAt
+//       inventory: { ...formData.inventory },
+//       shipping: { ...formData.shipping, dimensions: { ...formData.shipping.dimensions } },
+//       soldInfo: { ...formData.soldInfo },
+//       fomo: { ...formData.fomo },
+//       variants: formData.variants.map(v => ({ ...v, attributes: [...v.attributes], images: [...(v.images || [])] }))
+//     };
+
+//     onSave(updatedProduct);
+//     onClose();
+//   };
+
+//   // ============================================================
+//   return (
+//     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 z-50 overflow-y-auto">
+//       <div className="bg-white rounded-2xl max-w-6xl w-full my-8 shadow-2xl">
+
+//         {/* Modal Header */}
+//         <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
+//           <div>
+//             <h2 className="text-2xl font-bold text-gray-900">Edit Product</h2>
+//             <p className="text-sm text-gray-500 mt-1">Update your product details</p>
+//           </div>
+//           <button
+//             onClick={onClose}
+//             className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+//           >
+//             <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+//             </svg>
+//           </button>
+//         </div>
+
+//         {/* Modal Body */}
+//         <form onSubmit={handleSubmit} className="p-6">
+
+//           {/* All form sections rendered by ProductFormBody */}
+//           <ProductFormBody
+//             formData={formData}
+//             setFormData={setFormData}
+//             categories={categories}
+//             brands={brands}
+//             onOpenCategoryModal={() => setShowCategoryModal(true)}
+//             onOpenBrandModal={() => setShowBrandModal(true)}
+//             onOpenAttributeModal={() => setShowAttributeModal(true)}
+//             onOpenCustomMessage={() => setShowCustomMessageModal(true)}
+//             onOpenAddVariant={openAddVariant}
+//             onOpenEditVariant={openEditVariant}
+//             onRemoveAttribute={removeAttribute}
+//             onDeleteVariant={deleteVariant}
+//             onToggleVariantActive={toggleVariantActive}
+//             formatIndianRupee={formatIndianRupee}
+//             getDiscountPercentage={getDiscountPercentage}
+//           />
+
+//           {/* Submit Buttons — inside form, after ProductFormBody */}
+//           <div className="flex gap-3 mt-6">
+//             <button
+//               type="button"
+//               onClick={onClose}
+//               className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50"
+//             >
+//               Cancel
+//             </button>
+//             <button
+//               type="submit"
+//               className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700"
+//             >
+//               Update
+//             </button>
+//           </div>
+
+//         </form>
+//       </div>
+
+//       {/* ================= SHARED MODALS ================= */}
+
+//       {showCategoryModal && (
+//         <CategoryModal
+//           categories={categories}
+//           setCategories={setCategories}
+//           onSelect={(catId) => setFormData(prev => ({ ...prev, category: catId }))}
+//           onClose={() => setShowCategoryModal(false)}
+//         />
+//       )}
+
+//       {showBrandModal && (
+//         <BrandModal
+//           brands={brands}
+//           setBrands={setBrands}
+//           onSelect={(brand) => setFormData(prev => ({ ...prev, brand }))}
+//           onClose={() => setShowBrandModal(false)}
+//         />
+//       )}
+
+//       {showAttributeModal && (
+//         <AttributeModal
+//           onAdd={handleAddAttribute}
+//           onClose={() => setShowAttributeModal(false)}
+//         />
+//       )}
+
+//       {showCustomMessageModal && (
+//         <CustomMessageModal
+//           currentMessage={formData.fomo.customMessage}
+//           onSave={handleCustomMessageSave}
+//           onClose={() => setShowCustomMessageModal(false)}
+//         />
+//       )}
+
+//       {showVariantModal && (
+//         <VariantModal
+//           variantForm={variantForm}
+//           setVariantForm={setVariantForm}
+//           editingVariantIndex={editingVariantIndex}
+//           onSave={handleVariantSave}
+//           onClose={handleVariantModalClose}
+//           getDiscountPercentage={getDiscountPercentage}
+//         />
+//       )}
+
+//     </div>
+//   );
+// };
+
+// export default EditProductModal;
 
 //THIS CODE IS ALSO WORKING BUT I REFACTORED IT TO MAKE IT CLEANER AND MORE MAINTAINABLE. THE NEW CODE IS IN THE EditProductModal.jsx FILE. I KEPT THIS AS A BACKUP IN CASE I NEEDED TO REFER TO IT FOR ANY REASON.
 // import React, { useState } from 'react';

@@ -1,308 +1,175 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom'; // Import this
-import ProductsTab from './ADMIN_TABS/ProductsTab';
-import AnalyticsTab from './ADMIN_TABS/AnalyticsTab';
-import ArchivedTab from './ADMIN_TABS/ArchivedTab';
-import StatsCards from './TOPBAR/StatsCards';
-import ProductModal from './PRODUCT_MODAL_SEGMENT/ProductModal';
-import EditProductModal from './PRODUCT_MODAL_SEGMENT/EditProductModal';
+// ADMIN_SEGMENT/Admin_dashboard.jsx
+
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+
+import ProductsTab from "./ADMIN_TABS/ProductsTab";
+import AnalyticsTab from "./ADMIN_TABS/AnalyticsTab";
+import ArchivedTab from "./ADMIN_TABS/ArchivedTab";
+import StatsCards from "./TOPBAR/StatsCards";
+import ProductModal from "./PRODUCT_MODAL_SEGMENT/ProductModal";
+import EditProductModal from "./PRODUCT_MODAL_SEGMENT/EditProductModal";
+
+import {
+  fetchAllProducts,
+  fetchArchivedProducts,
+  softDeleteProduct,
+  hardDeleteProduct,
+  restoreProduct,
+  toggleFeaturedProduct,
+  changeProductStatus,
+  clearErrors,
+} from "./ADMIN_REDUX_MANAGEMENT/adminProductsSlice";
+
+import { fetchCategories } from "./ADMIN_REDUX_MANAGEMENT/categoriesSlice";
+import { toast } from "react-toastify";
 
 const AdminDashboard = () => {
-  // ========== URL PARAMS FOR TAB ==========
+  const dispatch = useDispatch();
+
+  // ── Redux: products ──────────────────────────────────────────
+  const {
+    products,
+    productsLoading,
+    productsLoaded,
+    archivedProducts,
+    archivedLoading,
+    archivedLoaded,
+    actionError,
+    actionLoading,
+  } = useSelector((state) => state.adminProducts);
+
+  // ── Redux: categories ────────────────────────────────────────
+  const {
+    categories,
+    loaded: categoriesLoaded,
+    loading: categoriesLoading,
+  } = useSelector((state) => state.categories);
+
+  // ── URL tab param ────────────────────────────────────────────
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'products');
-  
-  // ========== TRACK API CALLS (VERIFICATION CODE) ==========
-  const [apiCalls, setApiCalls] = useState({
-    products: true, // Initially loaded
-    analytics: false,
-    archived: false
-  });
-  
-  // Track which tabs have been loaded
-  const [loadedTabs, setLoadedTabs] = useState({
-    products: true, // Products already loaded
-    analytics: false,
-    archived: false
-  });
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get("tab") || "products"
+  );
 
-  // ========== VERIFICATION FUNCTION ==========
-  const simulateApiCall = (tabName) => {
-    console.log(`%c🚀 API CALL: ${tabName} data fetched at ${new Date().toLocaleTimeString()}`, 'background: #4CAF50; color: white; padding: 2px 5px; border-radius: 3px;');
-    setApiCalls(prev => ({ ...prev, [tabName]: true }));
-  };
+  // ── Modal state ──────────────────────────────────────────────
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
-  // ========== SIMULATE API CALLS WHEN TABS ARE LOADED ==========
+  // ── Brands local state ───────────────────────────────────────
+  const [brands, setBrands] = useState([
+    "Sony", "Samsung", "Apple", "Nike", "Adidas", "Generic",
+  ]);
+
+  // ── FIX: fetch products on mount (only once) ─────────────────
   useEffect(() => {
-    if (loadedTabs.analytics && !apiCalls.analytics) {
-      simulateApiCall('analytics');
-      // Yahan actual API call karo
-      // fetchAnalyticsData();
-    }
-    if (loadedTabs.archived && !apiCalls.archived) {
-      simulateApiCall('archived');
-      // Yahan actual API call karo
-      // fetchArchivedData();
-    }
-  }, [loadedTabs.analytics, loadedTabs.archived, apiCalls.analytics, apiCalls.archived]);
+    dispatch(fetchAllProducts());
+    dispatch(fetchCategories());
+  }, []); // ← empty deps: runs ONCE on mount, no race condition
 
-  // ========== SYNC TAB WITH URL ==========
+  // ── Fetch archived only when tab first opens ─────────────────
   useEffect(() => {
-    const tabFromUrl = searchParams.get('tab');
+    if (activeTab === "archived" && !archivedLoaded) {
+      dispatch(fetchArchivedProducts());
+    }
+  }, [activeTab]);
+
+  // ── Sync tab with URL ────────────────────────────────────────
+  useEffect(() => {
+    const tabFromUrl = searchParams.get("tab");
     if (tabFromUrl && tabFromUrl !== activeTab) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
 
-  // ========== HANDLE TAB CHANGE ==========
+  // ── Show actionError as alert (status/featured change failed) ─
+  useEffect(() => {
+    if (actionError) {
+      toast.error(`❌ Action failed: ${actionError}`);
+      dispatch(clearErrors());
+    }
+  }, [actionError]);
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     setSearchParams({ tab });
-    
-    // Mark tab as loaded when first visited
-    if (!loadedTabs[tab]) {
-      setLoadedTabs(prev => ({ ...prev, [tab]: true }));
+  };
+
+  // ── Product actions ──────────────────────────────────────────
+  const handleSoftDelete = (productId) => {
+    const product = products.find((p) => p._id === productId);
+    if (!product) return;
+    if (window.confirm("Archive this product? It will be hidden from the website.")) {
+      dispatch(softDeleteProduct(product.slug));
     }
   };
 
-  // ========== STATE ==========
-  const [showProductModal, setShowProductModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  
-  // Products Data (your existing data)
-  const [products, setProducts] = useState([
-    {
-      _id: '1',
-      name: 'Premium Wireless Headphones',
-      title: 'Noise Cancelling Bluetooth Headphones',
-      description: 'Experience crystal clear sound with 40h battery life',
-      brand: 'Sony',
-      category: { _id: '1', name: 'Electronics' },
-      price: { base: 29999, sale: 19999, costPrice: 15000 },
-      inventory: { quantity: 45, lowStockThreshold: 5, trackInventory: true },
-      shipping: { weight: 0.5, dimensions: { length: 20, width: 15, height: 8 } },
-      images: [],
-      attributes: [{ id: '1', key: 'Battery Life', value: '40 hours' }],
-      isFeatured: true,
-      status: 'active',
-      soldInfo: { enabled: true, count: 1247 },
-      fomo: { enabled: false, type: 'viewing_now', viewingNow: 0, productLeft: 0, customMessage: '' },
-      createdAt: new Date().toISOString()
-    },
-    {
-      _id: '2',
-      name: 'Premium Cotton T-Shirt',
-      title: 'Premium Quality Cotton T-Shirt',
-      description: '100% organic cotton, comfortable fit',
-      brand: 'Nike',
-      category: { _id: '2', name: 'Clothing' },
-      price: { base: 3999, sale: 2499, costPrice: 1200 },
-      inventory: { quantity: 128, lowStockThreshold: 10, trackInventory: true },
-      shipping: { weight: 0.2, dimensions: { length: 30, width: 20, height: 2 } },
-      images: [],
-      attributes: [{ id: '2', key: 'Material', value: 'Cotton' }, { id: '3', key: 'Size', value: 'S,M,L,XL' }],
-      isFeatured: true,
-      status: 'active',
-      soldInfo: { enabled: true, count: 3456 },
-      fomo: { enabled: false, type: 'viewing_now', viewingNow: 0, productLeft: 0, customMessage: '' },
-      createdAt: new Date().toISOString()
-    },
-    {
-      _id: '3',
-      name: 'Smart Watch Series 5',
-      title: 'Fitness Tracker Smart Watch',
-      description: 'Track your heart rate, steps, and sleep quality',
-      brand: 'Samsung',
-      category: { _id: '1', name: 'Electronics' },
-      price: { base: 15999, sale: 12999, costPrice: 10000 },
-      inventory: { quantity: 8, lowStockThreshold: 10, trackInventory: true },
-      shipping: { weight: 0.3, dimensions: { length: 10, width: 10, height: 5 } },
-      images: [],
-      attributes: [{ id: '4', key: 'Display', value: '1.5 inches' }, { id: '5', key: 'Battery', value: '7 days' }],
-      isFeatured: true,
-      status: 'active',
-      soldInfo: { enabled: true, count: 892 },
-      fomo: { enabled: false, type: 'viewing_now', viewingNow: 0, productLeft: 0, customMessage: '' },
-      createdAt: new Date().toISOString()
-    },
-    {
-      _id: '4',
-      name: 'Running Shoes',
-      title: 'Lightweight Running Shoes',
-      description: 'Professional running shoes with cushioning',
-      brand: 'Adidas',
-      category: { _id: '2', name: 'Clothing' },
-      price: { base: 8999, sale: 5999, costPrice: 3500 },
-      inventory: { quantity: 56, lowStockThreshold: 15, trackInventory: true },
-      shipping: { weight: 0.8, dimensions: { length: 35, width: 25, height: 15 } },
-      images: [],
-      attributes: [{ id: '6', key: 'Size', value: '7-12' }, { id: '7', key: 'Color', value: 'Black/Red' }],
-      isFeatured: false,
-      status: 'active',
-      soldInfo: { enabled: true, count: 2341 },
-      fomo: { enabled: false, type: 'viewing_now', viewingNow: 0, productLeft: 0, customMessage: '' },
-      createdAt: new Date().toISOString()
-    },
-    {
-      _id: '5',
-      name: 'Coffee Maker',
-      title: 'Automatic Espresso Machine',
-      description: 'Make barista-quality coffee at home',
-      brand: 'Generic',
-      category: { _id: '4', name: 'Home & Garden' },
-      price: { base: 24999, sale: 19999, costPrice: 15000 },
-      inventory: { quantity: 23, lowStockThreshold: 8, trackInventory: true },
-      shipping: { weight: 3.5, dimensions: { length: 40, width: 30, height: 35 } },
-      images: [],
-      attributes: [{ id: '8', key: 'Capacity', value: '1.5L' }, { id: '9', key: 'Power', value: '1500W' }],
-      isFeatured: true,
-      status: 'active',
-      soldInfo: { enabled: true, count: 567 },
-      fomo: { enabled: false, type: 'viewing_now', viewingNow: 0, productLeft: 0, customMessage: '' },
-      createdAt: new Date().toISOString()
-    },
-    {
-      _id: '6',
-      name: 'Old Product (Archived)',
-      title: 'This product is archived',
-      description: 'Example of archived product',
-      brand: 'Generic',
-      category: { _id: '3', name: 'Books' },
-      price: { base: 999, sale: 499, costPrice: 200 },
-      inventory: { quantity: 0, lowStockThreshold: 5, trackInventory: true },
-      shipping: { weight: 0.1, dimensions: { length: 10, width: 10, height: 1 } },
-      images: [],
-      attributes: [],
-      isFeatured: false,
-      status: 'archived',
-      soldInfo: { enabled: false, count: 0 },
-      fomo: { enabled: false, type: 'viewing_now', viewingNow: 0, productLeft: 0, customMessage: '' },
-      createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const handlePermanentDelete = (productId) => {
+    const product = archivedProducts.find((p) => p._id === productId);
+    if (!product) return;
+    if (window.confirm("⚠️ Permanently delete? This cannot be undone!")) {
+      dispatch(hardDeleteProduct(product.slug));
     }
-  ]);
+  };
 
-  const [categories, setCategories] = useState([
-    { _id: '1', name: 'Electronics' },
-    { _id: '2', name: 'Clothing' },
-    { _id: '3', name: 'Books' },
-    { _id: '4', name: 'Home & Garden' }
-  ]);
+  const handleRestore = (productId) => {
+    const product = archivedProducts.find((p) => p._id === productId);
+    if (!product) return;
+    dispatch(restoreProduct(product.slug));
+  };
 
-  const [brands, setBrands] = useState([
-    'Sony', 'Samsung', 'Apple', 'Nike', 'Adidas', 'Generic'
-  ]);
+  const toggleFeatured = (productId) => {
+    const product = products.find((p) => p._id === productId);
+    if (!product) return;
+    // Pass FULL product object — thunk uses product.slug + variant skus from Redux state
+    // This avoids GET /admin/products/${slug} call which was hitting wrong route
+    dispatch(toggleFeaturedProduct({ product }));
+  };
 
-  // ========== VERIFICATION UI ==========
-  const VerificationBadge = () => (
-    <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg border border-gray-200 p-3 z-50">
-      <h4 className="text-xs font-semibold text-gray-700 mb-2">📊 API Calls Status</h4>
-      <div className="space-y-1">
-        <div className="flex items-center justify-between text-xs">
-          <span>Products API:</span>
-          <span className={`ml-2 px-2 py-0.5 rounded-full ${apiCalls.products ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-            {apiCalls.products ? '✅ Called' : '⏳ Pending'}
-          </span>
-        </div>
-        <div className="flex items-center justify-between text-xs">
-          <span>Analytics API:</span>
-          <span className={`ml-2 px-2 py-0.5 rounded-full ${apiCalls.analytics ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-            {apiCalls.analytics ? '✅ Called' : '⏳ Pending'}
-          </span>
-        </div>
-        <div className="flex items-center justify-between text-xs">
-          <span>Archived API:</span>
-          <span className={`ml-2 px-2 py-0.5 rounded-full ${apiCalls.archived ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-            {apiCalls.archived ? '✅ Called' : '⏳ Pending'}
-          </span>
-        </div>
-      </div>
-      <p className="text-[10px] text-gray-400 mt-2">Check Console for API logs</p>
-    </div>
-  );
+  const changeStatus = (productId, newStatus) => {
+    const product = products.find((p) => p._id === productId);
+    if (!product) return;
+    // Pass FULL product object — thunk uses product.slug + variant skus from Redux state
+    dispatch(changeProductStatus({ product, status: newStatus }));
+  };
 
-  // ========== HELPER FUNCTIONS ==========
-  const formatIndianRupee = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
+  const openEditModal = (product) => {
+    setSelectedProduct(product);
+    setShowEditModal(true);
+  };
+
+  // ── Derived stats ────────────────────────────────────────────
+  const activeProducts = products.filter((p) => p.status === "active").length;
+  const featuredProducts = products.filter((p) => p.isFeatured).length;
+
+  const formatIndianRupee = (amount) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(amount);
-  };
 
   const getDiscountPercentage = (base, sale) => {
     if (!base || !sale || sale >= base) return 0;
     return Math.round(((base - sale) / base) * 100);
   };
 
-  // ========== PRODUCT ACTIONS ==========
-  const handleAddProduct = (newProduct) => {
-    setProducts([newProduct, ...products]);
-  };
-
-  const handleEditProduct = (updatedProduct) => {
-    setProducts(prev => prev.map(p => 
-      p._id === updatedProduct._id ? updatedProduct : p
-    ));
-  };
-
-  const handleSoftDelete = (productId) => {
-    if (window.confirm('Archive this product? It will be hidden from the website.')) {
-      setProducts(prev => prev.map(p => 
-        p._id === productId ? { ...p, status: 'archived' } : p
-      ));
-    }
-  };
-
-  const handlePermanentDelete = (productId) => {
-    if (window.confirm('⚠️ Permanently delete? This cannot be undone!')) {
-      setProducts(prev => prev.filter(p => p._id !== productId));
-    }
-  };
-
-  const handleRestore = (productId) => {
-    setProducts(prev => prev.map(p => 
-      p._id === productId ? { ...p, status: 'draft' } : p
-    ));
-  };
-
-  const toggleFeatured = (productId) => {
-    setProducts(prev => prev.map(p => 
-      p._id === productId ? { ...p, isFeatured: !p.isFeatured } : p
-    ));
-  };
-
-  const changeStatus = (productId, newStatus) => {
-    setProducts(prev => prev.map(p => 
-      p._id === productId ? { ...p, status: newStatus } : p
-    ));
-  };
-
-  // Handle edit click
-  const openEditModal = (product) => {
-    setSelectedProduct(product);
-    setShowEditModal(true);
-  };
-
-  // Stats calculations
-  const totalProducts = products.length;
-  const activeProducts = products.filter(p => p.status === 'active').length;
-  const archivedProducts = products.filter(p => p.status === 'archived').length;
-  const featuredProducts = products.filter(p => p.isFeatured).length;
-  const lowStock = products.filter(p => 
-    p.status === 'active' && p.inventory?.quantity < p.inventory?.lowStockThreshold
-  ).length;
-
-  // Filtered lists
-  const activeProductsList = products.filter(p => p.status !== 'archived');
-  const archivedProductsList = products.filter(p => p.status === 'archived');
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Verification Badge - Shows API call status */}
-      <VerificationBadge />
-      
+
+      {/* Action Loading Overlay (for status/featured changes) */}
+      {actionLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-20 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl px-6 py-4 shadow-xl flex items-center gap-3">
+            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm font-medium text-gray-700">Updating...</span>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-8">
@@ -318,30 +185,28 @@ const AdminDashboard = () => {
                 <p className="text-sm text-gray-500">Craft your products with precision</p>
               </div>
             </div>
-            
-            {/* Stats Pills */}
-            <StatsCards 
+
+            <StatsCards
               activeProducts={activeProducts}
               featuredProducts={featuredProducts}
-              archivedProducts={archivedProducts}
-              onViewArchived={() => handleTabChange('archived')}
+              archivedProducts={archivedProducts.length}
+              onViewArchived={() => handleTabChange("archived")}
             />
           </div>
-          
-          {/* Navigation Tabs - UPDATED with handleTabChange */}
+
           <div className="flex space-x-6">
             {[
-              { id: 'products', name: 'Products', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
-              { id: 'analytics', name: 'Analytics', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-              { id: 'archived', name: 'Archived', icon: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4' }
-            ].map(tab => (
+              { id: "products", name: "Products", icon: "M4 6h16M4 10h16M4 14h16M4 18h16" },
+              { id: "analytics", name: "Analytics", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
+              { id: "archived", name: "Archived", icon: "M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" },
+            ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => handleTabChange(tab.id)} // UPDATED
+                onClick={() => handleTabChange(tab.id)}
                 className={`pb-4 px-1 font-medium text-sm border-b-2 transition-colors ${
                   activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
                 <span className="flex items-center space-x-2">
@@ -349,14 +214,14 @@ const AdminDashboard = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
                   </svg>
                   <span>{tab.name}</span>
-                  {tab.id === 'products' && (
+                  {tab.id === "products" && (
                     <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
-                      {activeProductsList.length}
+                      {products.length}
                     </span>
                   )}
-                  {tab.id === 'archived' && (
+                  {tab.id === "archived" && (
                     <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
-                      {archivedProductsList.length}
+                      {archivedProducts.length}
                     </span>
                   )}
                 </span>
@@ -367,10 +232,9 @@ const AdminDashboard = () => {
       </div>
 
       <div className="max-w-7xl mx-auto p-8">
-        {/* Tab Content - SAME AS BEFORE */}
-        {activeTab === 'products' && (
+        {activeTab === "products" && (
           <ProductsTab
-            products={activeProductsList}
+            products={products}
             categories={categories}
             brands={brands}
             onAddClick={() => setShowProductModal(true)}
@@ -380,32 +244,29 @@ const AdminDashboard = () => {
             onChangeStatus={changeStatus}
             formatIndianRupee={formatIndianRupee}
             getDiscountPercentage={getDiscountPercentage}
+            loading={productsLoading}
           />
         )}
-
-        {activeTab === 'analytics' && (
+        {activeTab === "analytics" && (
           <AnalyticsTab products={products} categories={categories} />
         )}
-
-        {activeTab === 'archived' && (
+        {activeTab === "archived" && (
           <ArchivedTab
-            products={archivedProductsList}
+            products={archivedProducts}
             onRestore={handleRestore}
             onPermanentDelete={handlePermanentDelete}
             formatIndianRupee={formatIndianRupee}
             getDiscountPercentage={getDiscountPercentage}
+            loading={archivedLoading}
           />
         )}
       </div>
 
-      {/* Modals - SAME AS BEFORE */}
+      {/* Modals */}
       {showProductModal && (
         <ProductModal
           onClose={() => setShowProductModal(false)}
-          onSave={handleAddProduct}
-          categories={categories}
           brands={brands}
-          setCategories={setCategories}
           setBrands={setBrands}
           formatIndianRupee={formatIndianRupee}
           getDiscountPercentage={getDiscountPercentage}
@@ -419,10 +280,7 @@ const AdminDashboard = () => {
             setShowEditModal(false);
             setSelectedProduct(null);
           }}
-          onSave={handleEditProduct}
-          categories={categories}
           brands={brands}
-          setCategories={setCategories}
           setBrands={setBrands}
           formatIndianRupee={formatIndianRupee}
           getDiscountPercentage={getDiscountPercentage}
@@ -433,6 +291,735 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
+// Fixed some issue like we cant able to change the status getting the issue >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+// // ADMIN_SEGMENT/Admin_dashboard.jsx
+
+// import React, { useState, useEffect } from "react";
+// import { useSearchParams } from "react-router-dom";
+// import { useDispatch, useSelector } from "react-redux";
+
+// import ProductsTab from "./ADMIN_TABS/ProductsTab";
+// import AnalyticsTab from "./ADMIN_TABS/AnalyticsTab";
+// import ArchivedTab from "./ADMIN_TABS/ArchivedTab";
+// import StatsCards from "./TOPBAR/StatsCards";
+// import ProductModal from "./PRODUCT_MODAL_SEGMENT/ProductModal";
+// import EditProductModal from "./PRODUCT_MODAL_SEGMENT/EditProductModal";
+
+// import {
+//   fetchAllProducts,
+//   fetchArchivedProducts,
+//   softDeleteProduct,
+//   hardDeleteProduct,
+//   restoreProduct,
+//   toggleFeaturedProduct,
+//   changeProductStatus,
+//   clearErrors,
+// } from "./ADMIN_REDUX_MANAGEMENT/adminProductsSlice";
+
+// import { fetchCategories } from "./ADMIN_REDUX_MANAGEMENT/categoriesSlice";
+
+// const AdminDashboard = () => {
+//   const dispatch = useDispatch();
+
+//   // ── Redux: products ──────────────────────────────────────────
+//   const {
+//     products,
+//     productsLoading,
+//     productsLoaded,
+//     archivedProducts,
+//     archivedLoading,
+//     archivedLoaded,
+//     actionError,
+//     actionLoading,
+//   } = useSelector((state) => state.adminProducts);
+
+//   // ── Redux: categories ────────────────────────────────────────
+//   const {
+//     categories,
+//     loaded: categoriesLoaded,
+//     loading: categoriesLoading,
+//   } = useSelector((state) => state.categories);
+
+//   // ── URL tab param ────────────────────────────────────────────
+//   const [searchParams, setSearchParams] = useSearchParams();
+//   const [activeTab, setActiveTab] = useState(
+//     searchParams.get("tab") || "products"
+//   );
+
+//   // ── Modal state ──────────────────────────────────────────────
+//   const [showProductModal, setShowProductModal] = useState(false);
+//   const [showEditModal, setShowEditModal] = useState(false);
+//   const [selectedProduct, setSelectedProduct] = useState(null);
+
+//   // ── Brands local state ───────────────────────────────────────
+//   const [brands, setBrands] = useState([
+//     "Sony", "Samsung", "Apple", "Nike", "Adidas", "Generic",
+//   ]);
+
+//   // ── FIX: fetch products on mount (only once) ─────────────────
+//   useEffect(() => {
+//     dispatch(fetchAllProducts());
+//     dispatch(fetchCategories());
+//   }, []); // ← empty deps: runs ONCE on mount, no race condition
+
+//   // ── Fetch archived only when tab first opens ─────────────────
+//   useEffect(() => {
+//     if (activeTab === "archived" && !archivedLoaded) {
+//       dispatch(fetchArchivedProducts());
+//     }
+//   }, [activeTab]);
+
+//   // ── Sync tab with URL ────────────────────────────────────────
+//   useEffect(() => {
+//     const tabFromUrl = searchParams.get("tab");
+//     if (tabFromUrl && tabFromUrl !== activeTab) {
+//       setActiveTab(tabFromUrl);
+//     }
+//   }, [searchParams]);
+
+//   // ── Show actionError as alert (status/featured change failed) ─
+//   useEffect(() => {
+//     if (actionError) {
+//       alert(`❌ Action failed: ${actionError}`);
+//       dispatch(clearErrors());
+//     }
+//   }, [actionError]);
+
+//   const handleTabChange = (tab) => {
+//     setActiveTab(tab);
+//     setSearchParams({ tab });
+//   };
+
+//   // ── Product actions ──────────────────────────────────────────
+//   const handleSoftDelete = (productId) => {
+//     const product = products.find((p) => p._id === productId);
+//     if (!product) return;
+//     if (window.confirm("Archive this product? It will be hidden from the website.")) {
+//       dispatch(softDeleteProduct(product.slug));
+//     }
+//   };
+
+//   const handlePermanentDelete = (productId) => {
+//     const product = archivedProducts.find((p) => p._id === productId);
+//     if (!product) return;
+//     if (window.confirm("⚠️ Permanently delete? This cannot be undone!")) {
+//       dispatch(hardDeleteProduct(product.slug));
+//     }
+//   };
+
+//   const handleRestore = (productId) => {
+//     const product = archivedProducts.find((p) => p._id === productId);
+//     if (!product) return;
+//     dispatch(restoreProduct(product.slug));
+//   };
+
+//   const toggleFeatured = (productId) => {
+//     const product = products.find((p) => p._id === productId);
+//     if (!product) return;
+//     dispatch(toggleFeaturedProduct({ slug: product.slug, isFeatured: product.isFeatured }));
+//   };
+
+//   const changeStatus = (productId, newStatus) => {
+//     const product = products.find((p) => p._id === productId);
+//     if (!product) return;
+//     dispatch(changeProductStatus({ slug: product.slug, status: newStatus }));
+//   };
+
+//   const openEditModal = (product) => {
+//     setSelectedProduct(product);
+//     setShowEditModal(true);
+//   };
+
+//   // ── Derived stats ────────────────────────────────────────────
+//   const activeProducts = products.filter((p) => p.status === "active").length;
+//   const featuredProducts = products.filter((p) => p.isFeatured).length;
+
+//   const formatIndianRupee = (amount) =>
+//     new Intl.NumberFormat("en-IN", {
+//       style: "currency",
+//       currency: "INR",
+//       minimumFractionDigits: 0,
+//       maximumFractionDigits: 0,
+//     }).format(amount);
+
+//   const getDiscountPercentage = (base, sale) => {
+//     if (!base || !sale || sale >= base) return 0;
+//     return Math.round(((base - sale) / base) * 100);
+//   };
+
+//   return (
+//     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+
+//       {/* Action Loading Overlay (for status/featured changes) */}
+//       {actionLoading && (
+//         <div className="fixed inset-0 bg-black bg-opacity-20 z-50 flex items-center justify-center">
+//           <div className="bg-white rounded-xl px-6 py-4 shadow-xl flex items-center gap-3">
+//             <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+//             <span className="text-sm font-medium text-gray-700">Updating...</span>
+//           </div>
+//         </div>
+//       )}
+
+//       {/* Header */}
+//       <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+//         <div className="max-w-7xl mx-auto px-8">
+//           <div className="flex items-center justify-between h-20">
+//             <div className="flex items-center space-x-3">
+//               <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+//                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+//                 </svg>
+//               </div>
+//               <div>
+//                 <h1 className="text-2xl font-bold text-gray-900">Product Forge</h1>
+//                 <p className="text-sm text-gray-500">Craft your products with precision</p>
+//               </div>
+//             </div>
+
+//             <StatsCards
+//               activeProducts={activeProducts}
+//               featuredProducts={featuredProducts}
+//               archivedProducts={archivedProducts.length}
+//               onViewArchived={() => handleTabChange("archived")}
+//             />
+//           </div>
+
+//           <div className="flex space-x-6">
+//             {[
+//               { id: "products", name: "Products", icon: "M4 6h16M4 10h16M4 14h16M4 18h16" },
+//               { id: "analytics", name: "Analytics", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
+//               { id: "archived", name: "Archived", icon: "M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" },
+//             ].map((tab) => (
+//               <button
+//                 key={tab.id}
+//                 onClick={() => handleTabChange(tab.id)}
+//                 className={`pb-4 px-1 font-medium text-sm border-b-2 transition-colors ${
+//                   activeTab === tab.id
+//                     ? "border-blue-500 text-blue-600"
+//                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+//                 }`}
+//               >
+//                 <span className="flex items-center space-x-2">
+//                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
+//                   </svg>
+//                   <span>{tab.name}</span>
+//                   {tab.id === "products" && (
+//                     <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+//                       {products.length}
+//                     </span>
+//                   )}
+//                   {tab.id === "archived" && (
+//                     <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+//                       {archivedProducts.length}
+//                     </span>
+//                   )}
+//                 </span>
+//               </button>
+//             ))}
+//           </div>
+//         </div>
+//       </div>
+
+//       <div className="max-w-7xl mx-auto p-8">
+//         {activeTab === "products" && (
+//           <ProductsTab
+//             products={products}
+//             categories={categories}
+//             brands={brands}
+//             onAddClick={() => setShowProductModal(true)}
+//             onEdit={openEditModal}
+//             onDelete={handleSoftDelete}
+//             onToggleFeatured={toggleFeatured}
+//             onChangeStatus={changeStatus}
+//             formatIndianRupee={formatIndianRupee}
+//             getDiscountPercentage={getDiscountPercentage}
+//             loading={productsLoading}
+//           />
+//         )}
+//         {activeTab === "analytics" && (
+//           <AnalyticsTab products={products} categories={categories} />
+//         )}
+//         {activeTab === "archived" && (
+//           <ArchivedTab
+//             products={archivedProducts}
+//             onRestore={handleRestore}
+//             onPermanentDelete={handlePermanentDelete}
+//             formatIndianRupee={formatIndianRupee}
+//             getDiscountPercentage={getDiscountPercentage}
+//             loading={archivedLoading}
+//           />
+//         )}
+//       </div>
+
+//       {/* Modals */}
+//       {showProductModal && (
+//         <ProductModal
+//           onClose={() => setShowProductModal(false)}
+//           brands={brands}
+//           setBrands={setBrands}
+//           formatIndianRupee={formatIndianRupee}
+//           getDiscountPercentage={getDiscountPercentage}
+//         />
+//       )}
+
+//       {showEditModal && selectedProduct && (
+//         <EditProductModal
+//           product={selectedProduct}
+//           onClose={() => {
+//             setShowEditModal(false);
+//             setSelectedProduct(null);
+//           }}
+//           brands={brands}
+//           setBrands={setBrands}
+//           formatIndianRupee={formatIndianRupee}
+//           getDiscountPercentage={getDiscountPercentage}
+//         />
+//       )}
+//     </div>
+//   );
+// };
+
+// export default AdminDashboard;
+
+// CODE UPSIDE API INTEGRATION>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+// import React, { useState, useEffect } from 'react';
+// import { useSearchParams } from 'react-router-dom'; // Import this
+// import ProductsTab from './ADMIN_TABS/ProductsTab';
+// import AnalyticsTab from './ADMIN_TABS/AnalyticsTab';
+// import ArchivedTab from './ADMIN_TABS/ArchivedTab';
+// import StatsCards from './TOPBAR/StatsCards';
+// import ProductModal from './PRODUCT_MODAL_SEGMENT/ProductModal';
+// import EditProductModal from './PRODUCT_MODAL_SEGMENT/EditProductModal';
+
+// const AdminDashboard = () => {
+//   // ========== URL PARAMS FOR TAB ==========
+//   const [searchParams, setSearchParams] = useSearchParams();
+//   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'products');
+  
+//   // ========== TRACK API CALLS (VERIFICATION CODE) ==========
+//   const [apiCalls, setApiCalls] = useState({
+//     products: true, // Initially loaded
+//     analytics: false,
+//     archived: false
+//   });
+  
+//   // Track which tabs have been loaded
+//   const [loadedTabs, setLoadedTabs] = useState({
+//     products: true, // Products already loaded
+//     analytics: false,
+//     archived: false
+//   });
+
+//   // ========== VERIFICATION FUNCTION ==========
+//   const simulateApiCall = (tabName) => {
+//     console.log(`%c🚀 API CALL: ${tabName} data fetched at ${new Date().toLocaleTimeString()}`, 'background: #4CAF50; color: white; padding: 2px 5px; border-radius: 3px;');
+//     setApiCalls(prev => ({ ...prev, [tabName]: true }));
+//   };
+
+//   // ========== SIMULATE API CALLS WHEN TABS ARE LOADED ==========
+//   useEffect(() => {
+//     if (loadedTabs.analytics && !apiCalls.analytics) {
+//       simulateApiCall('analytics');
+//       // Yahan actual API call karo
+//       // fetchAnalyticsData();
+//     }
+//     if (loadedTabs.archived && !apiCalls.archived) {
+//       simulateApiCall('archived');
+//       // Yahan actual API call karo
+//       // fetchArchivedData();
+//     }
+//   }, [loadedTabs.analytics, loadedTabs.archived, apiCalls.analytics, apiCalls.archived]);
+
+//   // ========== SYNC TAB WITH URL ==========
+//   useEffect(() => {
+//     const tabFromUrl = searchParams.get('tab');
+//     if (tabFromUrl && tabFromUrl !== activeTab) {
+//       setActiveTab(tabFromUrl);
+//     }
+//   }, [searchParams]);
+
+//   // ========== HANDLE TAB CHANGE ==========
+//   const handleTabChange = (tab) => {
+//     setActiveTab(tab);
+//     setSearchParams({ tab });
+    
+//     // Mark tab as loaded when first visited
+//     if (!loadedTabs[tab]) {
+//       setLoadedTabs(prev => ({ ...prev, [tab]: true }));
+//     }
+//   };
+
+//   // ========== STATE ==========
+//   const [showProductModal, setShowProductModal] = useState(false);
+//   const [showEditModal, setShowEditModal] = useState(false);
+//   const [selectedProduct, setSelectedProduct] = useState(null);
+  
+//   // Products Data (your existing data)
+//   const [products, setProducts] = useState([
+//     {
+//       _id: '1',
+//       name: 'Premium Wireless Headphones',
+//       title: 'Noise Cancelling Bluetooth Headphones',
+//       description: 'Experience crystal clear sound with 40h battery life',
+//       brand: 'Sony',
+//       category: { _id: '1', name: 'Electronics' },
+//       price: { base: 29999, sale: 19999, costPrice: 15000 },
+//       inventory: { quantity: 45, lowStockThreshold: 5, trackInventory: true },
+//       shipping: { weight: 0.5, dimensions: { length: 20, width: 15, height: 8 } },
+//       images: [],
+//       attributes: [{ id: '1', key: 'Battery Life', value: '40 hours' }],
+//       isFeatured: true,
+//       status: 'active',
+//       soldInfo: { enabled: true, count: 1247 },
+//       fomo: { enabled: false, type: 'viewing_now', viewingNow: 0, productLeft: 0, customMessage: '' },
+//       createdAt: new Date().toISOString()
+//     },
+//     {
+//       _id: '2',
+//       name: 'Premium Cotton T-Shirt',
+//       title: 'Premium Quality Cotton T-Shirt',
+//       description: '100% organic cotton, comfortable fit',
+//       brand: 'Nike',
+//       category: { _id: '2', name: 'Clothing' },
+//       price: { base: 3999, sale: 2499, costPrice: 1200 },
+//       inventory: { quantity: 128, lowStockThreshold: 10, trackInventory: true },
+//       shipping: { weight: 0.2, dimensions: { length: 30, width: 20, height: 2 } },
+//       images: [],
+//       attributes: [{ id: '2', key: 'Material', value: 'Cotton' }, { id: '3', key: 'Size', value: 'S,M,L,XL' }],
+//       isFeatured: true,
+//       status: 'active',
+//       soldInfo: { enabled: true, count: 3456 },
+//       fomo: { enabled: false, type: 'viewing_now', viewingNow: 0, productLeft: 0, customMessage: '' },
+//       createdAt: new Date().toISOString()
+//     },
+//     {
+//       _id: '3',
+//       name: 'Smart Watch Series 5',
+//       title: 'Fitness Tracker Smart Watch',
+//       description: 'Track your heart rate, steps, and sleep quality',
+//       brand: 'Samsung',
+//       category: { _id: '1', name: 'Electronics' },
+//       price: { base: 15999, sale: 12999, costPrice: 10000 },
+//       inventory: { quantity: 8, lowStockThreshold: 10, trackInventory: true },
+//       shipping: { weight: 0.3, dimensions: { length: 10, width: 10, height: 5 } },
+//       images: [],
+//       attributes: [{ id: '4', key: 'Display', value: '1.5 inches' }, { id: '5', key: 'Battery', value: '7 days' }],
+//       isFeatured: true,
+//       status: 'active',
+//       soldInfo: { enabled: true, count: 892 },
+//       fomo: { enabled: false, type: 'viewing_now', viewingNow: 0, productLeft: 0, customMessage: '' },
+//       createdAt: new Date().toISOString()
+//     },
+//     {
+//       _id: '4',
+//       name: 'Running Shoes',
+//       title: 'Lightweight Running Shoes',
+//       description: 'Professional running shoes with cushioning',
+//       brand: 'Adidas',
+//       category: { _id: '2', name: 'Clothing' },
+//       price: { base: 8999, sale: 5999, costPrice: 3500 },
+//       inventory: { quantity: 56, lowStockThreshold: 15, trackInventory: true },
+//       shipping: { weight: 0.8, dimensions: { length: 35, width: 25, height: 15 } },
+//       images: [],
+//       attributes: [{ id: '6', key: 'Size', value: '7-12' }, { id: '7', key: 'Color', value: 'Black/Red' }],
+//       isFeatured: false,
+//       status: 'active',
+//       soldInfo: { enabled: true, count: 2341 },
+//       fomo: { enabled: false, type: 'viewing_now', viewingNow: 0, productLeft: 0, customMessage: '' },
+//       createdAt: new Date().toISOString()
+//     },
+//     {
+//       _id: '5',
+//       name: 'Coffee Maker',
+//       title: 'Automatic Espresso Machine',
+//       description: 'Make barista-quality coffee at home',
+//       brand: 'Generic',
+//       category: { _id: '4', name: 'Home & Garden' },
+//       price: { base: 24999, sale: 19999, costPrice: 15000 },
+//       inventory: { quantity: 23, lowStockThreshold: 8, trackInventory: true },
+//       shipping: { weight: 3.5, dimensions: { length: 40, width: 30, height: 35 } },
+//       images: [],
+//       attributes: [{ id: '8', key: 'Capacity', value: '1.5L' }, { id: '9', key: 'Power', value: '1500W' }],
+//       isFeatured: true,
+//       status: 'active',
+//       soldInfo: { enabled: true, count: 567 },
+//       fomo: { enabled: false, type: 'viewing_now', viewingNow: 0, productLeft: 0, customMessage: '' },
+//       createdAt: new Date().toISOString()
+//     },
+//     {
+//       _id: '6',
+//       name: 'Old Product (Archived)',
+//       title: 'This product is archived',
+//       description: 'Example of archived product',
+//       brand: 'Generic',
+//       category: { _id: '3', name: 'Books' },
+//       price: { base: 999, sale: 499, costPrice: 200 },
+//       inventory: { quantity: 0, lowStockThreshold: 5, trackInventory: true },
+//       shipping: { weight: 0.1, dimensions: { length: 10, width: 10, height: 1 } },
+//       images: [],
+//       attributes: [],
+//       isFeatured: false,
+//       status: 'archived',
+//       soldInfo: { enabled: false, count: 0 },
+//       fomo: { enabled: false, type: 'viewing_now', viewingNow: 0, productLeft: 0, customMessage: '' },
+//       createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+//     }
+//   ]);
+
+//   const [categories, setCategories] = useState([
+//     { _id: '1', name: 'Electronics' },
+//     { _id: '2', name: 'Clothing' },
+//     { _id: '3', name: 'Books' },
+//     { _id: '4', name: 'Home & Garden' }
+//   ]);
+
+//   const [brands, setBrands] = useState([
+//     'Sony', 'Samsung', 'Apple', 'Nike', 'Adidas', 'Generic'
+//   ]);
+
+//   // ========== VERIFICATION UI ==========
+//   const VerificationBadge = () => (
+//     <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg border border-gray-200 p-3 z-50">
+//       <h4 className="text-xs font-semibold text-gray-700 mb-2">📊 API Calls Status</h4>
+//       <div className="space-y-1">
+//         <div className="flex items-center justify-between text-xs">
+//           <span>Products API:</span>
+//           <span className={`ml-2 px-2 py-0.5 rounded-full ${apiCalls.products ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+//             {apiCalls.products ? '✅ Called' : '⏳ Pending'}
+//           </span>
+//         </div>
+//         <div className="flex items-center justify-between text-xs">
+//           <span>Analytics API:</span>
+//           <span className={`ml-2 px-2 py-0.5 rounded-full ${apiCalls.analytics ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+//             {apiCalls.analytics ? '✅ Called' : '⏳ Pending'}
+//           </span>
+//         </div>
+//         <div className="flex items-center justify-between text-xs">
+//           <span>Archived API:</span>
+//           <span className={`ml-2 px-2 py-0.5 rounded-full ${apiCalls.archived ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+//             {apiCalls.archived ? '✅ Called' : '⏳ Pending'}
+//           </span>
+//         </div>
+//       </div>
+//       <p className="text-[10px] text-gray-400 mt-2">Check Console for API logs</p>
+//     </div>
+//   );
+
+//   // ========== HELPER FUNCTIONS ==========
+//   const formatIndianRupee = (amount) => {
+//     return new Intl.NumberFormat('en-IN', {
+//       style: 'currency',
+//       currency: 'INR',
+//       minimumFractionDigits: 0,
+//       maximumFractionDigits: 0
+//     }).format(amount);
+//   };
+
+//   const getDiscountPercentage = (base, sale) => {
+//     if (!base || !sale || sale >= base) return 0;
+//     return Math.round(((base - sale) / base) * 100);
+//   };
+
+//   // ========== PRODUCT ACTIONS ==========
+//   const handleAddProduct = (newProduct) => {
+//     setProducts([newProduct, ...products]);
+//   };
+
+//   const handleEditProduct = (updatedProduct) => {
+//     setProducts(prev => prev.map(p => 
+//       p._id === updatedProduct._id ? updatedProduct : p
+//     ));
+//   };
+
+//   const handleSoftDelete = (productId) => {
+//     if (window.confirm('Archive this product? It will be hidden from the website.')) {
+//       setProducts(prev => prev.map(p => 
+//         p._id === productId ? { ...p, status: 'archived' } : p
+//       ));
+//     }
+//   };
+
+//   const handlePermanentDelete = (productId) => {
+//     if (window.confirm('⚠️ Permanently delete? This cannot be undone!')) {
+//       setProducts(prev => prev.filter(p => p._id !== productId));
+//     }
+//   };
+
+//   const handleRestore = (productId) => {
+//     setProducts(prev => prev.map(p => 
+//       p._id === productId ? { ...p, status: 'draft' } : p
+//     ));
+//   };
+
+//   const toggleFeatured = (productId) => {
+//     setProducts(prev => prev.map(p => 
+//       p._id === productId ? { ...p, isFeatured: !p.isFeatured } : p
+//     ));
+//   };
+
+//   const changeStatus = (productId, newStatus) => {
+//     setProducts(prev => prev.map(p => 
+//       p._id === productId ? { ...p, status: newStatus } : p
+//     ));
+//   };
+
+//   // Handle edit click
+//   const openEditModal = (product) => {
+//     setSelectedProduct(product);
+//     setShowEditModal(true);
+//   };
+
+//   // Stats calculations
+//   const totalProducts = products.length;
+//   const activeProducts = products.filter(p => p.status === 'active').length;
+//   const archivedProducts = products.filter(p => p.status === 'archived').length;
+//   const featuredProducts = products.filter(p => p.isFeatured).length;
+//   const lowStock = products.filter(p => 
+//     p.status === 'active' && p.inventory?.quantity < p.inventory?.lowStockThreshold
+//   ).length;
+
+//   // Filtered lists
+//   const activeProductsList = products.filter(p => p.status !== 'archived');
+//   const archivedProductsList = products.filter(p => p.status === 'archived');
+
+//   return (
+//     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+//       {/* Verification Badge - Shows API call status */}
+//       <VerificationBadge />
+      
+//       {/* Header */}
+//       <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+//         <div className="max-w-7xl mx-auto px-8">
+//           <div className="flex items-center justify-between h-20">
+//             <div className="flex items-center space-x-3">
+//               <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+//                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+//                 </svg>
+//               </div>
+//               <div>
+//                 <h1 className="text-2xl font-bold text-gray-900">Product Forge</h1>
+//                 <p className="text-sm text-gray-500">Craft your products with precision</p>
+//               </div>
+//             </div>
+            
+//             {/* Stats Pills */}
+//             <StatsCards 
+//               activeProducts={activeProducts}
+//               featuredProducts={featuredProducts}
+//               archivedProducts={archivedProducts}
+//               onViewArchived={() => handleTabChange('archived')}
+//             />
+//           </div>
+          
+//           {/* Navigation Tabs - UPDATED with handleTabChange */}
+//           <div className="flex space-x-6">
+//             {[
+//               { id: 'products', name: 'Products', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
+//               { id: 'analytics', name: 'Analytics', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
+//               { id: 'archived', name: 'Archived', icon: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4' }
+//             ].map(tab => (
+//               <button
+//                 key={tab.id}
+//                 onClick={() => handleTabChange(tab.id)} // UPDATED
+//                 className={`pb-4 px-1 font-medium text-sm border-b-2 transition-colors ${
+//                   activeTab === tab.id
+//                     ? 'border-blue-500 text-blue-600'
+//                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+//                 }`}
+//               >
+//                 <span className="flex items-center space-x-2">
+//                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
+//                   </svg>
+//                   <span>{tab.name}</span>
+//                   {tab.id === 'products' && (
+//                     <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+//                       {activeProductsList.length}
+//                     </span>
+//                   )}
+//                   {tab.id === 'archived' && (
+//                     <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+//                       {archivedProductsList.length}
+//                     </span>
+//                   )}
+//                 </span>
+//               </button>
+//             ))}
+//           </div>
+//         </div>
+//       </div>
+
+//       <div className="max-w-7xl mx-auto p-8">
+//         {/* Tab Content - SAME AS BEFORE */}
+//         {activeTab === 'products' && (
+//           <ProductsTab
+//             products={activeProductsList}
+//             categories={categories}
+//             brands={brands}
+//             onAddClick={() => setShowProductModal(true)}
+//             onEdit={openEditModal}
+//             onDelete={handleSoftDelete}
+//             onToggleFeatured={toggleFeatured}
+//             onChangeStatus={changeStatus}
+//             formatIndianRupee={formatIndianRupee}
+//             getDiscountPercentage={getDiscountPercentage}
+//           />
+//         )}
+
+//         {activeTab === 'analytics' && (
+//           <AnalyticsTab products={products} categories={categories} />
+//         )}
+
+//         {activeTab === 'archived' && (
+//           <ArchivedTab
+//             products={archivedProductsList}
+//             onRestore={handleRestore}
+//             onPermanentDelete={handlePermanentDelete}
+//             formatIndianRupee={formatIndianRupee}
+//             getDiscountPercentage={getDiscountPercentage}
+//           />
+//         )}
+//       </div>
+
+//       {/* Modals - SAME AS BEFORE */}
+//       {showProductModal && (
+//         <ProductModal
+//           onClose={() => setShowProductModal(false)}
+//           onSave={handleAddProduct}
+//           categories={categories}
+//           brands={brands}
+//           setCategories={setCategories}
+//           setBrands={setBrands}
+//           formatIndianRupee={formatIndianRupee}
+//           getDiscountPercentage={getDiscountPercentage}
+//         />
+//       )}
+
+//       {showEditModal && selectedProduct && (
+//         <EditProductModal
+//           product={selectedProduct}
+//           onClose={() => {
+//             setShowEditModal(false);
+//             setSelectedProduct(null);
+//           }}
+//           onSave={handleEditProduct}
+//           categories={categories}
+//           brands={brands}
+//           setCategories={setCategories}
+//           setBrands={setBrands}
+//           formatIndianRupee={formatIndianRupee}
+//           getDiscountPercentage={getDiscountPercentage}
+//         />
+//       )}
+//     </div>
+//   );
+// };
+
+// export default AdminDashboard;
 
 // import React, { useState } from 'react';
 // import ProductsTab from './ProductsTab';

@@ -1,9 +1,12 @@
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "../REDUX_SLICES/authSlice";
-
+import adminProductsReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminProductsSlice";
+import categoriesReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/categoriesSlice";
 const store = configureStore({
   reducer: {
     auth: authReducer,
+     adminProducts: adminProductsReducer,
+      categories: categoriesReducer,
   },
   devTools: import.meta.env.MODE !== "production", // Redux DevTools only in dev
 });

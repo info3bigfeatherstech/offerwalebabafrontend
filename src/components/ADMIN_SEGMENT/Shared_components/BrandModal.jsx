@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { addBrand } from '../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/brandSlice';
+import { addBrand } from '../ADMIN_REDUX_MANAGEMENT/brandSlice';
 
 const BrandModal = ({ brands, onSelect, onClose }) => {
   const dispatch = useDispatch();

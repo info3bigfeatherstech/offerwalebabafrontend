@@ -1,91 +1,55 @@
-import React, { useState } from 'react';
-import ProductFormBody from '../Shared_components/ProductFormBody';
-import VariantModal, { defaultVariant } from '../Shared_components/VariantModal';
-import CategoryModal from '../Shared_components/CategoryModal';
-import BrandModal from '../Shared_components/BrandModal';
-import AttributeModal from '../Shared_components/AttributeModal';
-import CustomMessageModal from '../Shared_components/CustomMessageModal';
+// PRODUCT_MODAL_SEGMENT/ProductModal.jsx
+import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import ProductFormBody from "../Shared_components/ProductFormBody";
+import VariantModal, { defaultVariant } from "../Shared_components/VariantModal";
+import CategoryModal from "../Shared_components/CategoryModal";
+import BrandModal from "../Shared_components/BrandModal";
+import AttributeModal from "../Shared_components/AttributeModal";
+import CustomMessageModal from "../Shared_components/CustomMessageModal";
+import { createProduct, resetCreateSuccess } from "../ADMIN_REDUX_MANAGEMENT/adminProductsSlice";
 
-const ProductModal = ({
-  onClose,
-  onSave,
-  categories,
-  brands,
-  setCategories,
-  setBrands,
-  formatIndianRupee,
-  getDiscountPercentage
-}) => {
+const emptyForm = () => ({
+  name: "", title: "", description: "", brand: "Generic", category: "",
+  barcode: "",
+  price: { base: "", sale: "", costPrice: "" },
+  inventory: { quantity: 0, lowStockThreshold: 5, trackInventory: true },
+  shipping: { weight: "", dimensions: { length: "", width: "", height: "" } },
+  soldInfo: { enabled: false, count: 0 },
+  fomo: { enabled: false, type: "viewing_now", viewingNow: 0, productLeft: 0, customMessage: "" },
+  images: [], attributes: [], variants: [],
+  isFeatured: false, status: "draft",
+});
 
-  // ================= FORM STATE =================
-  const [formData, setFormData] = useState({
-    name: '',
-    title: '',
-    description: '',
-    brand: 'Generic',
-    category: '',
-    price: {
-      base: '',
-      sale: '',
-      costPrice: ''
-    },
-    inventory: {
-      quantity: 0,
-      lowStockThreshold: 5,
-      trackInventory: true
-    },
-    shipping: {
-      weight: 0,
-      dimensions: {
-        length: '',
-        width: '',
-        height: ''
-      }
-    },
-    soldInfo: {
-      enabled: false,
-      count: 0
-    },
-    fomo: {
-      enabled: false,
-      type: 'viewing_now',
-      viewingNow: 0,
-      productLeft: 0,
-      customMessage: ''
-    },
-    images: [],
-    attributes: [],
-    variants: [],
-    isFeatured: false,
-    status: 'draft'
-  });
+const ProductModal = ({ onClose, brands, setBrands, formatIndianRupee, getDiscountPercentage }) => {
+  const dispatch = useDispatch();
+  const { createLoading, createError, createSuccess } = useSelector(s => s.adminProducts);
+  const { categories } = useSelector(s => s.categories);
 
-  // ================= MODAL VISIBILITY STATES =================
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [showBrandModal, setShowBrandModal] = useState(false);
-  const [showCustomMessageModal, setShowCustomMessageModal] = useState(false);
-  const [showAttributeModal, setShowAttributeModal] = useState(false);
-  const [showVariantModal, setShowVariantModal] = useState(false);
-
-  // ================= VARIANT STATE =================
+  const [formData, setFormData] = useState(emptyForm);
   const [variantForm, setVariantForm] = useState(defaultVariant);
   const [editingVariantIndex, setEditingVariantIndex] = useState(null);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showBrandModal, setShowBrandModal] = useState(false);
+  const [showAttributeModal, setShowAttributeModal] = useState(false);
+  const [showCustomMessageModal, setShowCustomMessageModal] = useState(false);
+  const [showVariantModal, setShowVariantModal] = useState(false);
 
-  // ================= VARIANT HANDLERS =================
-  const openAddVariant = () => {
-    setVariantForm(defaultVariant);
-    setEditingVariantIndex(null);
-    setShowVariantModal(true);
-  };
+  useEffect(() => {
+    if (createSuccess) { dispatch(resetCreateSuccess()); setFormData(emptyForm); onClose(); }
+  }, [createSuccess]);
+
+  const openAddVariant = () => { setVariantForm(defaultVariant); setEditingVariantIndex(null); setShowVariantModal(true); };
 
   const openEditVariant = (index) => {
     const v = formData.variants[index];
     setVariantForm({
-      attributes: v.attributes.length > 0 ? v.attributes : [{ key: '', value: '' }],
-      price: { base: v.price.base, sale: v.price.sale ?? '' },
+      barcode: v.barcode != null ? String(v.barcode) : "",
+      attributes: v.attributes?.length > 0 ? v.attributes : [{ key: "", value: "" }],
+      price: { base: v.price?.base ?? "", sale: v.price?.sale ?? "" },
       inventory: { ...v.inventory },
       images: v.images || [],
-      isActive: v.isActive
+      isActive: v.isActive !== false,
     });
     setEditingVariantIndex(index);
     setShowVariantModal(true);
@@ -93,141 +57,62 @@ const ProductModal = ({
 
   const handleVariantSave = (variantToSave) => {
     if (editingVariantIndex !== null) {
-      setFormData(prev => ({
-        ...prev,
-        variants: prev.variants.map((v, i) => i === editingVariantIndex ? variantToSave : v)
-      }));
+      setFormData(prev => ({ ...prev, variants: prev.variants.map((v, i) => i === editingVariantIndex ? variantToSave : v) }));
     } else {
-      setFormData(prev => ({
-        ...prev,
-        variants: [...prev.variants, variantToSave]
-      }));
+      setFormData(prev => ({ ...prev, variants: [...prev.variants, variantToSave] }));
     }
-    setShowVariantModal(false);
-    setVariantForm(defaultVariant);
-    setEditingVariantIndex(null);
+    setShowVariantModal(false); setVariantForm(defaultVariant); setEditingVariantIndex(null);
   };
 
-  const handleVariantModalClose = () => {
-    setShowVariantModal(false);
-    setVariantForm(defaultVariant);
-    setEditingVariantIndex(null);
-  };
+  const deleteVariant = (index) => setFormData(prev => ({ ...prev, variants: prev.variants.filter((_, i) => i !== index) }));
+  const toggleVariantActive = (index) => setFormData(prev => ({ ...prev, variants: prev.variants.map((v, i) => i === index ? { ...v, isActive: !v.isActive } : v) }));
+  const handleAddAttribute = (a) => setFormData(prev => ({ ...prev, attributes: [...prev.attributes, a] }));
+  const removeAttribute = (id) => setFormData(prev => ({ ...prev, attributes: prev.attributes.filter(a => a.id !== id) }));
+  const handleCustomMessageSave = (msg) => setFormData(prev => ({ ...prev, fomo: { ...prev.fomo, customMessage: msg } }));
 
-  const deleteVariant = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      variants: prev.variants.filter((_, i) => i !== index)
-    }));
-  };
-
-  const toggleVariantActive = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      variants: prev.variants.map((v, i) =>
-        i === index ? { ...v, isActive: !v.isActive } : v
-      )
-    }));
-  };
-
-  // ================= ATTRIBUTE HANDLERS =================
-  const handleAddAttribute = (newAttr) => {
-    setFormData(prev => ({
-      ...prev,
-      attributes: [...prev.attributes, newAttr]
-    }));
-  };
-
-  const removeAttribute = (attributeId) => {
-    setFormData(prev => ({
-      ...prev,
-      attributes: prev.attributes.filter(attr => attr.id !== attributeId)
-    }));
-  };
-
-  // ================= CUSTOM MESSAGE HANDLER =================
-  const handleCustomMessageSave = (message) => {
-    setFormData(prev => ({
-      ...prev,
-      fomo: { ...prev.fomo, customMessage: message }
-    }));
-  };
-
-  // ================= RESET =================
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      title: '',
-      description: '',
-      brand: 'Generic',
-      category: '',
-      price: { base: '', sale: '', costPrice: '' },
-      inventory: { quantity: 0, lowStockThreshold: 5, trackInventory: true },
-      shipping: { weight: '', dimensions: { length: '', width: '', height: '' } },
-      soldInfo: { enabled: false, count: 0 },
-      fomo: { enabled: false, type: 'viewing_now', viewingNow: 0, productLeft: 0, customMessage: '' },
-      images: [],
-      attributes: [],
-      variants: [],
-      isFeatured: false,
-      status: 'draft'
-    });
-  };
-
-  // ================= SUBMIT =================
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!formData.name.trim()) { alert("Product name is required"); return; }
+    if (!formData.title.trim()) { alert("Product title is required"); return; }
+    if (!formData.category) { alert("Please select a category"); return; }
+    // if (formData.variants.length === 0) { alert("At least one variant is required. Each variant needs a unique barcode."); return; }
 
-    const categoryObj = categories.find(c => c._id === formData.category);
+    // Validate all variant barcodes — backend REQUIRES this
+    for (let i = 0; i < formData.variants.length; i++) {
+      const bc = (formData.variants[i].barcode ?? "").toString().trim();
+      if (!bc) { alert(`Variant ${i + 1}: barcode is required (backend validation)`); return; }
+      if (isNaN(Number(bc))) { alert(`Variant ${i + 1}: barcode must be a valid number`); return; }
+    }
+    const barcodes = formData.variants.map(v => String(v.barcode).trim());
+    if (new Set(barcodes).size !== barcodes.length) { alert("Duplicate barcodes found. All variant barcodes must be unique."); return; }
 
-    const newProduct = {
-      ...formData,
-      _id: Date.now().toString(),
-      category: categoryObj,
-      createdAt: new Date().toISOString(),
-      inventory: { ...formData.inventory },
-      shipping: { ...formData.shipping, dimensions: { ...formData.shipping.dimensions } },
-      soldInfo: { ...formData.soldInfo },
-      fomo: { ...formData.fomo },
-      variants: formData.variants.map(v => ({ ...v, attributes: [...v.attributes], images: [...v.images] }))
-    };
-
-    onSave(newProduct);
-    console.log('Product saved:', newProduct);
-    resetForm();
-    onClose();
+    console.log("[ProductModal] Creating with variant barcodes:", barcodes);
+    dispatch(createProduct(formData));
   };
 
-  // ============================================================
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 z-50 overflow-y-auto">
       <div className="bg-white rounded-2xl max-w-6xl w-full my-8 shadow-2xl">
-
-        {/* Modal Header */}
         <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Create New Product</h2>
-            <p className="text-sm text-gray-500 mt-1">Fill in the details to create something amazing</p>
+            <p className="text-sm text-gray-500 mt-1">Each variant requires a unique barcode (backend validation)</p>
           </div>
-          <button
-            onClick={() => { resetForm(); onClose(); }}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
-          >
-            <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+          <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl">
+            <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
 
-        {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="p-6">
+        {createError && (
+          <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+            <p className="text-red-700 text-sm font-medium">❌ {createError}</p>
+          </div>
+        )}
 
-          {/* All form sections rendered by ProductFormBody */}
+        <form onSubmit={handleSubmit} className="p-6">
           <ProductFormBody
-            formData={formData}
-            setFormData={setFormData}
-            categories={categories}
-            brands={brands}
+            formData={formData} setFormData={setFormData}
+            categories={categories} brands={brands}
             onOpenCategoryModal={() => setShowCategoryModal(true)}
             onOpenBrandModal={() => setShowBrandModal(true)}
             onOpenAttributeModal={() => setShowAttributeModal(true)}
@@ -240,81 +125,625 @@ const ProductModal = ({
             formatIndianRupee={formatIndianRupee}
             getDiscountPercentage={getDiscountPercentage}
           />
-
-          {/* Submit Buttons — inside form, after ProductFormBody */}
           <div className="flex gap-3 mt-6">
-            <button
-              type="button"
-              onClick={() => { resetForm(); onClose(); }}
-              className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700"
-            >
-              Create
+            <button type="button" onClick={onClose} disabled={createLoading} className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 disabled:opacity-60">Cancel</button>
+            <button type="submit" disabled={createLoading} className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-60 flex items-center justify-center gap-2">
+              {createLoading ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Creating...</> : "Create Product"}
             </button>
           </div>
-
         </form>
       </div>
 
-      {/* ================= SHARED MODALS ================= */}
-
-      {showCategoryModal && (
-        <CategoryModal
-          categories={categories}
-          setCategories={setCategories}
-          onSelect={(catId) => setFormData(prev => ({ ...prev, category: catId }))}
-          onClose={() => setShowCategoryModal(false)}
-        />
-      )}
-
-      {showBrandModal && (
-        <BrandModal
-          brands={brands}
-          setBrands={setBrands}
-          onSelect={(brand) => setFormData(prev => ({ ...prev, brand }))}
-          onClose={() => setShowBrandModal(false)}
-        />
-      )}
-
-      {showAttributeModal && (
-        <AttributeModal
-          onAdd={handleAddAttribute}
-          onClose={() => setShowAttributeModal(false)}
-        />
-      )}
-
-      {showCustomMessageModal && (
-        <CustomMessageModal
-          currentMessage={formData.fomo.customMessage}
-          onSave={handleCustomMessageSave}
-          onClose={() => setShowCustomMessageModal(false)}
-        />
-      )}
-
+      {showCategoryModal && <CategoryModal onSelect={(catId) => setFormData(prev => ({ ...prev, category: catId }))} onClose={() => setShowCategoryModal(false)} />}
+      {showBrandModal && <BrandModal brands={brands} setBrands={setBrands} onSelect={(brand) => setFormData(prev => ({ ...prev, brand }))} onClose={() => setShowBrandModal(false)} />}
+      {showAttributeModal && <AttributeModal onAdd={handleAddAttribute} onClose={() => setShowAttributeModal(false)} />}
+      {showCustomMessageModal && <CustomMessageModal currentMessage={formData.fomo.customMessage} onSave={handleCustomMessageSave} onClose={() => setShowCustomMessageModal(false)} />}
       {showVariantModal && (
         <VariantModal
-          variantForm={variantForm}
-          setVariantForm={setVariantForm}
+          variantForm={variantForm} setVariantForm={setVariantForm}
           editingVariantIndex={editingVariantIndex}
           onSave={handleVariantSave}
-          onClose={handleVariantModalClose}
-          getDiscountPercentage={getDiscountPercentage}
-        />
+          onClose={() => { setShowVariantModal(false); setVariantForm(defaultVariant); setEditingVariantIndex(null); }}
+          getDiscountPercentage={getDiscountPercentage} />
       )}
-
     </div>
   );
 };
 
 export default ProductModal;
 
+// CODE IS WOKRING BUT UPPER CODE HAVE API INTEGRATE WITH BARCIDE AND UPDATE THE VARIENTS API 
+// // PRODUCT_MODAL_SEGMENT/ProductModal.jsx
 
-// This component is a comprehensive product creation/editing modal for an e-commerce admin panel.************************************************************************************************
+// import React, { useState, useEffect } from "react";
+// import { useDispatch, useSelector } from "react-redux";
+
+// import ProductFormBody from "../Shared_components/ProductFormBody";
+// import VariantModal, { defaultVariant } from "../Shared_components/VariantModal";
+// import CategoryModal from "../Shared_components/CategoryModal";
+// import BrandModal from "../Shared_components/BrandModal";
+// import AttributeModal from "../Shared_components/AttributeModal";
+// import CustomMessageModal from "../Shared_components/CustomMessageModal";
+
+// import { createProduct, resetCreateSuccess } from "../ADMIN_REDUX_MANAGEMENT/adminProductsSlice";
+
+// const ProductModal = ({
+//   onClose,
+//   brands,
+//   setBrands,
+//   formatIndianRupee,
+//   getDiscountPercentage,
+// }) => {
+//   const dispatch = useDispatch();
+
+//   const { createLoading, createError, createSuccess } = useSelector(
+//     (state) => state.adminProducts
+//   );
+//   // ✅ Categories come from Redux — real MongoDB _id values
+//   const { categories } = useSelector((state) => state.categories);
+
+//   // ── Auto-close on success ────────────────────────────────────
+//   useEffect(() => {
+//     if (createSuccess) {
+//       dispatch(resetCreateSuccess());
+//       resetForm();
+//       onClose();
+//     }
+//   }, [createSuccess]);
+
+//   // ── Form state ───────────────────────────────────────────────
+//   const [formData, setFormData] = useState({
+//     name: "",
+//     title: "",
+//     description: "",
+//     brand: "Generic",
+//     category: "",
+//     price: { base: "", sale: "", costPrice: "" },
+//     inventory: { quantity: 0, lowStockThreshold: 5, trackInventory: true },
+//     shipping: { weight: 0, dimensions: { length: "", width: "", height: "" } },
+//     soldInfo: { enabled: false, count: 0 },
+//     fomo: {
+//       enabled: false,
+//       type: "viewing_now",
+//       viewingNow: 0,
+//       productLeft: 0,
+//       customMessage: "",
+//     },
+//     images: [],
+//     attributes: [],
+//     variants: [],
+//     isFeatured: false,
+//     status: "draft",
+//   });
+
+//   // ── Modal visibility ─────────────────────────────────────────
+//   const [showCategoryModal, setShowCategoryModal] = useState(false);
+//   const [showBrandModal, setShowBrandModal] = useState(false);
+//   const [showCustomMessageModal, setShowCustomMessageModal] = useState(false);
+//   const [showAttributeModal, setShowAttributeModal] = useState(false);
+//   const [showVariantModal, setShowVariantModal] = useState(false);
+
+//   // ── Variant state ────────────────────────────────────────────
+//   const [variantForm, setVariantForm] = useState(defaultVariant);
+//   const [editingVariantIndex, setEditingVariantIndex] = useState(null);
+
+//   const openAddVariant = () => {
+//     setVariantForm(defaultVariant);
+//     setEditingVariantIndex(null);
+//     setShowVariantModal(true);
+//   };
+
+//   const openEditVariant = (index) => {
+//     const v = formData.variants[index];
+//     setVariantForm({
+//       attributes: v.attributes.length > 0 ? v.attributes : [{ key: "", value: "" }],
+//       price: { base: v.price.base, sale: v.price.sale ?? "" },
+//       inventory: { ...v.inventory },
+//       images: v.images || [],
+//       isActive: v.isActive,
+//     });
+//     setEditingVariantIndex(index);
+//     setShowVariantModal(true);
+//   };
+
+//   const handleVariantSave = (variantToSave) => {
+//     if (editingVariantIndex !== null) {
+//       setFormData((prev) => ({
+//         ...prev,
+//         variants: prev.variants.map((v, i) =>
+//           i === editingVariantIndex ? variantToSave : v
+//         ),
+//       }));
+//     } else {
+//       setFormData((prev) => ({
+//         ...prev,
+//         variants: [...prev.variants, variantToSave],
+//       }));
+//     }
+//     setShowVariantModal(false);
+//     setVariantForm(defaultVariant);
+//     setEditingVariantIndex(null);
+//   };
+
+//   const handleVariantModalClose = () => {
+//     setShowVariantModal(false);
+//     setVariantForm(defaultVariant);
+//     setEditingVariantIndex(null);
+//   };
+
+//   const deleteVariant = (index) =>
+//     setFormData((prev) => ({
+//       ...prev,
+//       variants: prev.variants.filter((_, i) => i !== index),
+//     }));
+
+//   const toggleVariantActive = (index) =>
+//     setFormData((prev) => ({
+//       ...prev,
+//       variants: prev.variants.map((v, i) =>
+//         i === index ? { ...v, isActive: !v.isActive } : v
+//       ),
+//     }));
+
+//   const handleAddAttribute = (newAttr) =>
+//     setFormData((prev) => ({
+//       ...prev,
+//       attributes: [...prev.attributes, newAttr],
+//     }));
+
+//   const removeAttribute = (attributeId) =>
+//     setFormData((prev) => ({
+//       ...prev,
+//       attributes: prev.attributes.filter((attr) => attr.id !== attributeId),
+//     }));
+
+//   const handleCustomMessageSave = (message) =>
+//     setFormData((prev) => ({
+//       ...prev,
+//       fomo: { ...prev.fomo, customMessage: message },
+//     }));
+
+//   const resetForm = () =>
+//     setFormData({
+//       name: "",
+//       title: "",
+//       description: "",
+//       brand: "Generic",
+//       category: "",
+//       price: { base: "", sale: "", costPrice: "" },
+//       inventory: { quantity: 0, lowStockThreshold: 5, trackInventory: true },
+//       shipping: { weight: "", dimensions: { length: "", width: "", height: "" } },
+//       soldInfo: { enabled: false, count: 0 },
+//       fomo: {
+//         enabled: false,
+//         type: "viewing_now",
+//         viewingNow: 0,
+//         productLeft: 0,
+//         customMessage: "",
+//       },
+//       images: [],
+//       attributes: [],
+//       variants: [],
+//       isFeatured: false,
+//       status: "draft",
+//     });
+
+//   // ── Submit ───────────────────────────────────────────────────
+//   const handleSubmit = (e) => {
+//     e.preventDefault();
+//     if (!formData.name.trim()) { alert("Product name is required"); return; }
+//     if (!formData.title.trim()) { alert("Product title is required"); return; }
+//     if (!formData.category) { alert("Please select a category"); return; }
+//     // if (formData.variants.length === 0) { alert("At least one variant is required"); return; }
+//     dispatch(createProduct(formData));
+//   };
+
+//   return (
+//     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 z-50 overflow-y-auto">
+//       <div className="bg-white rounded-2xl max-w-6xl w-full my-8 shadow-2xl">
+
+//         {/* Header */}
+//         <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
+//           <div>
+//             <h2 className="text-2xl font-bold text-gray-900">Create New Product</h2>
+//             <p className="text-sm text-gray-500 mt-1">Fill in the details to create something amazing</p>
+//           </div>
+//           <button type="button" onClick={() => { resetForm(); onClose(); }} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+//             <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+//             </svg>
+//           </button>
+//         </div>
+
+//         {/* Error Banner */}
+//         {createError && (
+//           <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+//             <p className="text-red-700 text-sm font-medium">❌ {createError}</p>
+//           </div>
+//         )}
+
+//         <form onSubmit={handleSubmit} className="p-6">
+//           <ProductFormBody
+//             formData={formData}
+//             setFormData={setFormData}
+//             categories={categories}       // ✅ real categories from Redux
+//             brands={brands}
+//             onOpenCategoryModal={() => setShowCategoryModal(true)}
+//             onOpenBrandModal={() => setShowBrandModal(true)}
+//             onOpenAttributeModal={() => setShowAttributeModal(true)}
+//             onOpenCustomMessage={() => setShowCustomMessageModal(true)}
+//             onOpenAddVariant={openAddVariant}
+//             onOpenEditVariant={openEditVariant}
+//             onRemoveAttribute={removeAttribute}
+//             onDeleteVariant={deleteVariant}
+//             onToggleVariantActive={toggleVariantActive}
+//             formatIndianRupee={formatIndianRupee}
+//             getDiscountPercentage={getDiscountPercentage}
+//           />
+
+//           <div className="flex gap-3 mt-6">
+//             <button type="button" onClick={() => { resetForm(); onClose(); }} disabled={createLoading}
+//               className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50">
+//               Cancel
+//             </button>
+//             <button type="submit" disabled={createLoading}
+//               className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+//               {createLoading ? (
+//                 <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Creating...</>
+//               ) : "Create Product"}
+//             </button>
+//           </div>
+//         </form>
+//       </div>
+
+//       {/* ── Shared Modals ── */}
+//       {showCategoryModal && (
+//         <CategoryModal
+//           onSelect={(catId) => setFormData((prev) => ({ ...prev, category: catId }))}
+//           onClose={() => setShowCategoryModal(false)}
+//         />
+//       )}
+//       {showBrandModal && (
+//         <BrandModal brands={brands} setBrands={setBrands}
+//           onSelect={(brand) => setFormData((prev) => ({ ...prev, brand }))}
+//           onClose={() => setShowBrandModal(false)} />
+//       )}
+//       {showAttributeModal && (
+//         <AttributeModal onAdd={handleAddAttribute} onClose={() => setShowAttributeModal(false)} />
+//       )}
+//       {showCustomMessageModal && (
+//         <CustomMessageModal currentMessage={formData.fomo.customMessage}
+//           onSave={handleCustomMessageSave} onClose={() => setShowCustomMessageModal(false)} />
+//       )}
+//       {showVariantModal && (
+//         <VariantModal variantForm={variantForm} setVariantForm={setVariantForm}
+//           editingVariantIndex={editingVariantIndex} onSave={handleVariantSave}
+//           onClose={handleVariantModalClose} getDiscountPercentage={getDiscountPercentage} />
+//       )}
+//     </div>
+//   );
+// };
+
+// export default ProductModal;
+
+// CODE IS WORKING BUT UPPER CODE HAVE API INTEGRATE 
+// import React, { useState } from 'react';
+// import ProductFormBody from '../Shared_components/ProductFormBody';
+// import VariantModal, { defaultVariant } from '../Shared_components/VariantModal';
+// import CategoryModal from '../Shared_components/CategoryModal';
+// import BrandModal from '../Shared_components/BrandModal';
+// import AttributeModal from '../Shared_components/AttributeModal';
+// import CustomMessageModal from '../Shared_components/CustomMessageModal';
+
+// const ProductModal = ({
+//   onClose,
+//   onSave,
+//   categories,
+//   brands,
+//   setCategories,
+//   setBrands,
+//   formatIndianRupee,
+//   getDiscountPercentage
+// }) => {
+
+//   // ================= FORM STATE =================
+//   const [formData, setFormData] = useState({
+//     name: '',
+//     title: '',
+//     description: '',
+//     brand: 'Generic',
+//     category: '',
+//     price: {
+//       base: '',
+//       sale: '',
+//       costPrice: ''
+//     },
+//     inventory: {
+//       quantity: 0,
+//       lowStockThreshold: 5,
+//       trackInventory: true
+//     },
+//     shipping: {
+//       weight: 0,
+//       dimensions: {
+//         length: '',
+//         width: '',
+//         height: ''
+//       }
+//     },
+//     soldInfo: {
+//       enabled: false,
+//       count: 0
+//     },
+//     fomo: {
+//       enabled: false,
+//       type: 'viewing_now',
+//       viewingNow: 0,
+//       productLeft: 0,
+//       customMessage: ''
+//     },
+//     images: [],
+//     attributes: [],
+//     variants: [],
+//     isFeatured: false,
+//     status: 'draft'
+//   });
+
+//   // ================= MODAL VISIBILITY STATES =================
+//   const [showCategoryModal, setShowCategoryModal] = useState(false);
+//   const [showBrandModal, setShowBrandModal] = useState(false);
+//   const [showCustomMessageModal, setShowCustomMessageModal] = useState(false);
+//   const [showAttributeModal, setShowAttributeModal] = useState(false);
+//   const [showVariantModal, setShowVariantModal] = useState(false);
+
+//   // ================= VARIANT STATE =================
+//   const [variantForm, setVariantForm] = useState(defaultVariant);
+//   const [editingVariantIndex, setEditingVariantIndex] = useState(null);
+
+//   // ================= VARIANT HANDLERS =================
+//   const openAddVariant = () => {
+//     setVariantForm(defaultVariant);
+//     setEditingVariantIndex(null);
+//     setShowVariantModal(true);
+//   };
+
+//   const openEditVariant = (index) => {
+//     const v = formData.variants[index];
+//     setVariantForm({
+//       attributes: v.attributes.length > 0 ? v.attributes : [{ key: '', value: '' }],
+//       price: { base: v.price.base, sale: v.price.sale ?? '' },
+//       inventory: { ...v.inventory },
+//       images: v.images || [],
+//       isActive: v.isActive
+//     });
+//     setEditingVariantIndex(index);
+//     setShowVariantModal(true);
+//   };
+
+//   const handleVariantSave = (variantToSave) => {
+//     if (editingVariantIndex !== null) {
+//       setFormData(prev => ({
+//         ...prev,
+//         variants: prev.variants.map((v, i) => i === editingVariantIndex ? variantToSave : v)
+//       }));
+//     } else {
+//       setFormData(prev => ({
+//         ...prev,
+//         variants: [...prev.variants, variantToSave]
+//       }));
+//     }
+//     setShowVariantModal(false);
+//     setVariantForm(defaultVariant);
+//     setEditingVariantIndex(null);
+//   };
+
+//   const handleVariantModalClose = () => {
+//     setShowVariantModal(false);
+//     setVariantForm(defaultVariant);
+//     setEditingVariantIndex(null);
+//   };
+
+//   const deleteVariant = (index) => {
+//     setFormData(prev => ({
+//       ...prev,
+//       variants: prev.variants.filter((_, i) => i !== index)
+//     }));
+//   };
+
+//   const toggleVariantActive = (index) => {
+//     setFormData(prev => ({
+//       ...prev,
+//       variants: prev.variants.map((v, i) =>
+//         i === index ? { ...v, isActive: !v.isActive } : v
+//       )
+//     }));
+//   };
+
+//   // ================= ATTRIBUTE HANDLERS =================
+//   const handleAddAttribute = (newAttr) => {
+//     setFormData(prev => ({
+//       ...prev,
+//       attributes: [...prev.attributes, newAttr]
+//     }));
+//   };
+
+//   const removeAttribute = (attributeId) => {
+//     setFormData(prev => ({
+//       ...prev,
+//       attributes: prev.attributes.filter(attr => attr.id !== attributeId)
+//     }));
+//   };
+
+//   // ================= CUSTOM MESSAGE HANDLER =================
+//   const handleCustomMessageSave = (message) => {
+//     setFormData(prev => ({
+//       ...prev,
+//       fomo: { ...prev.fomo, customMessage: message }
+//     }));
+//   };
+
+//   // ================= RESET =================
+//   const resetForm = () => {
+//     setFormData({
+//       name: '',
+//       title: '',
+//       description: '',
+//       brand: 'Generic',
+//       category: '',
+//       price: { base: '', sale: '', costPrice: '' },
+//       inventory: { quantity: 0, lowStockThreshold: 5, trackInventory: true },
+//       shipping: { weight: '', dimensions: { length: '', width: '', height: '' } },
+//       soldInfo: { enabled: false, count: 0 },
+//       fomo: { enabled: false, type: 'viewing_now', viewingNow: 0, productLeft: 0, customMessage: '' },
+//       images: [],
+//       attributes: [],
+//       variants: [],
+//       isFeatured: false,
+//       status: 'draft'
+//     });
+//   };
+
+//   // ================= SUBMIT =================
+//   const handleSubmit = (e) => {
+//     e.preventDefault();
+
+//     const categoryObj = categories.find(c => c._id === formData.category);
+
+//     const newProduct = {
+//       ...formData,
+//       _id: Date.now().toString(),
+//       category: categoryObj,
+//       createdAt: new Date().toISOString(),
+//       inventory: { ...formData.inventory },
+//       shipping: { ...formData.shipping, dimensions: { ...formData.shipping.dimensions } },
+//       soldInfo: { ...formData.soldInfo },
+//       fomo: { ...formData.fomo },
+//       variants: formData.variants.map(v => ({ ...v, attributes: [...v.attributes], images: [...v.images] }))
+//     };
+
+//     onSave(newProduct);
+//     console.log('Product saved:', newProduct);
+//     resetForm();
+//     onClose();
+//   };
+
+//   // ============================================================
+//   return (
+//     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 z-50 overflow-y-auto">
+//       <div className="bg-white rounded-2xl max-w-6xl w-full my-8 shadow-2xl">
+
+//         {/* Modal Header */}
+//         <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
+//           <div>
+//             <h2 className="text-2xl font-bold text-gray-900">Create New Product</h2>
+//             <p className="text-sm text-gray-500 mt-1">Fill in the details to create something amazing</p>
+//           </div>
+//           <button
+//             onClick={() => { resetForm(); onClose(); }}
+//             className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+//           >
+//             <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+//             </svg>
+//           </button>
+//         </div>
+
+//         {/* Modal Body */}
+//         <form onSubmit={handleSubmit} className="p-6">
+
+//           {/* All form sections rendered by ProductFormBody */}
+//           <ProductFormBody
+//             formData={formData}
+//             setFormData={setFormData}
+//             categories={categories}
+//             brands={brands}
+//             onOpenCategoryModal={() => setShowCategoryModal(true)}
+//             onOpenBrandModal={() => setShowBrandModal(true)}
+//             onOpenAttributeModal={() => setShowAttributeModal(true)}
+//             onOpenCustomMessage={() => setShowCustomMessageModal(true)}
+//             onOpenAddVariant={openAddVariant}
+//             onOpenEditVariant={openEditVariant}
+//             onRemoveAttribute={removeAttribute}
+//             onDeleteVariant={deleteVariant}
+//             onToggleVariantActive={toggleVariantActive}
+//             formatIndianRupee={formatIndianRupee}
+//             getDiscountPercentage={getDiscountPercentage}
+//           />
+
+//           {/* Submit Buttons — inside form, after ProductFormBody */}
+//           <div className="flex gap-3 mt-6">
+//             <button
+//               type="button"
+//               onClick={() => { resetForm(); onClose(); }}
+//               className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50"
+//             >
+//               Cancel
+//             </button>
+//             <button
+//               type="submit"
+//               className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700"
+//             >
+//               Create
+//             </button>
+//           </div>
+
+//         </form>
+//       </div>
+
+//       {/* ================= SHARED MODALS ================= */}
+
+//       {showCategoryModal && (
+//         <CategoryModal
+//           categories={categories}
+//           setCategories={setCategories}
+//           onSelect={(catId) => setFormData(prev => ({ ...prev, category: catId }))}
+//           onClose={() => setShowCategoryModal(false)}
+//         />
+//       )}
+
+//       {showBrandModal && (
+//         <BrandModal
+//           brands={brands}
+//           setBrands={setBrands}
+//           onSelect={(brand) => setFormData(prev => ({ ...prev, brand }))}
+//           onClose={() => setShowBrandModal(false)}
+//         />
+//       )}
+
+//       {showAttributeModal && (
+//         <AttributeModal
+//           onAdd={handleAddAttribute}
+//           onClose={() => setShowAttributeModal(false)}
+//         />
+//       )}
+
+//       {showCustomMessageModal && (
+//         <CustomMessageModal
+//           currentMessage={formData.fomo.customMessage}
+//           onSave={handleCustomMessageSave}
+//           onClose={() => setShowCustomMessageModal(false)}
+//         />
+//       )}
+
+//       {showVariantModal && (
+//         <VariantModal
+//           variantForm={variantForm}
+//           setVariantForm={setVariantForm}
+//           editingVariantIndex={editingVariantIndex}
+//           onSave={handleVariantSave}
+//           onClose={handleVariantModalClose}
+//           getDiscountPercentage={getDiscountPercentage}
+//         />
+//       )}
+
+//     </div>
+//   );
+// };
+
+// export default ProductModal;
+
+
+// This component is a comprehensive product creation/editing modal for an e-commerce admin panel ITS TO BIG CODE.************************************************************************************************
 // import React, { useState } from 'react';
 
 // const ProductModal = ({
