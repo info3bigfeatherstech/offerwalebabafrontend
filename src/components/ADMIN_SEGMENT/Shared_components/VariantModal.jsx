@@ -1,8 +1,17 @@
 // Shared_components/VariantModal.jsx
+//
+// Used for:
+//   • Adding new variants (variants[1+]) — empty form
+//   • Editing existing variants[1+] — prefilled via openEditVariant() in EditProductModal
+//
+// variants[0] is edited INLINE in ProductFormBody — this modal is NOT used for it
+//
+// onSave(variantData) → called by Save button → handled in EditProductModal:
+//   • editingVariantIndex !== null → updateVariantByBarcode (PUT /:slug + barcode)
+//   • editingVariantIndex === null → addVariantToProduct (POST /:slug/variants)
 
 import React, { useState } from 'react';
 
-// barcode is REQUIRED by backend — unique number per variant globally
 export const defaultVariant = {
   attributes:  [{ key: '', value: '' }],
   price:       { base: '', sale: '' },
@@ -81,30 +90,31 @@ const VariantModal = ({
       alert('Barcode must be a valid number (e.g., 1234567890128)');
       return;
     }
-
-    const validAttributes = variantForm.attributes.filter(a => a.key.trim() && a.value.trim());
-    if (validAttributes.length === 0) {
-      alert('Please add at least one attribute (e.g., Color: Blue)');
-      return;
-    }
     if (!variantForm.price.base) {
       alert('Please enter base price for this variant');
       return;
     }
 
     const base = parseFloat(variantForm.price.base) || 0;
-    const sale = (variantForm.price.sale !== '' && variantForm.price.sale != null)
+    const sale = (variantForm.price.sale !== '' && variantForm.price.sale != null && variantForm.price.sale !== 'null')
       ? parseFloat(variantForm.price.sale)
       : null;
 
+    if (base <= 0) {
+      alert('Base price must be greater than 0');
+      return;
+    }
     if (sale !== null && sale >= base) {
       alert('Sale price must be less than base price');
       return;
     }
 
+    // attributes: optional — filter out empty rows, send whatever is filled
+    const validAttributes = variantForm.attributes.filter(a => a.key.trim() && a.value.trim());
+
     onSave({
       ...variantForm,
-      barcode:    barcodeVal,    // string — slice will Number() it
+      barcode:    barcodeVal,
       attributes: validAttributes,
       price:      { base, sale },
     });
@@ -122,7 +132,7 @@ const VariantModal = ({
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">
               {isEditing
-                ? 'Update price & inventory — barcode is locked after creation'
+                ? 'Update price, inventory & attributes — barcode is locked after creation'
                 : 'Set barcode, attributes, price & stock'}
             </p>
           </div>
@@ -135,7 +145,7 @@ const VariantModal = ({
 
         <div className="p-5 space-y-5">
 
-          {/* ── BARCODE (required) ── */}
+          {/* ── BARCODE ── */}
           <div>
             <label className="text-sm font-semibold text-gray-800 mb-2 block">
               Variant Barcode
@@ -146,7 +156,6 @@ const VariantModal = ({
               }
             </label>
             <div className="relative">
-              {/* barcode icon */}
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -170,11 +179,9 @@ const VariantModal = ({
                 maxLength={20}
               />
               {!isEditing && (variantForm.barcode ?? '').toString().trim() && (
-                <button
-                  type="button"
+                <button type="button"
                   onClick={() => setVariantForm(prev => ({ ...prev, barcode: '' }))}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
-                >
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -191,14 +198,14 @@ const VariantModal = ({
             ) : null}
           </div>
 
-          {/* ── Attributes ── */}
+          {/* ── Attributes (optional) ── */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-semibold text-gray-800">
-                Variant Attributes <span className="text-red-400">*</span>
+                Variant Attributes <span className="text-gray-400 font-normal text-xs ml-1">(optional)</span>
               </label>
               <button type="button" onClick={addVariantAttribute} className="text-xs px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 font-medium">
-                + Add More
+                + Add
               </button>
             </div>
             <div className="space-y-2">
@@ -223,6 +230,7 @@ const VariantModal = ({
                 </div>
               ))}
             </div>
+            <p className="text-xs text-gray-400 mt-1.5">Empty attribute rows are ignored on save</p>
           </div>
 
           {/* ── Pricing ── */}
@@ -240,7 +248,7 @@ const VariantModal = ({
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Sale Price (₹) <span className="text-gray-400">(optional)</span></label>
-                <input type="number" value={variantForm.price.sale}
+                <input type="number" value={variantForm.price.sale ?? ''}
                   onChange={(e) => setVariantForm(prev => ({ ...prev, price: { ...prev.price, sale: e.target.value } }))}
                   className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-400 focus:bg-white"
                   placeholder="79000" />
@@ -248,7 +256,7 @@ const VariantModal = ({
             </div>
             {variantForm.price.base && variantForm.price.sale &&
               Number(variantForm.price.sale) < Number(variantForm.price.base) && (
-              <div className="mt-2 flex items-center gap-2 text-xs text-green-700 bg-green-50 px-3 py-1.5 rounded-lg">
+              <div className="mt-2 flex items-center gap-2 text-xs text-green-700 bg-green-50 px-3 py-1.5 rounded-lg border border-green-200">
                 <span>💰</span>
                 <span>{getDiscountPercentage(variantForm.price.base, variantForm.price.sale)}% discount applied</span>
               </div>
@@ -304,15 +312,15 @@ const VariantModal = ({
             {variantForm.images.length > 0 && (
               <div className="grid grid-cols-4 gap-2">
                 {variantForm.images.map((image) => (
-                  <div key={image.id} className={`relative rounded-lg overflow-hidden border-2 ${image.isMain ? 'border-indigo-500' : 'border-gray-200'}`}>
+                  <div key={image.id || image.url} className={`relative rounded-lg overflow-hidden border-2 ${image.isMain ? 'border-indigo-500' : 'border-gray-200'}`}>
                     <img src={image.url} alt="" className="w-full h-16 object-cover" />
                     <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 transition-all flex items-center justify-center gap-1 opacity-0 hover:opacity-100">
                       {!image.isMain && (
-                        <button type="button" onClick={() => setVariantMainImage(image.id)} className="p-1 bg-white rounded-full text-indigo-600">
+                        <button type="button" onClick={() => setVariantMainImage(image.id || image.url)} className="p-1 bg-white rounded-full text-indigo-600">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
                         </button>
                       )}
-                      <button type="button" onClick={() => removeVariantImage(image.id)} className="p-1 bg-white rounded-full text-red-500">
+                      <button type="button" onClick={() => removeVariantImage(image.id || image.url)} className="p-1 bg-white rounded-full text-red-500">
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
                     </div>
@@ -324,7 +332,7 @@ const VariantModal = ({
           </div>
 
           {/* ── Active status ── */}
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
             <div>
               <span className="text-sm font-medium text-gray-700">Variant Active</span>
               <p className="text-xs text-gray-400">Inactive variants won't show on website</p>
@@ -347,14 +355,14 @@ const VariantModal = ({
           )}
           <div className="flex justify-end gap-3">
             <button type="button" onClick={onClose} disabled={isSaving}
-              className="px-5 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 disabled:opacity-60">
+              className="px-5 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 disabled:opacity-60 transition-colors">
               Cancel
             </button>
             <button type="button" onClick={handleSave} disabled={isSaving}
-              className="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-lg hover:from-indigo-600 hover:to-purple-700 disabled:opacity-60 flex items-center gap-2">
+              className="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-600 hover:to-purple-700 disabled:opacity-60 flex items-center gap-2 transition-all">
               {isSaving
                 ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />{isEditing ? "Updating..." : "Saving..."}</>
-                : isEditing ? "Update Variant" : "Save Variant"}
+                : isEditing ? "✓ Update Variant" : "✓ Save Variant"}
             </button>
           </div>
         </div>

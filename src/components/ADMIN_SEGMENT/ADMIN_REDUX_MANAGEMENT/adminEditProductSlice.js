@@ -1,0 +1,582 @@
+// ADMIN_REDUX_MANAGEMENT/adminEditProductSlice.js
+//
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  BACKEND: ONE ROUTE FOR ALL PRODUCT + VARIANT UPDATES               ║
+// ║  PUT /admin/products/:slug                                           ║
+// ║                                                                      ║
+// ║  Controller routing logic:                                           ║
+// ║  • req.body.barcode present → updates THAT variant by barcode       ║
+// ║    (price, inventory, attributes, isActive, images)                  ║
+// ║  • req.body.barcode absent  → updates product fields only            ║
+// ║    (name, title, desc, category, brand, status, shipping, etc.)      ║
+// ║                                                                      ║
+// ║  Other routes:                                                       ║
+// ║  POST   /:slug/variants   → add new variant                          ║
+// ║  DELETE /:slug            → soft delete product                      ║
+// ║  DELETE /:slug/variants   → delete variant { barcode }               ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import axiosInstance from "../../../SERVICES/axiosInstance";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+const toNum = (raw) => {
+  if (raw === "" || raw === null || raw === undefined) return undefined;
+  const n = parseFloat(raw);
+  return isNaN(n) ? undefined : n;
+};
+
+const buildPriceObj = (price, label = "Base price") => {
+  const base = toNum(price?.base);
+  if (!base) throw new Error(`${label} is required and must be greater than 0`);
+  const saleRaw = toNum(price?.sale);
+  const sale = (price?.sale !== "" && price?.sale != null && saleRaw !== undefined) ? saleRaw : null;
+  return { base, sale };
+};
+
+const buildInventoryObj = (inv) => ({
+  quantity:          parseInt(inv?.quantity)          || 0,
+  lowStockThreshold: parseInt(inv?.lowStockThreshold) || 5,
+  trackInventory:    inv?.trackInventory !== false,
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// updateProduct — PUT /:slug  (NO barcode → product fields only)
+// Updates: name, title, description, category, brand, status,
+//          isFeatured, shipping, soldInfo, fomo, attributes, images
+// Does NOT update variants — backend does `delete updates.variants`
+// ─────────────────────────────────────────────────────────────────────────────
+export const updateProduct = createAsyncThunk(
+  "adminEditProduct/update",
+  async ({ slug, formData: pd }, { rejectWithValue }) => {
+    try {
+      const fd = new FormData();
+
+      if (pd.name)                     fd.append("name",        pd.name);
+      if (pd.title)                    fd.append("title",       pd.title);
+      if (pd.description)              fd.append("description", pd.description);
+      if (pd.category)                 fd.append("category",    pd.category);
+      if (pd.brand)                    fd.append("brand",       pd.brand);
+      if (pd.status)                   fd.append("status",      pd.status);
+      if (pd.isFeatured !== undefined) fd.append("isFeatured",  String(pd.isFeatured));
+      if (pd.shipping)                 fd.append("shipping",    JSON.stringify(pd.shipping));
+      if (pd.soldInfo)                 fd.append("soldInfo",    JSON.stringify(pd.soldInfo));
+      if (pd.fomo)                     fd.append("fomo",        JSON.stringify(pd.fomo));
+      if (pd.attributes?.length)       fd.append("attributes",  JSON.stringify(pd.attributes));
+
+      if (pd.images?.length) {
+        pd.images.forEach((img) => {
+          if (img.file instanceof File) fd.append("images", img.file);
+        });
+      }
+
+      const res = await axiosInstance.put(`/admin/products/${slug}`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      if (res.data.success) return { product: res.data.product };
+      return rejectWithValue(res.data.message || "Update failed");
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// updateVariantByBarcode — PUT /:slug  WITH barcode in body
+// Controller sees barcode → routes to variant update branch
+// Updates: price, inventory, attributes, isActive, variantImages
+// Works for variants[0], variants[1], variants[2]... ALL of them
+// ─────────────────────────────────────────────────────────────────────────────
+export const updateVariantByBarcode = createAsyncThunk(
+  "adminVariants/updateByBarcode",
+  async ({ slug, barcode, price, inventory, attributes, isActive, images }, { rejectWithValue }) => {
+    try {
+      const fd = new FormData();
+
+      // barcode MUST be sent — this is the key that switches the controller to variant mode
+      fd.append("barcode", String(barcode));
+
+      if (price !== undefined) {
+        let pricePayload;
+        try { pricePayload = buildPriceObj(price, "Variant base price"); }
+        catch (e) { return rejectWithValue(e.message); }
+        fd.append("price", JSON.stringify(pricePayload));
+      }
+
+      if (inventory !== undefined) {
+        fd.append("inventory", JSON.stringify(buildInventoryObj(inventory)));
+      }
+
+      if (attributes !== undefined) {
+        fd.append("attributes", JSON.stringify(
+          Array.isArray(attributes) ? attributes.filter((a) => a.key && a.value) : []
+        ));
+      }
+
+      if (isActive !== undefined) {
+        fd.append("isActive", String(isActive));
+      }
+
+      if (images?.length) {
+        images.forEach((img) => {
+          if (img?.file instanceof File) fd.append("variantImages", img.file);
+        });
+      }
+
+      // SAME ROUTE as updateProduct — barcode in body tells controller it's a variant update
+      const res = await axiosInstance.put(`/admin/products/${slug}`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      if (res.data.success) return { product: res.data.product };
+      return rejectWithValue(res.data.message || "Variant update failed");
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// addVariantToProduct — POST /:slug/variants
+// ─────────────────────────────────────────────────────────────────────────────
+export const addVariantToProduct = createAsyncThunk(
+  "adminVariants/add",
+  async ({ slug, variantData }, { rejectWithValue }) => {
+    try {
+      const fd = new FormData();
+
+      fd.append("barcode", String(variantData.barcode));
+      fd.append("attributes", JSON.stringify(
+        Array.isArray(variantData.attributes)
+          ? variantData.attributes.filter((a) => a.key && a.value)
+          : []
+      ));
+
+      let pricePayload;
+      try { pricePayload = buildPriceObj(variantData.price, "Variant base price"); }
+      catch (e) { return rejectWithValue(e.message); }
+
+      fd.append("price",     JSON.stringify(pricePayload));
+      fd.append("inventory", JSON.stringify(buildInventoryObj(variantData.inventory)));
+      fd.append("isActive",  variantData.isActive !== false ? "true" : "false");
+
+      if (variantData.images?.length) {
+        variantData.images.forEach((img) => {
+          if (img?.file instanceof File) fd.append("variantImages", img.file);
+        });
+      }
+
+      const res = await axiosInstance.post(`/admin/products/${slug}/variants`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      if (res.data.success) return { product: res.data.product };
+      return rejectWithValue(res.data.message || "Add variant failed");
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// softDeleteProduct — DELETE /:slug
+// ─────────────────────────────────────────────────────────────────────────────
+export const softDeleteProduct = createAsyncThunk(
+  "adminEditProduct/softDelete",
+  async (slug, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.delete(`/admin/products/${slug}`);
+      if (res.data.success) return { slug, product: res.data.product };
+      return rejectWithValue(res.data.message || "Archive failed");
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// toggleFeaturedProduct — PUT /:slug  { isFeatured }
+// ─────────────────────────────────────────────────────────────────────────────
+export const toggleFeaturedProduct = createAsyncThunk(
+  "adminEditProduct/toggleFeatured",
+  async ({ product }, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.put(`/admin/products/${product.slug}`, {
+        isFeatured: !product.isFeatured,
+      });
+      if (res.data.success) return { product: res.data.product };
+      return rejectWithValue(res.data.message || "Toggle featured failed");
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// changeProductStatus — PUT /:slug  { status }
+// ─────────────────────────────────────────────────────────────────────────────
+export const changeProductStatus = createAsyncThunk(
+  "adminEditProduct/changeStatus",
+  async ({ product, status }, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.put(`/admin/products/${product.slug}`, { status });
+      if (res.data.success) return { product: res.data.product };
+      return rejectWithValue(res.data.message || "Status change failed");
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// deleteVariantFromProduct — DELETE /:slug/variants  body: { barcode }
+// ─────────────────────────────────────────────────────────────────────────────
+export const deleteVariantFromProduct = createAsyncThunk(
+  "adminVariants/delete",
+  async ({ slug, barcode }, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.delete(`/admin/products/${slug}/variants`, {
+        data: { barcode },
+      });
+      if (res.data.success) return { product: res.data.product };
+      return rejectWithValue(res.data.message || "Delete variant failed");
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SLICE
+// ─────────────────────────────────────────────────────────────────────────────
+const adminEditProductSlice = createSlice({
+  name: "adminEditProduct",
+  initialState: {
+    updateLoading:  false,
+    updateError:    null,
+    updateSuccess:  false,
+    actionLoading:  false,
+    actionError:    null,
+    variantLoading: false,
+    variantError:   null,
+    deleteLoading:  false,
+    deleteError:    null,
+    deleteSuccess:  false,
+  },
+  reducers: {
+    resetUpdateSuccess: (s) => { s.updateSuccess = false; },
+    resetUpdateError:   (s) => { s.updateError   = null;  },
+    resetActionError:   (s) => { s.actionError   = null;  },
+    resetVariantError:  (s) => { s.variantError  = null;  },
+    resetDeleteSuccess: (s) => { s.deleteSuccess = false; },
+    clearErrors: (s) => {
+      s.updateError  = null;
+      s.actionError  = null;
+      s.variantError = null;
+      s.deleteError  = null;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(updateProduct.pending,   (s) => { s.updateLoading = true;  s.updateError = null; s.updateSuccess = false; })
+      .addCase(updateProduct.fulfilled, (s) => { s.updateLoading = false; s.updateSuccess = true; })
+      .addCase(updateProduct.rejected,  (s, { payload }) => { s.updateLoading = false; s.updateError = payload; })
+
+      .addCase(softDeleteProduct.pending,   (s) => { s.deleteLoading = true;  s.deleteError = null; s.deleteSuccess = false; })
+      .addCase(softDeleteProduct.fulfilled, (s) => { s.deleteLoading = false; s.deleteSuccess = true; })
+      .addCase(softDeleteProduct.rejected,  (s, { payload }) => { s.deleteLoading = false; s.deleteError = payload; })
+
+      .addCase(toggleFeaturedProduct.pending,   (s) => { s.actionLoading = true;  s.actionError = null; })
+      .addCase(toggleFeaturedProduct.fulfilled, (s) => { s.actionLoading = false; })
+      .addCase(toggleFeaturedProduct.rejected,  (s, { payload }) => { s.actionLoading = false; s.actionError = payload; })
+
+      .addCase(changeProductStatus.pending,   (s) => { s.actionLoading = true;  s.actionError = null; })
+      .addCase(changeProductStatus.fulfilled, (s) => { s.actionLoading = false; })
+      .addCase(changeProductStatus.rejected,  (s, { payload }) => { s.actionLoading = false; s.actionError = payload; })
+
+      .addCase(addVariantToProduct.pending,   (s) => { s.variantLoading = true;  s.variantError = null; })
+      .addCase(addVariantToProduct.fulfilled, (s) => { s.variantLoading = false; })
+      .addCase(addVariantToProduct.rejected,  (s, { payload }) => { s.variantLoading = false; s.variantError = payload; })
+
+      .addCase(updateVariantByBarcode.pending,   (s) => { s.variantLoading = true;  s.variantError = null; })
+      .addCase(updateVariantByBarcode.fulfilled, (s) => { s.variantLoading = false; })
+      .addCase(updateVariantByBarcode.rejected,  (s, { payload }) => { s.variantLoading = false; s.variantError = payload; })
+
+      .addCase(deleteVariantFromProduct.pending,   (s) => { s.variantLoading = true;  s.variantError = null; })
+      .addCase(deleteVariantFromProduct.fulfilled, (s) => { s.variantLoading = false; })
+      .addCase(deleteVariantFromProduct.rejected,  (s, { payload }) => { s.variantLoading = false; s.variantError = payload; });
+  },
+});
+
+export const {
+  resetUpdateSuccess, resetUpdateError, resetActionError,
+  resetVariantError,  resetDeleteSuccess, clearErrors,
+} = adminEditProductSlice.actions;
+
+export default adminEditProductSlice.reducer;
+
+// // ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminEditProductSlice.js
+
+// import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+// import axiosInstance from "../../../SERVICES/axiosInstance";
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // HELPERS
+// // ─────────────────────────────────────────────────────────────────────────────
+// const buildProductFormData = (productData) => {
+//   const fd = new FormData();
+
+//   if (productData.name)        fd.append("name",        productData.name);
+//   if (productData.title)       fd.append("title",       productData.title);
+//   if (productData.description) fd.append("description", productData.description);
+//   if (productData.category)    fd.append("category",    productData.category);
+//   if (productData.brand)       fd.append("brand",       productData.brand);
+//   if (productData.status)      fd.append("status",      productData.status);
+//   if (productData.isFeatured !== undefined) fd.append("isFeatured", productData.isFeatured);
+
+//   if (productData.shipping)  fd.append("shipping",  JSON.stringify(productData.shipping));
+//   if (productData.soldInfo)  fd.append("soldInfo",  JSON.stringify(productData.soldInfo));
+//   if (productData.fomo)      fd.append("fomo",      JSON.stringify(productData.fomo));
+//   if (productData.attributes?.length) fd.append("attributes", JSON.stringify(productData.attributes));
+
+//   if (productData.images?.length) {
+//     productData.images.forEach((img) => {
+//       if (img.file instanceof File) fd.append("images", img.file);
+//     });
+//   }
+
+//   return fd;
+// };
+
+// const buildVariantFormData = (variantData) => {
+//   const fd = new FormData();
+
+//   fd.append("barcode", String(variantData.barcode));
+//   fd.append("attributes", JSON.stringify(
+//     Array.isArray(variantData.attributes)
+//       ? variantData.attributes.filter((a) => a.key && a.value)
+//       : []
+//   ));
+//   fd.append("price", JSON.stringify({
+//     base: Number(variantData.price?.base) || 0,
+//     sale:
+//       variantData.price?.sale !== "" && variantData.price?.sale != null
+//         ? Number(variantData.price.sale)
+//         : null,
+//   }));
+//   fd.append("inventory", JSON.stringify({
+//     quantity:          Number(variantData.inventory?.quantity)          || 0,
+//     lowStockThreshold: Number(variantData.inventory?.lowStockThreshold) || 5,
+//     trackInventory:    variantData.inventory?.trackInventory !== false,
+//   }));
+//   fd.append("isActive", variantData.isActive !== false ? "true" : "false");
+
+//   if (variantData.images?.length) {
+//     variantData.images.forEach((img) => {
+//       if (img?.file instanceof File) fd.append("variantImages", img.file);
+//     });
+//   }
+
+//   return fd;
+// };
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // THUNKS
+// // ─────────────────────────────────────────────────────────────────────────────
+
+// // Update product fields (name, description, images, soldInfo, fomo, etc.)
+// export const updateProduct = createAsyncThunk(
+//   "adminEditProduct/update",
+//   async ({ slug, formData: productData, silent = false }, { rejectWithValue }) => {
+//     try {
+//       const fd = buildProductFormData(productData);
+//       const response = await axiosInstance.put(`/admin/products/${slug}`, fd, {
+//         headers: { "Content-Type": "multipart/form-data" },
+//       });
+//       if (response.data.success) return { product: response.data.product, silent };
+//       return rejectWithValue(response.data.message || "Update failed");
+//     } catch (error) {
+//       return rejectWithValue(error.response?.data?.message || error.message);
+//     }
+//   }
+// );
+
+// // Soft delete (archive)
+// export const softDeleteProduct = createAsyncThunk(
+//   "adminEditProduct/softDelete",
+//   async (slug, { rejectWithValue }) => {
+//     try {
+//       const response = await axiosInstance.delete(`/admin/products/${slug}`);
+//       if (response.data.success) return { slug, product: response.data.product };
+//       return rejectWithValue(response.data.message || "Archive failed");
+//     } catch (error) {
+//       return rejectWithValue(error.response?.data?.message || error.message);
+//     }
+//   }
+// );
+
+// // Toggle featured
+// export const toggleFeaturedProduct = createAsyncThunk(
+//   "adminEditProduct/toggleFeatured",
+//   async ({ product }, { rejectWithValue }) => {
+//     try {
+//       const response = await axiosInstance.put(`/admin/products/${product.slug}`, {
+//         isFeatured: !product.isFeatured,
+//       });
+//       if (response.data.success) return { product: response.data.product };
+//       return rejectWithValue(response.data.message || "Toggle featured failed");
+//     } catch (error) {
+//       return rejectWithValue(error.response?.data?.message || error.message);
+//     }
+//   }
+// );
+
+// // Change status
+// export const changeProductStatus = createAsyncThunk(
+//   "adminEditProduct/changeStatus",
+//   async ({ product, status }, { rejectWithValue }) => {
+//     try {
+//       const response = await axiosInstance.put(`/admin/products/${product.slug}`, { status });
+//       if (response.data.success) return { product: response.data.product };
+//       return rejectWithValue(response.data.message || "Status change failed");
+//     } catch (error) {
+//       return rejectWithValue(error.response?.data?.message || error.message);
+//     }
+//   }
+// );
+
+// // Add variant — POST /admin/products/:slug/variants  (multipart)
+// export const addVariantToProduct = createAsyncThunk(
+//   "adminVariants/add",
+//   async ({ slug, variantData }, { rejectWithValue }) => {
+//     try {
+//       const fd = buildVariantFormData(variantData);
+//       const response = await axiosInstance.post(`/admin/products/${slug}/variants`, fd, {
+//         headers: { "Content-Type": "multipart/form-data" },
+//       });
+//       if (response.data.success) return { product: response.data.product };
+//       return rejectWithValue(response.data.message || "Add variant failed");
+//     } catch (error) {
+//       return rejectWithValue(error.response?.data?.message || error.message);
+//     }
+//   }
+// );
+
+// // Update variant by barcode — PUT /admin/products/:slug  (multipart, includes barcode)
+// export const updateVariantByBarcode = createAsyncThunk(
+//   "adminVariants/updateByBarcode",
+//   async ({ slug, barcode, price, inventory, attributes, isActive, images }, { rejectWithValue }) => {
+//     try {
+//       const fd = new FormData();
+//       fd.append("barcode", String(barcode));
+
+//       if (price !== undefined)      fd.append("price",      JSON.stringify(price));
+//       if (inventory !== undefined)  fd.append("inventory",  JSON.stringify(inventory));
+//       if (attributes !== undefined) fd.append("attributes", JSON.stringify(attributes));
+//       if (isActive !== undefined)   fd.append("isActive",   String(isActive));
+
+//       if (images?.length) {
+//         images.forEach((img) => {
+//           if (img?.file instanceof File) fd.append("variantImages", img.file);
+//         });
+//       }
+
+//       const response = await axiosInstance.put(`/admin/products/${slug}`, fd, {
+//         headers: { "Content-Type": "multipart/form-data" },
+//       });
+//       if (response.data.success) return { product: response.data.product };
+//       return rejectWithValue(response.data.message || "Update variant failed");
+//     } catch (error) {
+//       return rejectWithValue(error.response?.data?.message || error.message);
+//     }
+//   }
+// );
+
+// // Delete variant — DELETE /admin/products/:slug/variants
+// export const deleteVariantFromProduct = createAsyncThunk(
+//   "adminVariants/delete",
+//   async ({ slug, barcode }, { rejectWithValue }) => {
+//     try {
+//       const response = await axiosInstance.delete(`/admin/products/${slug}/variants`, {
+//         data: { barcode },
+//       });
+//       if (response.data.success) return { product: response.data.product };
+//       return rejectWithValue(response.data.message || "Delete variant failed");
+//     } catch (error) {
+//       return rejectWithValue(error.response?.data?.message || error.message);
+//     }
+//   }
+// );
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // SLICE
+// // ─────────────────────────────────────────────────────────────────────────────
+// const adminEditProductSlice = createSlice({
+//   name: "adminEditProduct",
+//   initialState: {
+//     updateLoading:  false,
+//     updateError:    null,
+//     updateSuccess:  false,
+//     actionLoading:  false,
+//     actionError:    null,
+//     variantLoading: false,
+//     variantError:   null,
+//     deleteLoading:  false,
+//     deleteError:    null,
+//     deleteSuccess:  false,
+//   },
+//   reducers: {
+//     resetUpdateSuccess: (state) => { state.updateSuccess = false; },
+//     resetUpdateError:   (state) => { state.updateError   = null;  },
+//     resetActionError:   (state) => { state.actionError   = null;  },
+//     resetVariantError:  (state) => { state.variantError  = null;  },
+//     resetDeleteSuccess: (state) => { state.deleteSuccess = false; },
+//     clearErrors: (state) => {
+//       state.updateError  = null;
+//       state.actionError  = null;
+//       state.variantError = null;
+//       state.deleteError  = null;
+//     },
+//   },
+//   extraReducers: (builder) => {
+//     builder
+//       .addCase(updateProduct.pending,   (state) => { state.updateLoading = true;  state.updateError = null; state.updateSuccess = false; })
+//       .addCase(updateProduct.fulfilled, (state) => { state.updateLoading = false; state.updateSuccess = true; })
+//       .addCase(updateProduct.rejected,  (state, { payload }) => { state.updateLoading = false; state.updateError = payload; })
+
+//       .addCase(softDeleteProduct.pending,   (state) => { state.deleteLoading = true;  state.deleteError = null; state.deleteSuccess = false; })
+//       .addCase(softDeleteProduct.fulfilled, (state) => { state.deleteLoading = false; state.deleteSuccess = true; })
+//       .addCase(softDeleteProduct.rejected,  (state, { payload }) => { state.deleteLoading = false; state.deleteError = payload; })
+
+//       .addCase(toggleFeaturedProduct.pending,   (state) => { state.actionLoading = true;  state.actionError = null; })
+//       .addCase(toggleFeaturedProduct.fulfilled, (state) => { state.actionLoading = false; })
+//       .addCase(toggleFeaturedProduct.rejected,  (state, { payload }) => { state.actionLoading = false; state.actionError = payload; })
+
+//       .addCase(changeProductStatus.pending,   (state) => { state.actionLoading = true;  state.actionError = null; })
+//       .addCase(changeProductStatus.fulfilled, (state) => { state.actionLoading = false; })
+//       .addCase(changeProductStatus.rejected,  (state, { payload }) => { state.actionLoading = false; state.actionError = payload; })
+
+//       .addCase(addVariantToProduct.pending,   (state) => { state.variantLoading = true;  state.variantError = null; })
+//       .addCase(addVariantToProduct.fulfilled, (state) => { state.variantLoading = false; })
+//       .addCase(addVariantToProduct.rejected,  (state, { payload }) => { state.variantLoading = false; state.variantError = payload; })
+
+//       .addCase(updateVariantByBarcode.pending,   (state) => { state.variantLoading = true;  state.variantError = null; })
+//       .addCase(updateVariantByBarcode.fulfilled, (state) => { state.variantLoading = false; })
+//       .addCase(updateVariantByBarcode.rejected,  (state, { payload }) => { state.variantLoading = false; state.variantError = payload; })
+
+//       .addCase(deleteVariantFromProduct.pending,   (state) => { state.variantLoading = true;  state.variantError = null; })
+//       .addCase(deleteVariantFromProduct.fulfilled, (state) => { state.variantLoading = false; })
+//       .addCase(deleteVariantFromProduct.rejected,  (state, { payload }) => { state.variantLoading = false; state.variantError = payload; });
+//   },
+// });
+
+// export const {
+//   resetUpdateSuccess,
+//   resetUpdateError,
+//   resetActionError,
+//   resetVariantError,
+//   resetDeleteSuccess,
+//   clearErrors,
+// } = adminEditProductSlice.actions;
+
+// export default adminEditProductSlice.reducer;

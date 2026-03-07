@@ -1,11 +1,17 @@
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "../REDUX_SLICES/authSlice";
-import adminProductsReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminProductsSlice";
+import adminProductCreateReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminProductCreateSlice"; 
+import adminGetProductsReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminGetProductsSlice";
+import adminArchivedReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminArchivedSlice"
+import adminEditProductReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminEditProductSlice"; // NEW
 import categoriesReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/categoriesSlice";
 const store = configureStore({
   reducer: {
     auth: authReducer,
-     adminProducts: adminProductsReducer,
+     adminProductCreate: adminProductCreateReducer,
+         adminGetProducts: adminGetProductsReducer,
+             adminEditProduct: adminEditProductReducer,
+    adminArchived: adminArchivedReducer,
       categories: categoriesReducer,
   },
   devTools: import.meta.env.MODE !== "production", // Redux DevTools only in dev
