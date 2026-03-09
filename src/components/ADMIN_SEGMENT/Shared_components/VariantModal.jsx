@@ -9,6 +9,10 @@
 // onSave(variantData) → called by Save button → handled in EditProductModal:
 //   • editingVariantIndex !== null → updateVariantByBarcode (PUT /:slug + barcode)
 //   • editingVariantIndex === null → addVariantToProduct (POST /:slug/variants)
+//
+// isActive: toggle works correctly here — variantForm.isActive is flipped locally
+// and passed to onSave → EditProductModal → updateVariantByBarcode with isActive value
+// Backend (after patch) now applies: updateFields["variants.$.isActive"] = bool
 
 import React, { useState } from 'react';
 
@@ -65,9 +69,9 @@ const VariantModal = ({
   };
 
   const removeVariantImage = (imageId) => {
-    const newImages = variantForm.images.filter(img => img.id !== imageId);
-    if (variantForm.images.find(img => img.id === imageId)?.isMain && newImages.length > 0) {
-      newImages[0].isMain = true;
+    const newImages = variantForm.images.filter(img => (img.id || img.url) !== imageId);
+    if (variantForm.images.find(img => (img.id || img.url) === imageId)?.isMain && newImages.length > 0) {
+      newImages[0] = { ...newImages[0], isMain: true };
     }
     setVariantForm(prev => ({ ...prev, images: newImages }));
   };
@@ -75,7 +79,7 @@ const VariantModal = ({
   const setVariantMainImage = (imageId) =>
     setVariantForm(prev => ({
       ...prev,
-      images: prev.images.map(img => ({ ...img, isMain: img.id === imageId }))
+      images: prev.images.map(img => ({ ...img, isMain: (img.id || img.url) === imageId }))
     }));
 
   // ── Save with validation ──────────────────────────────────────
@@ -109,7 +113,7 @@ const VariantModal = ({
       return;
     }
 
-    // attributes: optional — filter out empty rows, send whatever is filled
+    // attributes: optional — filter out empty rows silently
     const validAttributes = variantForm.attributes.filter(a => a.key.trim() && a.value.trim());
 
     onSave({
@@ -117,6 +121,7 @@ const VariantModal = ({
       barcode:    barcodeVal,
       attributes: validAttributes,
       price:      { base, sale },
+      // isActive is already in variantForm and spread above — passed as-is to backend
     });
   };
 
@@ -204,7 +209,8 @@ const VariantModal = ({
               <label className="text-sm font-semibold text-gray-800">
                 Variant Attributes <span className="text-gray-400 font-normal text-xs ml-1">(optional)</span>
               </label>
-              <button type="button" onClick={addVariantAttribute} className="text-xs px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 font-medium">
+              <button type="button" onClick={addVariantAttribute}
+                className="text-xs px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 font-medium">
                 + Add
               </button>
             </div>
@@ -299,34 +305,59 @@ const VariantModal = ({
               Variant Images <span className="text-gray-400 text-xs font-normal">(up to 4)</span>
             </label>
             <label
-              className={`block w-full border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all mb-3 ${variantImageDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-indigo-400'}`}
+              className={`block w-full border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all mb-3 ${
+                variantImageDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-indigo-400'
+              }`}
               onDragOver={(e) => { e.preventDefault(); setVariantImageDragging(true); }}
               onDragLeave={() => setVariantImageDragging(false)}
-              onDrop={(e) => { e.preventDefault(); setVariantImageDragging(false); handleVariantImageUpload({ target: { files: e.dataTransfer.files } }); }}>
-              <input type="file" multiple accept="image/*" onChange={handleVariantImageUpload} className="hidden" disabled={variantForm.images.length >= 4} />
+              onDrop={(e) => {
+                e.preventDefault();
+                setVariantImageDragging(false);
+                handleVariantImageUpload({ target: { files: e.dataTransfer.files } });
+              }}>
+              <input type="file" multiple accept="image/*" onChange={handleVariantImageUpload}
+                className="hidden" disabled={variantForm.images.length >= 4} />
               <svg className="w-7 h-7 mx-auto mb-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <p className="text-xs text-gray-500">{variantForm.images.length >= 4 ? 'Max images reached' : `Click or drop (${variantForm.images.length}/4)`}</p>
+              <p className="text-xs text-gray-500">
+                {variantForm.images.length >= 4 ? 'Max images reached' : `Click or drop (${variantForm.images.length}/4)`}
+              </p>
             </label>
             {variantForm.images.length > 0 && (
               <div className="grid grid-cols-4 gap-2">
-                {variantForm.images.map((image) => (
-                  <div key={image.id || image.url} className={`relative rounded-lg overflow-hidden border-2 ${image.isMain ? 'border-indigo-500' : 'border-gray-200'}`}>
-                    <img src={image.url} alt="" className="w-full h-16 object-cover" />
-                    <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 transition-all flex items-center justify-center gap-1 opacity-0 hover:opacity-100">
-                      {!image.isMain && (
-                        <button type="button" onClick={() => setVariantMainImage(image.id || image.url)} className="p-1 bg-white rounded-full text-indigo-600">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+                {variantForm.images.map((image) => {
+                  const imgId = image.id || image.url;
+                  return (
+                    <div key={imgId}
+                      className={`relative rounded-lg overflow-hidden border-2 ${image.isMain ? 'border-indigo-500' : 'border-gray-200'}`}>
+                      <img src={image.url} alt="" className="w-full h-16 object-cover" />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 transition-all flex items-center justify-center gap-1 opacity-0 hover:opacity-100">
+                        {!image.isMain && (
+                          <button type="button" onClick={() => setVariantMainImage(imgId)}
+                            className="p-1 bg-white rounded-full text-indigo-600">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                            </svg>
+                          </button>
+                        )}
+                        <button type="button" onClick={() => removeVariantImage(imgId)}
+                          className="p-1 bg-white rounded-full text-red-500">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
                         </button>
+                      </div>
+                      {image.isMain && (
+                        <div className="absolute top-1 left-1">
+                          <span className="text-[9px] bg-indigo-500 text-white px-1 rounded font-medium">MAIN</span>
+                        </div>
                       )}
-                      <button type="button" onClick={() => removeVariantImage(image.id || image.url)} className="p-1 bg-white rounded-full text-red-500">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
                     </div>
-                    {image.isMain && <div className="absolute top-1 left-1"><span className="text-[9px] bg-indigo-500 text-white px-1 rounded font-medium">MAIN</span></div>}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -335,7 +366,7 @@ const VariantModal = ({
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
             <div>
               <span className="text-sm font-medium text-gray-700">Variant Active</span>
-              <p className="text-xs text-gray-400">Inactive variants won't show on website</p>
+              <p className="text-xs text-gray-400 mt-0.5">Inactive variants won't show on website</p>
             </div>
             <button type="button"
               onClick={() => setVariantForm(prev => ({ ...prev, isActive: !prev.isActive }))}
