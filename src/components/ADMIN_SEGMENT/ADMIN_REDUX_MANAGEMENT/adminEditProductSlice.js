@@ -255,11 +255,17 @@ export const softDeleteProduct = createAsyncThunk(
   "adminEditProduct/softDelete",
   async (slug, { rejectWithValue }) => {
     try {
-      const res = await axiosInstance.delete(`/admin/products/${slug}`);
-      if (res.data.success) return { slug, product: res.data.product };
-      return rejectWithValue(res.data.message || "Archive failed");
-    } catch (err) {
-      return rejectWithValue(err.response?.data?.message || err.message);
+      const response = await axiosInstance.delete(`/admin/products/${slug}`);
+      if (response.data.success) {
+        // Make sure we return the product data in the expected format
+        return { 
+          slug, 
+          product: response.data.product // This must be present!
+        };
+      }
+      return rejectWithValue(response.data.message || "Archive failed");
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
     }
   }
 );

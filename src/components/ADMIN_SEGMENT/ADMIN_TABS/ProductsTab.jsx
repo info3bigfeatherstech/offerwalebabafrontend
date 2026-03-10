@@ -16,11 +16,15 @@ const ProductsTab = ({
   getDiscountPercentage,
   loading,
   actionLoading,
+  // NEW: Add these props
+  lowStockProducts = [],
+  lowStockLoading = false,
 }) => {
   const [searchTerm,     setSearchTerm]     = useState('');
   const [filterStatus,   setFilterStatus]   = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [detailProduct,  setDetailProduct]  = useState(null);
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
 
   const getCategoryName = (productCategory) => {
     if (!productCategory) return 'Uncategorized';
@@ -41,21 +45,28 @@ const ProductsTab = ({
   const totalProducts    = products.length;
   const activeProducts   = products.filter((p) => p.status === 'active').length;
   const featuredProducts = products.filter((p) => p.isFeatured).length;
-  const lowStock         = products.filter((p) =>
-    p.variants?.some((v) => v.inventory?.quantity < v.inventory?.lowStockThreshold)
-  ).length;
+  
+  // FIXED: Use the low stock count from the API
+  const lowStockCount = lowStockProducts?.length || 0;
 
+  // Filter products based on search, status, category, and low stock toggle
   const filteredProducts = products.filter((product) => {
     const matchesSearch =
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesStatus   = filterStatus   === 'all' || product.status === filterStatus;
+    
+    const matchesStatus = filterStatus === 'all' || product.status === filterStatus;
     const matchesCategory = filterCategory === 'all' || getCategoryId(product.category) === filterCategory;
-    return matchesSearch && matchesStatus && matchesCategory;
+    
+    // If low stock filter is active, only show products that are in the lowStockProducts list
+    const matchesLowStock = !showLowStockOnly || 
+      lowStockProducts.some(lp => lp._id === product._id);
+    
+    return matchesSearch && matchesStatus && matchesCategory && matchesLowStock;
   });
 
-  if (loading) {
+  if (loading || lowStockLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -110,13 +121,26 @@ const ProductsTab = ({
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        {/* FIXED: Low Stock card now shows count from API and can be clicked to filter */}
+        <div 
+          className={`bg-white rounded-2xl shadow-sm border p-6 cursor-pointer transition-all ${
+            showLowStockOnly 
+              ? 'border-red-500 ring-2 ring-red-200' 
+              : 'border-gray-200 hover:border-red-300'
+          }`}
+          onClick={() => setShowLowStockOnly(!showLowStockOnly)}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 mb-1">Low Stock</p>
-              <p className="text-3xl font-bold text-gray-900">{lowStock}</p>
+              <p className="text-3xl font-bold text-gray-900">{lowStockCount}</p>
+              {showLowStockOnly && (
+                <p className="text-xs text-red-600 mt-1">Filter active</p>
+              )}
             </div>
-            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+              showLowStockOnly ? 'bg-red-200' : 'bg-red-100'
+            }`}>
               <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
@@ -147,6 +171,17 @@ const ProductsTab = ({
             <option value="all">All Categories</option>
             {categories.map((cat) => <option key={cat._id} value={cat._id}>{cat.name}</option>)}
           </select>
+          {showLowStockOnly && (
+            <button
+              onClick={() => setShowLowStockOnly(false)}
+              className="px-4 py-3 bg-red-100 text-red-700 rounded-xl hover:bg-red-200 font-medium flex items-center gap-2"
+            >
+              <span>Clear Low Stock Filter</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
           <button onClick={onAddClick}
             className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all flex items-center space-x-2">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -181,7 +216,7 @@ const ProductsTab = ({
               const totalStock  = product.variants?.reduce((sum, v) => sum + (v.inventory?.quantity || 0), 0) || 0;
               const isLowStock  = product.variants?.some((v) => v.inventory?.quantity < v.inventory?.lowStockThreshold);
 
-              // Thumbnail: isMain image from variants[0].images, fallback to first image, fallback to product.images
+              // Thumbnail
               const v0Images   = mainVariant.images || [];
               const thumbUrl   = (v0Images.find((img) => img.isMain) || v0Images[0])?.url
                               || product.images?.[0]?.url
@@ -189,8 +224,6 @@ const ProductsTab = ({
 
               return (
                 <tr key={product._id} className="hover:bg-gray-50 transition-colors group">
-
-                  {/* Product + thumbnail */}
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       {thumbUrl ? (
@@ -252,7 +285,6 @@ const ProductsTab = ({
                     </div>
                   </td>
 
-                  {/* Status — reflects optimistic Redux state immediately */}
                   <td className="px-6 py-4">
                     <select
                       value={product.status}
@@ -271,7 +303,6 @@ const ProductsTab = ({
                     </select>
                   </td>
 
-                  {/* Featured — reflects optimistic Redux state immediately */}
                   <td className="px-6 py-4">
                     <button
                       onClick={() => onToggleFeatured(product._id)}
@@ -328,7 +359,11 @@ const ProductsTab = ({
                 d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
             </svg>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
-            <p className="text-gray-500">Click "Add Product" to create your first product</p>
+            <p className="text-gray-500">
+              {showLowStockOnly 
+                ? "No low stock products at the moment" 
+                : "Click \"Add Product\" to create your first product"}
+            </p>
           </div>
         )}
       </div>

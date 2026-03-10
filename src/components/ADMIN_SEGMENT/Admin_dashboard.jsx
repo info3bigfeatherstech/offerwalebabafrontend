@@ -12,7 +12,11 @@ import ProductModal     from "./PRODUCT_MODAL_SEGMENT/ProductModal";
 import EditProductModal from "./PRODUCT_MODAL_SEGMENT/EditProductModal";
 
 import { fetchCategories }    from "./ADMIN_REDUX_MANAGEMENT/categoriesSlice";
-import { fetchProducts, optimisticUpdateProduct } from "./ADMIN_REDUX_MANAGEMENT/adminGetProductsSlice";
+import { 
+  fetchProducts, 
+  optimisticUpdateProduct,
+  fetchLowStockProducts 
+} from "./ADMIN_REDUX_MANAGEMENT/adminGetProductsSlice";
 import { fetchArchivedProducts } from "./ADMIN_REDUX_MANAGEMENT/adminArchivedSlice";
 import {
   softDeleteProduct,
@@ -30,7 +34,18 @@ const AdminDashboard = () => {
   const { products, loading: productsLoading, error: productsError } =
     useSelector((state) => state.adminGetProducts);
 
-  const { archivedList: archivedProducts, loading: archivedLoading } =
+  // Get low stock data from the slice
+  const { 
+    products: lowStockProducts, 
+    total: lowStockTotal,
+    loading: lowStockLoading 
+  } = useSelector((state) => state.adminGetProducts.lowStockProducts || { 
+    products: [], 
+    total: 0,
+    loading: false 
+  });
+
+  const { products: archivedProducts, loading: archivedLoading } =
     useSelector((state) => state.adminArchived);
 
   const { actionLoading, actionError, deleteLoading, deleteSuccess } =
@@ -53,6 +68,8 @@ const AdminDashboard = () => {
   useEffect(() => {
     dispatch(fetchProducts({ page: 1, limit: 50 }));
     dispatch(fetchCategories());
+    // Fetch low stock products count for the stat card
+    dispatch(fetchLowStockProducts({ page: 1, limit: 1 })); // We only need the total count
   }, [dispatch]);
 
   useEffect(() => {
@@ -74,7 +91,9 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (deleteSuccess) {
       toast.success("Product archived successfully");
-      dispatch(fetchProducts({ page: 1, limit: 50 }));
+      dispatch(fetchArchivedProducts());
+      // Refresh low stock count when products change
+      dispatch(fetchLowStockProducts({ page: 1, limit: 1 }));
     }
   }, [deleteSuccess, dispatch]);
 
@@ -91,12 +110,18 @@ const AdminDashboard = () => {
     const product = products.find((p) => p._id === productId);
     if (!product) return;
     if (window.confirm(`Archive "${product.name}"? It will be hidden from the website.`)) {
-      dispatch(softDeleteProduct(product.slug));
+      dispatch(softDeleteProduct(product.slug))
+        .unwrap()
+        .catch(() => {
+          dispatch(fetchProducts({ page: 1, limit: 50 }));
+          dispatch(fetchLowStockProducts({ page: 1, limit: 1 }));
+          toast.error("Failed to archive product");
+        });
     }
   };
 
   const handlePermanentDelete = (productId) => {
-    const product = archivedProducts.find((p) => p._id === productId);
+    const product = archivedProducts?.find((p) => p._id === productId);
     if (!product) return;
     if (window.confirm(`⚠️ Permanently delete "${product.name}"? This cannot be undone!`)) {
       dispatch(hardDeleteArchivedProduct(product.slug));
@@ -104,12 +129,11 @@ const AdminDashboard = () => {
   };
 
   const handleRestore = (productId) => {
-    const product = archivedProducts.find((p) => p._id === productId);
+    const product = archivedProducts?.find((p) => p._id === productId);
     if (!product) return;
     dispatch(restoreArchivedProduct(product.slug));
   };
 
-  // Optimistic: featured flips instantly, reverts on failure
   const toggleFeatured = (productId) => {
     const product = products.find((p) => p._id === productId);
     if (!product) return;
@@ -122,7 +146,6 @@ const AdminDashboard = () => {
       });
   };
 
-  // Optimistic: status changes instantly, reverts on failure
   const changeStatus = (productId, newStatus) => {
     const product = products.find((p) => p._id === productId);
     if (!product) return;
@@ -144,6 +167,8 @@ const AdminDashboard = () => {
   // ── Derived stats ─────────────────────────────────────────────────────────
   const activeProducts   = products.filter((p) => p.status   === "active").length;
   const featuredProducts = products.filter((p) => p.isFeatured).length;
+  // Use the total from the low stock API response for the stat card
+  const lowStockCount = lowStockTotal || 0;
 
   const formatIndianRupee = (amount) =>
     new Intl.NumberFormat("en-IN", {
@@ -189,7 +214,9 @@ const AdminDashboard = () => {
             <StatsCards
               activeProducts={activeProducts}
               featuredProducts={featuredProducts}
-              archivedProducts={archivedProducts}
+              archivedProducts={archivedProducts?.length || 0}
+              // Use the low stock count from the API
+              lowStockProducts={lowStockCount}
               onViewArchived={() => handleTabChange("archived")}
             />
           </div>
@@ -218,7 +245,7 @@ const AdminDashboard = () => {
                   )}
                   {tab.id === "archived" && (
                     <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
-                      {archivedProducts}
+                      {archivedProducts?.length || 0}
                     </span>
                   )}
                 </span>
@@ -244,6 +271,9 @@ const AdminDashboard = () => {
             getDiscountPercentage={getDiscountPercentage}
             loading={productsLoading}
             actionLoading={actionLoading}
+            // Pass low stock products if you want to show them in a separate section
+            lowStockProducts={lowStockProducts}
+            lowStockLoading={lowStockLoading}
           />
         )}
         {activeTab === "analytics" && (
@@ -251,7 +281,7 @@ const AdminDashboard = () => {
         )}
         {activeTab === "archived" && (
           <ArchivedTab
-            products={archivedProducts}
+            products={archivedProducts || []}
             onRestore={handleRestore}
             onPermanentDelete={handlePermanentDelete}
             formatIndianRupee={formatIndianRupee}
@@ -267,6 +297,7 @@ const AdminDashboard = () => {
           onClose={() => {
             setShowProductModal(false);
             dispatch(fetchProducts({ page: 1, limit: 50 }));
+            dispatch(fetchLowStockProducts({ page: 1, limit: 1 }));
           }}
           brands={brands}
           setBrands={setBrands}
@@ -283,6 +314,7 @@ const AdminDashboard = () => {
             setShowEditModal(false);
             setSelectedProduct(null);
             dispatch(fetchProducts({ page: 1, limit: 50 }));
+            dispatch(fetchLowStockProducts());
           }}
           brands={brands}
           setBrands={setBrands}
@@ -295,6 +327,305 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
+// FIX THE ARCHIEVD DOFTDEELET ISSUE 
+// // ADMIN_SEGMENT/Admin_dashboard.jsx
+
+// import React, { useState, useEffect } from "react";
+// import { useSearchParams } from "react-router-dom";
+// import { useDispatch, useSelector } from "react-redux";
+
+// import ProductsTab      from "./ADMIN_TABS/ProductsTab";
+// import AnalyticsTab     from "./ADMIN_TABS/AnalyticsTab";
+// import ArchivedTab      from "./ADMIN_TABS/ArchivedTab";
+// import StatsCards       from "./TOPBAR/StatsCards";
+// import ProductModal     from "./PRODUCT_MODAL_SEGMENT/ProductModal";
+// import EditProductModal from "./PRODUCT_MODAL_SEGMENT/EditProductModal";
+
+// import { fetchCategories }    from "./ADMIN_REDUX_MANAGEMENT/categoriesSlice";
+// import { fetchProducts, optimisticUpdateProduct } from "./ADMIN_REDUX_MANAGEMENT/adminGetProductsSlice";
+// import { fetchArchivedProducts } from "./ADMIN_REDUX_MANAGEMENT/adminArchivedSlice";
+// import {
+//   softDeleteProduct,
+//   toggleFeaturedProduct,
+//   changeProductStatus,
+//   clearErrors,
+// } from "./ADMIN_REDUX_MANAGEMENT/adminEditProductSlice";
+// import { restoreArchivedProduct, hardDeleteArchivedProduct } from "./ADMIN_REDUX_MANAGEMENT/adminArchivedSlice";
+
+// import { toast } from "react-toastify";
+
+// const AdminDashboard = () => {
+//   const dispatch = useDispatch();
+
+//   const { products, loading: productsLoading, error: productsError } =
+//     useSelector((state) => state.adminGetProducts);
+
+//   const { archivedList: archivedProducts, loading: archivedLoading } =
+//     useSelector((state) => state.adminArchived);
+
+//   const { actionLoading, actionError, deleteLoading, deleteSuccess } =
+//     useSelector((state) => state.adminEditProduct);
+
+//   const { categories } = useSelector((state) => state.categories);
+
+//   const [searchParams, setSearchParams] = useSearchParams();
+//   const [activeTab,    setActiveTab]    = useState(searchParams.get("tab") || "products");
+
+//   const [showProductModal, setShowProductModal] = useState(false);
+//   const [showEditModal,    setShowEditModal]    = useState(false);
+//   const [selectedProduct,  setSelectedProduct]  = useState(null);
+
+//   const [brands, setBrands] = useState([
+//     "Sony", "Samsung", "Apple", "Nike", "Adidas", "Generic",
+//   ]);
+
+//   // ── Initial fetch ─────────────────────────────────────────────────────────
+//   useEffect(() => {
+//     dispatch(fetchProducts({ page: 1, limit: 50 }));
+//     dispatch(fetchCategories());
+//   }, [dispatch]);
+
+//   useEffect(() => {
+//     if (activeTab === "archived") dispatch(fetchArchivedProducts());
+//   }, [activeTab, dispatch]);
+
+//   // ── Error handling ────────────────────────────────────────────────────────
+//   useEffect(() => {
+//     if (productsError) toast.error(`Failed to load products: ${productsError}`);
+//   }, [productsError]);
+
+//   useEffect(() => {
+//     if (actionError) {
+//       toast.error(`Action failed: ${actionError}`);
+//       dispatch(clearErrors());
+//     }
+//   }, [actionError, dispatch]);
+
+//   useEffect(() => {
+//     if (deleteSuccess) {
+//       toast.success("Product archived successfully");
+//       dispatch(fetchProducts({ page: 1, limit: 50 }));
+//     }
+//   }, [deleteSuccess, dispatch]);
+
+//   // ── URL tab sync ──────────────────────────────────────────────────────────
+//   useEffect(() => {
+//     const tabFromUrl = searchParams.get("tab");
+//     if (tabFromUrl && tabFromUrl !== activeTab) setActiveTab(tabFromUrl);
+//   }, [searchParams]);
+
+//   const handleTabChange = (tab) => { setActiveTab(tab); setSearchParams({ tab }); };
+
+//   // ── Product actions ───────────────────────────────────────────────────────
+//   const handleSoftDelete = (productId) => {
+//     const product = products.find((p) => p._id === productId);
+//     if (!product) return;
+//     if (window.confirm(`Archive "${product.name}"? It will be hidden from the website.`)) {
+//       dispatch(softDeleteProduct(product.slug));
+//     }
+//   };
+
+//   const handlePermanentDelete = (productId) => {
+//     const product = archivedProducts.find((p) => p._id === productId);
+//     if (!product) return;
+//     if (window.confirm(`⚠️ Permanently delete "${product.name}"? This cannot be undone!`)) {
+//       dispatch(hardDeleteArchivedProduct(product.slug));
+//     }
+//   };
+
+//   const handleRestore = (productId) => {
+//     const product = archivedProducts.find((p) => p._id === productId);
+//     if (!product) return;
+//     dispatch(restoreArchivedProduct(product.slug));
+//   };
+
+//   // Optimistic: featured flips instantly, reverts on failure
+//   const toggleFeatured = (productId) => {
+//     const product = products.find((p) => p._id === productId);
+//     if (!product) return;
+//     dispatch(optimisticUpdateProduct({ _id: productId, isFeatured: !product.isFeatured }));
+//     dispatch(toggleFeaturedProduct({ product }))
+//       .unwrap()
+//       .catch(() => {
+//         dispatch(optimisticUpdateProduct({ _id: productId, isFeatured: product.isFeatured }));
+//         toast.error("Failed to toggle featured");
+//       });
+//   };
+
+//   // Optimistic: status changes instantly, reverts on failure
+//   const changeStatus = (productId, newStatus) => {
+//     const product = products.find((p) => p._id === productId);
+//     if (!product) return;
+//     const prevStatus = product.status;
+//     dispatch(optimisticUpdateProduct({ _id: productId, status: newStatus }));
+//     dispatch(changeProductStatus({ product, status: newStatus }))
+//       .unwrap()
+//       .catch(() => {
+//         dispatch(optimisticUpdateProduct({ _id: productId, status: prevStatus }));
+//         toast.error("Failed to change status");
+//       });
+//   };
+
+//   const openEditModal = (product) => {
+//     setSelectedProduct(product);
+//     setShowEditModal(true);
+//   };
+
+//   // ── Derived stats ─────────────────────────────────────────────────────────
+//   const activeProducts   = products.filter((p) => p.status   === "active").length;
+//   const featuredProducts = products.filter((p) => p.isFeatured).length;
+
+//   const formatIndianRupee = (amount) =>
+//     new Intl.NumberFormat("en-IN", {
+//       style: "currency", currency: "INR",
+//       minimumFractionDigits: 0, maximumFractionDigits: 0,
+//     }).format(amount);
+
+//   const getDiscountPercentage = (base, sale) => {
+//     if (!base || !sale || Number(sale) >= Number(base)) return 0;
+//     return Math.round(((Number(base) - Number(sale)) / Number(base)) * 100);
+//   };
+
+//   return (
+//     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+
+//       {/* Action Loading Overlay */}
+//       {(actionLoading || deleteLoading) && (
+//         <div className="fixed inset-0 bg-black bg-opacity-20 z-50 flex items-center justify-center">
+//           <div className="bg-white rounded-xl px-6 py-4 shadow-xl flex items-center gap-3">
+//             <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+//             <span className="text-sm font-medium text-gray-700">Processing...</span>
+//           </div>
+//         </div>
+//       )}
+
+//       {/* Header */}
+//       <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+//         <div className="max-w-7xl mx-auto px-8">
+//           <div className="flex items-center justify-between h-20">
+//             <div className="flex items-center space-x-3">
+//               <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+//                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+//                     d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+//                 </svg>
+//               </div>
+//               <div>
+//                 <h1 className="text-2xl font-bold text-gray-900">Product Forge</h1>
+//                 <p className="text-sm text-gray-500">Manage your products</p>
+//               </div>
+//             </div>
+
+//             <StatsCards
+//               activeProducts={activeProducts}
+//               featuredProducts={featuredProducts}
+//               archivedProducts={archivedProducts}
+//               onViewArchived={() => handleTabChange("archived")}
+//             />
+//           </div>
+
+//           <div className="flex space-x-6">
+//             {[
+//               { id: "products",  name: "Products",  icon: "M4 6h16M4 10h16M4 14h16M4 18h16" },
+//               { id: "analytics", name: "Analytics", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
+//               { id: "archived",  name: "Archived",  icon: "M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" },
+//             ].map((tab) => (
+//               <button key={tab.id} onClick={() => handleTabChange(tab.id)}
+//                 className={`pb-4 px-1 font-medium text-sm border-b-2 transition-colors ${
+//                   activeTab === tab.id
+//                     ? "border-blue-500 text-blue-600"
+//                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+//                 }`}>
+//                 <span className="flex items-center space-x-2">
+//                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
+//                   </svg>
+//                   <span>{tab.name}</span>
+//                   {tab.id === "products" && (
+//                     <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+//                       {products.length}
+//                     </span>
+//                   )}
+//                   {tab.id === "archived" && (
+//                     <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+//                       {archivedProducts}
+//                     </span>
+//                   )}
+//                 </span>
+//               </button>
+//             ))}
+//           </div>
+//         </div>
+//       </div>
+
+//       {/* Tab Content */}
+//       <div className="max-w-7xl mx-auto p-8">
+//         {activeTab === "products" && (
+//           <ProductsTab
+//             products={products}
+//             categories={categories}
+//             brands={brands}
+//             onAddClick={() => setShowProductModal(true)}
+//             onEdit={openEditModal}
+//             onDelete={handleSoftDelete}
+//             onToggleFeatured={toggleFeatured}
+//             onChangeStatus={changeStatus}
+//             formatIndianRupee={formatIndianRupee}
+//             getDiscountPercentage={getDiscountPercentage}
+//             loading={productsLoading}
+//             actionLoading={actionLoading}
+//           />
+//         )}
+//         {activeTab === "analytics" && (
+//           <AnalyticsTab products={products} categories={categories} />
+//         )}
+//         {activeTab === "archived" && (
+//           <ArchivedTab
+//             products={archivedProducts}
+//             onRestore={handleRestore}
+//             onPermanentDelete={handlePermanentDelete}
+//             formatIndianRupee={formatIndianRupee}
+//             getDiscountPercentage={getDiscountPercentage}
+//             loading={archivedLoading}
+//           />
+//         )}
+//       </div>
+
+//       {/* Create Product Modal */}
+//       {showProductModal && (
+//         <ProductModal
+//           onClose={() => {
+//             setShowProductModal(false);
+//             dispatch(fetchProducts({ page: 1, limit: 50 }));
+//           }}
+//           brands={brands}
+//           setBrands={setBrands}
+//           formatIndianRupee={formatIndianRupee}
+//           getDiscountPercentage={getDiscountPercentage}
+//         />
+//       )}
+
+//       {/* Edit Product Modal */}
+//       {showEditModal && selectedProduct && (
+//         <EditProductModal
+//           product={selectedProduct}
+//           onClose={() => {
+//             setShowEditModal(false);
+//             setSelectedProduct(null);
+//             dispatch(fetchProducts({ page: 1, limit: 50 }));
+//           }}
+//           brands={brands}
+//           setBrands={setBrands}
+//           formatIndianRupee={formatIndianRupee}
+//           getDiscountPercentage={getDiscountPercentage}
+//         />
+//       )}
+//     </div>
+//   );
+// };
+
+// export default AdminDashboard;
 // start again 
 
 // // ADMIN_SEGMENT/Admin_dashboard.jsx

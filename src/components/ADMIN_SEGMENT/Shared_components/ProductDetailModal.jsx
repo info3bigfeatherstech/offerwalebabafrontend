@@ -2,12 +2,16 @@
 
 import React, { useState } from "react";
 
-const ProductDetailModal = ({ product,categories, onClose, formatIndianRupee, getDiscountPercentage }) => {
+const ProductDetailModal = ({ product, categories, onClose, formatIndianRupee, getDiscountPercentage }) => {
   const [activeVariantIndex, setActiveVariantIndex] = useState(0);
 
   if (!product) return null;
 
-  const activeVariant = product.variants?.[activeVariantIndex] || {};
+  // const activeVariant = product.variants?.[activeVariantIndex] || {};
+  const activeVariant =
+    product?.variants && product.variants.length > 0
+      ? product.variants[activeVariantIndex] || product.variants[0]
+      : null;
   const totalStock = product.variants?.reduce((sum, v) => sum + (v.inventory?.quantity || 0), 0) || 0;
   const isLowStock = product.variants?.some(v => v.inventory?.quantity < v.inventory?.lowStockThreshold);
 
@@ -17,7 +21,7 @@ const ProductDetailModal = ({ product,categories, onClose, formatIndianRupee, ge
     archived: "bg-gray-100 text-gray-600 border-gray-200",
   };
 
-   const getCategoryName = (productCategory) => {
+  const getCategoryName = (productCategory) => {
     if (!productCategory) return 'Uncategorized';
 
     // Case (a): already a populated object with name
@@ -94,7 +98,7 @@ const ProductDetailModal = ({ product,categories, onClose, formatIndianRupee, ge
                 <div>
                   <p className="text-xs text-gray-400">Category</p>
                   {/* <p className="text-sm font-medium text-gray-800">{product.category?.name || "Uncategorized"}</p> */}
-                   {getCategoryName(product.category)}
+                  {getCategoryName(product.category)}
                 </div>
                 <div>
                   <p className="text-xs text-gray-400">Brand</p>
@@ -120,12 +124,13 @@ const ProductDetailModal = ({ product,categories, onClose, formatIndianRupee, ge
               <div className="bg-blue-50 rounded-xl p-4">
                 <h3 className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Price Range</h3>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatIndianRupee(product.priceRange?.min || 0)}
-                  {product.priceRange?.max !== product.priceRange?.min && (
-                    <span className="text-lg font-medium text-gray-500">
-                      {" "}– {formatIndianRupee(product.priceRange?.max || 0)}
-                    </span>
-                  )}
+                  {/* {formatIndianRupee(product.priceRange?.min || 0)} */}
+                  {activeVariant?.price?.base
+                    ? formatIndianRupee(activeVariant.price.base)
+                    : "—"}
+                  {product.priceRange
+                    ? formatIndianRupee(product.priceRange.min)
+                    : "—"}
                 </p>
               </div>
               <div className={`rounded-xl p-4 ${isLowStock ? "bg-red-50" : "bg-green-50"}`}>
@@ -155,11 +160,10 @@ const ProductDetailModal = ({ product,categories, onClose, formatIndianRupee, ge
                   <button
                     key={i}
                     onClick={() => setActiveVariantIndex(i)}
-                    className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                      activeVariantIndex === i
-                        ? "border-indigo-500 text-indigo-600 bg-indigo-50"
-                        : "border-transparent text-gray-500 hover:text-gray-700"
-                    }`}
+                    className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeVariantIndex === i
+                      ? "border-indigo-500 text-indigo-600 bg-indigo-50"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                      }`}
                   >
                     {v.attributes?.map(a => a.value).join(" / ") || `Variant ${i + 1}`}
                     {!v.isActive && <span className="ml-1 text-xs text-gray-400">(inactive)</span>}
@@ -192,13 +196,13 @@ const ProductDetailModal = ({ product,categories, onClose, formatIndianRupee, ge
                         <span className="text-gray-500">Base Price:</span>
                         <span className="font-semibold text-gray-900">{formatIndianRupee(activeVariant.price?.base || 0)}</span>
                       </div>
-                      {activeVariant.price?.sale && (
+                      {activeVariant?.price?.sale != null && (
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-500">Sale Price:</span>
                           <span className="font-semibold text-green-700">{formatIndianRupee(activeVariant.price.sale)}</span>
                         </div>
                       )}
-                      {activeVariant.price?.sale && activeVariant.price.sale < activeVariant.price?.base && (
+                      {activeVariant?.price?.sale != null && activeVariant.price.sale < activeVariant.price?.base && (
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-500">Discount:</span>
                           <span className="font-semibold text-green-600">
@@ -215,10 +219,9 @@ const ProductDetailModal = ({ product,categories, onClose, formatIndianRupee, ge
                     <div className="space-y-1">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-500">Quantity:</span>
-                        <span className={`font-semibold ${
-                          activeVariant.inventory?.quantity < activeVariant.inventory?.lowStockThreshold
-                            ? "text-red-600" : "text-gray-900"
-                        }`}>
+                        <span className={`font-semibold ${activeVariant.inventory?.quantity < activeVariant.inventory?.lowStockThreshold
+                          ? "text-red-600" : "text-gray-900"
+                          }`}>
                           {activeVariant.inventory?.quantity ?? 0}
                         </span>
                       </div>

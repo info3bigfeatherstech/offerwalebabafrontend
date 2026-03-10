@@ -2,7 +2,7 @@ import axios from "axios";
 
 const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_BACKEND_BASE_URL || "http://localhost:8081/api",
-  timeout: 15000,
+  timeout: 300000,
   withCredentials: true, // ✅ IMPORTANT: sends cookies (refreshToken) with every request
   headers: {
     "Content-Type": "application/json",

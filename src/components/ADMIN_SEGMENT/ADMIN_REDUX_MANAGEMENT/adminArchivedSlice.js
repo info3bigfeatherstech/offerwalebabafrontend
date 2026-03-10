@@ -93,6 +93,16 @@ export const bulkHardDeleteArchivedProducts = createAsyncThunk(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Optimistic Update Action (import from adminGetProductsSlice or define here)
+// ─────────────────────────────────────────────────────────────────────────────
+export const optimisticUpdateProduct = createAsyncThunk(
+    "adminArchived/optimisticUpdate",
+    async (updateData, { dispatch }) => {
+        return updateData;
+    }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SLICE
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -149,6 +159,30 @@ const adminArchivedSlice = createSlice({
             state.bulkHardDeleteLoading = false;
             state.restoreSuccess = false;
             state.hardDeleteSuccess = false;
+        },
+        // Manual optimistic update reducer
+        optimisticUpdateArchived(state, action) {
+            if (action.payload._delete) {
+                // Remove product from list
+                state.products = state.products.filter(p => p._id !== action.payload._id);
+                state.count = Math.max(0, state.count - 1);
+                state.total = Math.max(0, state.total - 1);
+            } else if (action.payload._add) {
+                // Add product to list (for when product is archived)
+                // Check if already exists
+                const exists = state.products.some(p => p._id === action.payload._id);
+                if (!exists) {
+                    state.products = [action.payload, ...state.products];
+                    state.count += 1;
+                    state.total += 1;
+                }
+            } else {
+                // Update existing product
+                const index = state.products.findIndex(p => p._id === action.payload._id);
+                if (index !== -1) {
+                    state.products[index] = { ...state.products[index], ...action.payload };
+                }
+            }
         }
     },
     extraReducers: (builder) => {
@@ -178,9 +212,16 @@ const adminArchivedSlice = createSlice({
                 state.restoreSuccess = false;
                 state.error = null;
             })
-            .addCase(restoreArchivedProduct.fulfilled, (state) => {
+            .addCase(restoreArchivedProduct.fulfilled, (state, action) => {
                 state.restoreLoading = false;
                 state.restoreSuccess = true;
+                
+                // Optimistically remove the restored product from archived list
+                if (action.payload?.product?.slug) {
+                    state.products = state.products.filter(p => p.slug !== action.payload.product.slug);
+                    state.count = Math.max(0, state.count - 1);
+                    state.total = Math.max(0, state.total - 1);
+                }
             })
             .addCase(restoreArchivedProduct.rejected, (state, action) => {
                 state.restoreLoading = false;
@@ -238,7 +279,33 @@ const adminArchivedSlice = createSlice({
             .addCase(bulkHardDeleteArchivedProducts.rejected, (state, action) => {
                 state.bulkHardDeleteLoading = false;
                 state.error = action.payload || "Failed to bulk permanently delete products";
-            });
+            })
+
+            // ── Handle soft delete from adminEditProduct slice ───────────
+           .addMatcher(
+  (action) => action.type === "adminEditProduct/softDelete/fulfilled",
+  (state, action) => {
+    // When a product is soft deleted, add it to archived list
+    if (action.payload?.product) {
+      const archivedProduct = action.payload.product;
+      // Check if already exists
+      const exists = state.products.some(p => p._id === archivedProduct._id);
+      if (!exists) {
+        state.products = [archivedProduct, ...state.products];
+        state.count += 1;
+        state.total += 1;
+      }
+    }
+  }
+)
+            
+            // ── Handle restore from this slice itself ───────────────────
+            .addMatcher(
+                (action) => action.type === "adminArchived/restore/fulfilled",
+                (state, action) => {
+                    // Already handled above, but this ensures consistency
+                }
+            );
     }
 });
 
@@ -246,7 +313,8 @@ export const {
     clearArchivedState, 
     setArchivedPage, 
     clearArchivedErrors,
-    resetActionStates 
+    resetActionStates,
+    optimisticUpdateArchived 
 } = adminArchivedSlice.actions;
 
 export default adminArchivedSlice.reducer;

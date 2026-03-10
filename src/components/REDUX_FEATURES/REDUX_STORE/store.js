@@ -5,6 +5,9 @@ import adminGetProductsReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/
 import adminArchivedReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminArchivedSlice"
 import adminEditProductReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminEditProductSlice"; // NEW
 import categoriesReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/categoriesSlice";
+// import bulkUploadReducer from '../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/bulkUploadSlice';
+import adminBulkUploadReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/bulkUploadSlice";
+
 const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -13,6 +16,8 @@ const store = configureStore({
              adminEditProduct: adminEditProductReducer,
     adminArchived: adminArchivedReducer,
       categories: categoriesReducer,
+      // bulkUpload: bulkUploadReducer,
+      adminBulkUpload: adminBulkUploadReducer,
   },
   devTools: import.meta.env.MODE !== "production", // Redux DevTools only in dev
 });
