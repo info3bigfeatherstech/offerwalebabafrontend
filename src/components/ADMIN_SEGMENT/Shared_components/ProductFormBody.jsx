@@ -32,12 +32,12 @@ const ProductFormBody = ({
   getDiscountPercentage,
   productSlug,
   actionLoading = false,
-  actionError   = null,
+  actionError = null,
 }) => {
   const isEditMode = !!productSlug;
 
   // ── Gallery drag state ────────────────────────────────────────────────────
-  const [draggedIdx,     setDraggedIdx]     = useState(null);
+  const [draggedIdx, setDraggedIdx] = useState(null);
   const [isDraggingZone, setIsDraggingZone] = useState(false);
 
   // ── Gallery images ────────────────────────────────────────────────────────
@@ -65,11 +65,11 @@ const ProductFormBody = ({
   };
 
   const handleGalleryUpload = (e) => {
-    const files   = Array.from(e.target.files);
+    const files = Array.from(e.target.files);
     const current = [...galleryImages];
     files.forEach((file, i) => {
       if (current.length >= 5) return;
-      const id     = `gimg-${Date.now()}-${i}`;
+      const id = `gimg-${Date.now()}-${i}`;
       const reader = new FileReader();
       reader.onloadend = () => {
         current.push({ id, url: reader.result, file, name: file.name, isMain: current.length === 0 });
@@ -82,7 +82,7 @@ const ProductFormBody = ({
   const removeGalleryImage = (id) =>
     setGalleryImages((imgs) => {
       const wasMain = imgs.find((img) => img.id === id || img.url === id)?.isMain;
-      const next    = imgs.filter((img) => img.id !== id && img.url !== id);
+      const next = imgs.filter((img) => img.id !== id && img.url !== id);
       if (wasMain && next.length > 0) next[0] = { ...next[0], isMain: true };
       return next;
     });
@@ -94,7 +94,7 @@ const ProductFormBody = ({
     );
 
   const handleGalleryDragStart = (e, index) => setDraggedIdx(index);
-  const handleGalleryDragOver  = (e, index) => {
+  const handleGalleryDragOver = (e, index) => {
     e.preventDefault();
     if (draggedIdx === null || draggedIdx === index) return;
     const imgs = [...galleryImages];
@@ -150,15 +150,15 @@ const ProductFormBody = ({
 
   // ── Derived values ────────────────────────────────────────────────────────
   const primaryVariant = isEditMode ? (formData.variants?.[0] ?? null) : null;
-  const extraVariants  = isEditMode ? (formData.variants?.slice(1) ?? []) : (formData.variants ?? []);
-  const extraOffset    = isEditMode ? 1 : 0;
+  const extraVariants = isEditMode ? (formData.variants?.slice(1) ?? []) : (formData.variants ?? []);
+  const extraOffset = isEditMode ? 1 : 0;
 
   // For CREATE mode display
-  const primaryBase  = formData.price?.base  ?? "";
-  const primarySale  = formData.price?.sale  ?? "";
+  const primaryBase = formData.price?.base ?? "";
+  const primarySale = formData.price?.sale ?? "";
   const primaryTrack = formData.inventory?.trackInventory ?? true;
-  const primaryQty   = formData.inventory?.quantity          ?? 0;
-  const primaryLow   = formData.inventory?.lowStockThreshold ?? 5;
+  const primaryQty = formData.inventory?.quantity ?? 0;
+  const primaryLow = formData.inventory?.lowStockThreshold ?? 5;
 
   const mainGalleryImage = galleryImages.find((img) => img.isMain) || galleryImages[0] || null;
 
@@ -195,7 +195,7 @@ const ProductFormBody = ({
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Description <span className="text-red-400">*</span></label>
               <textarea name="description" value={formData.description} onChange={handleInputChange} rows="3"
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 resize-none"
                 placeholder="Describe your product..." />
@@ -295,7 +295,7 @@ const ProductFormBody = ({
                       placeholder="29999" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Sale Price <span className="text-gray-400">(optional)</span></label>
+                    <label className="text-xs text-gray-500 mb-1 block">Sale Price <span className="text-red-400">*</span></label>
                     <input
                       type="number"
                       value={primaryVariant.price?.sale ?? ""}
@@ -307,10 +307,10 @@ const ProductFormBody = ({
                 {primaryVariant.price?.base && primaryVariant.price?.sale &&
                   Number(primaryVariant.price.sale) > 0 &&
                   Number(primaryVariant.price.sale) < Number(primaryVariant.price.base) && (
-                  <div className="mt-2 flex items-center gap-2 p-2 bg-green-50 rounded-lg text-xs text-green-700 border border-green-200">
-                    💰 {getDiscountPercentage(primaryVariant.price.base, primaryVariant.price.sale)}% discount applied
-                  </div>
-                )}
+                    <div className="mt-2 flex items-center gap-2 p-2 bg-green-50 rounded-lg text-xs text-green-700 border border-green-200">
+                      💰 {getDiscountPercentage(primaryVariant.price.base, primaryVariant.price.sale)}% discount applied
+                    </div>
+                  )}
               </div>
 
               {/* Inventory inputs — always visible */}
@@ -465,7 +465,7 @@ const ProductFormBody = ({
         </div>
 
         {/* ── Product Attributes ────────────────────────────────────────────── */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {/* <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
             <h3 className="font-semibold text-gray-900">Product Attributes</h3>
             <button type="button" onClick={onOpenAttributeModal}
@@ -487,6 +487,43 @@ const ProductFormBody = ({
                     <button type="button" onClick={() => onRemoveAttribute(attr.id)}
                       className="text-gray-400 hover:text-red-500">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div> */}
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+            <h3 className="font-semibold text-gray-900">Product Attributes</h3>
+            <button type="button" onClick={onOpenAttributeModal}
+              className="px-3 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 whitespace-nowrap">
+              + Add
+            </button>
+          </div>
+          <div className="p-4">
+            {!formData.attributes?.length ? (
+              <p className="text-center text-gray-400 py-4 text-sm">No attributes added yet</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {formData.attributes.map((attr) => (
+                  <div
+                    key={attr.id}
+                    className="inline-flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg group hover:bg-gray-100 transition-colors"
+                  >
+                    <span className="text-sm whitespace-nowrap">
+                      <span className="font-medium text-gray-700">{attr.key}:</span>{" "}
+                      <span className="text-gray-600">{attr.value}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveAttribute(attr.id)}
+                      className="text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
@@ -537,8 +574,8 @@ const ProductFormBody = ({
             ) : (
               <div className="space-y-3">
                 {extraVariants.map((variant, idx) => {
-                  const realIndex    = extraOffset + idx;
-                  const isActive     = variant.isActive !== false;
+                  const realIndex = extraOffset + idx;
+                  const isActive = variant.isActive !== false;
                   const variantThumb = variant.images?.find((img) => img.isMain)?.url || variant.images?.[0]?.url || null;
 
                   return (
@@ -652,9 +689,8 @@ const ProductFormBody = ({
           )}
           <div className="p-4">
             <label
-              className={`block w-full border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all ${
-                isDraggingZone ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-blue-400"
-              } ${galleryImages.length >= 5 ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`block w-full border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all ${isDraggingZone ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-blue-400"
+                } ${galleryImages.length >= 5 ? "opacity-50 cursor-not-allowed" : ""}`}
               onDragOver={(e) => { e.preventDefault(); setIsDraggingZone(true); }}
               onDragLeave={() => setIsDraggingZone(false)}
               onDrop={(e) => {
@@ -675,11 +711,10 @@ const ProductFormBody = ({
                 {galleryImages.map((image, index) => (
                   <div key={image.id || image.url} draggable
                     onDragStart={(e) => handleGalleryDragStart(e, index)}
-                    onDragOver={(e)  => handleGalleryDragOver(e, index)}
+                    onDragOver={(e) => handleGalleryDragOver(e, index)}
                     onDragEnd={() => setDraggedIdx(null)}
-                    className={`flex items-center gap-2 p-2 rounded-lg border-2 cursor-grab active:cursor-grabbing transition-all ${
-                      image.isMain ? "border-blue-500 bg-blue-50" : "border-transparent bg-gray-50 hover:border-gray-200"
-                    }`}>
+                    className={`flex items-center gap-2 p-2 rounded-lg border-2 cursor-grab active:cursor-grabbing transition-all ${image.isMain ? "border-blue-500 bg-blue-50" : "border-transparent bg-gray-50 hover:border-gray-200"
+                      }`}>
                     <div className="w-10 h-10 rounded overflow-hidden bg-white flex-shrink-0 border border-gray-100">
                       <img src={image.url} alt="" className="w-full h-full object-cover" />
                     </div>
@@ -806,7 +841,7 @@ const ProductFormBody = ({
 
 export default ProductFormBody;
 
-// try to fix it the image issue 
+// try to fix it the image issue
 // // Shared_components/ProductFormBody.jsx
 // //
 // // EDIT MODE (productSlug set):
@@ -1193,7 +1228,7 @@ export default ProductFormBody;
 //                       <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 //                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 //                       </svg>
-//                       Click <strong>Edit Main Variant</strong> to update price, inventory, attributes or images. 
+//                       Click <strong>Edit Main Variant</strong> to update price, inventory, attributes or images.
 //                       The <strong>Save Changes</strong> button below updates only product details (name, category, brand, etc.).
 //                     </p>
 //                   </div>
@@ -1750,7 +1785,7 @@ export default ProductFormBody;
 // };
 
 // export default ProductFormBody;
-// start again 
+// start again
 
 
 // // Shared_components/ProductFormBody.jsx

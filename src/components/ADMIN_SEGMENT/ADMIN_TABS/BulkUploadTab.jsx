@@ -1,507 +1,350 @@
-// ============================================================
-// BulkUploadModal.jsx
-// TWO-STEP BULK UPLOAD MODAL
-// Step 1 — Upload CSV/Excel → preview products
-// Step 2 — Upload ZIP (optional) → confirm → save to DB
-// ============================================================
-
-import React, { useState, useRef, useCallback } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import React, { useCallback, useRef, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
-  previewCSV,
-  importZip,
-  resetBulkUpload,
-  setCsvPct,
-  setZipPct,
-} from "../ADMIN_REDUX_MANAGEMENT/bulkUploadSlice";
+  previewCSV, importWithUrls, importWithZip,
+  setImageMode, setCsvFile, setZipFile, goToStep, resetBulkUpload,
+} from '../ADMIN_REDUX_MANAGEMENT/bulkUploadSlice';
 
-// ─────────────────────────────────────────────────────────────
-// SAMPLE TEMPLATE (images column blank — ZIP handles images)
-// ─────────────────────────────────────────────────────────────
-const SAMPLE_CSV = `name,title,description,category,brand,status,isfeatured,barcode,basePrice,salePrice,quantity,variantAttributes,productAttributes,soldEnabled,soldCount,fomoEnabled,fomoType,viewingNow,productLeft,customMessage,weight,length,width,height
-iPhone 15,Apple iPhone 15 128GB,Latest Apple smartphone,Mobiles,Apple,active,true,665563,80000,76000,45,Color:Black|Storage:128GB,Material:Aluminium|Warranty:1 Year,true,150,true,viewing_now,67,0,,0.5,15,7,1
-iPhone 15,Apple iPhone 15 128GB,Latest Apple smartphone,Mobiles,Apple,active,true,665564,80000,76000,30,Color:White|Storage:128GB,,true,150,true,viewing_now,67,0,,0.5,15,7,1
-Nike Shoes,Nike Running Shoes,Comfortable running shoes,Shoes,Nike,draft,false,45225,4000,,180,Color:Red|Size:9,Material:Mesh,true,78,false,viewing_now,0,0,,0.8,30,10,12`;
+// ─── tiny helpers ────────────────────────────────────────────
+const fmt = (n) => Number(n || 0).toLocaleString();
 
-const downloadTemplate = () => {
-  const blob = new Blob([SAMPLE_CSV], { type: "text/csv" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
-  a.download = "bulk_upload_template.csv";
-  a.click();
-  URL.revokeObjectURL(url);
-};
-
-// ─────────────────────────────────────────────────────────────
-// STATUS BADGE
-// ─────────────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
   const map = {
-    success             : "bg-green-100 text-green-700 border-green-200",
-    saved_with_warnings : "bg-yellow-100 text-yellow-700 border-yellow-200",
-    failed              : "bg-red-100 text-red-700 border-red-200",
-    pending             : "bg-gray-100 text-gray-500 border-gray-200",
+    success            : 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    saved_with_warnings: 'bg-amber-50  text-amber-700  border-amber-200',
+    failed             : 'bg-red-50    text-red-700    border-red-200',
+    pending            : 'bg-slate-50  text-slate-500  border-slate-200',
   };
-  const label = {
-    success             : "✓ Saved",
-    saved_with_warnings : "⚠ Saved with warnings",
-    failed              : "✗ Failed",
-    pending             : "Pending",
-  };
+  const label = { success: 'Saved', saved_with_warnings: 'Saved with warnings', failed: 'Failed', pending: 'Pending' };
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${map[status] || map.pending}`}>
+    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${map[status] || map.pending}`}>
       {label[status] || status}
     </span>
   );
 };
 
-// ─────────────────────────────────────────────────────────────
-// PROGRESS BAR
-// ─────────────────────────────────────────────────────────────
-const ProgressBar = ({ pct, label, processing }) => (
-  <div className="space-y-2">
-    <div className="flex justify-between text-sm font-medium text-gray-600">
-      <span>{processing ? "Server processing…" : label}</span>
-      <span className="text-indigo-600">{processing ? "100% ✓" : `${pct}%`}</span>
-    </div>
-    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-      <div
-        className="h-3 rounded-full transition-all duration-300"
-        style={{
-          width     : `${processing ? 100 : pct}%`,
-          background: "linear-gradient(90deg,#6366f1,#a855f7)",
-        }}
-      />
-    </div>
+const ProgressBar = ({ pct, color = 'bg-indigo-500' }) => (
+  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+    <div className={`h-2 rounded-full transition-all duration-300 ${color}`} style={{ width: `${pct}%` }} />
   </div>
 );
 
-// ─────────────────────────────────────────────────────────────
-// DROP ZONE
-// ─────────────────────────────────────────────────────────────
-const DropZone = ({ accept, label, sublabel, hint, file, onFile, onClear, disabled }) => {
-  const inputRef = useRef(null);
+// ─── DropZone ────────────────────────────────────────────────
+const DropZone = ({ accept, label, hint, icon, onFile, file, disabled }) => {
+  const inputRef = useRef();
   const [drag, setDrag] = useState(false);
 
   const handle = (f) => { if (f && !disabled) onFile(f); };
+  const onDrop = useCallback((e) => { e.preventDefault(); setDrag(false); handle(e.dataTransfer.files[0]); }, []);
+  const onDrag = (over) => (e) => { e.preventDefault(); !disabled && setDrag(over); };
 
   return (
     <div
       onClick={() => !disabled && inputRef.current?.click()}
-      onDragOver={(e) => { e.preventDefault(); if (!disabled) setDrag(true); }}
-      onDragLeave={() => setDrag(false)}
-      onDrop={(e) => { e.preventDefault(); setDrag(false); handle(e.dataTransfer.files[0]); }}
-      className={`relative border-2 border-dashed rounded-2xl p-8 text-center select-none transition-all duration-200
-        ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
-        ${drag    ? "border-indigo-500 bg-indigo-50 scale-[1.01]"
-          : file  ? "border-green-400 bg-green-50"
-                  : "border-gray-300 hover:border-indigo-400 hover:bg-indigo-50"}`}
+      onDrop={onDrop}
+      onDragOver={onDrag(true)}
+      onDragLeave={onDrag(false)}
+      className={`
+        relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all
+        ${disabled ? 'opacity-40 cursor-not-allowed' : ''}
+        ${drag ? 'border-indigo-400 bg-indigo-50' : file ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50/40'}
+      `}
     >
-      <input ref={inputRef} type="file" accept={accept} className="hidden"
-        onChange={(e) => handle(e.target.files[0])} disabled={disabled} />
-
-      {file ? (
-        <div className="flex items-center justify-center gap-4">
-          <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
-            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-          </div>
-          <div className="text-left flex-1">
-            <p className="font-semibold text-gray-900 text-sm">{file.name}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-          </div>
-          <button type="button"
-            onClick={(e) => { e.stopPropagation(); onClear(); }}
-            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-      ) : (
-        <>
-          <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-            <svg className="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-            </svg>
-          </div>
-          <p className="font-semibold text-gray-800 text-sm">{label}</p>
-          <p className="text-xs text-gray-500 mt-1">{sublabel}</p>
-          {hint && <p className="text-xs text-gray-400 mt-2 font-mono">{hint}</p>}
-        </>
-      )}
+      <input ref={inputRef} type="file" accept={accept} className="hidden" disabled={disabled}
+        onChange={(e) => handle(e.target.files[0])} />
+      <div className="text-3xl mb-2">{file ? '✅' : icon}</div>
+      {file
+        ? <p className="text-sm font-medium text-emerald-700 truncate">{file.name} <span className="text-emerald-500">({(file.size / 1024 / 1024).toFixed(1)} MB)</span></p>
+        : <>
+            <p className="text-sm font-semibold text-slate-700">{label}</p>
+            <p className="text-xs text-slate-400 mt-1">{hint}</p>
+          </>
+      }
     </div>
   );
 };
 
-// ─────────────────────────────────────────────────────────────
+// ─── Collapsible row for warnings/errors ─────────────────────
+const ProductRow = ({ item }) => {
+  const [open, setOpen] = useState(false);
+  const hasDetail = item.warnings?.length > 0 || item.errors?.length > 0;
+  return (
+    <>
+      <tr className={`border-b border-slate-100 ${item.status === 'failed' ? 'bg-red-50/30' : ''}`}>
+        <td className="py-2.5 px-4 text-sm font-medium text-slate-800 max-w-[200px] truncate">{item.name}</td>
+        <td className="py-2.5 px-4"><StatusBadge status={item.status} /></td>
+        <td className="py-2.5 px-4 text-sm text-slate-600 text-center">{fmt(item.imageCount)}</td>
+        <td className="py-2.5 px-4 text-sm text-amber-600 text-center">{item.warnings?.length || 0}</td>
+        <td className="py-2.5 px-4 text-sm text-red-600 text-center">{item.errors?.length || 0}</td>
+        <td className="py-2.5 px-4">
+          {hasDetail && (
+            <button onClick={() => setOpen(o => !o)} className="text-xs text-indigo-600 hover:underline">
+              {open ? '▲ Hide' : '▼ Detail'}
+            </button>
+          )}
+        </td>
+      </tr>
+      {open && hasDetail && (
+        <tr className="bg-slate-50 border-b border-slate-100">
+          <td colSpan={6} className="px-4 py-2 space-y-1">
+            {item.errors?.map((e, i) => (
+              <div key={i} className="flex gap-2 text-xs text-red-700">
+                <span className="mt-0.5">❌</span><span>{e}</span>
+              </div>
+            ))}
+            {item.warnings?.map((w, i) => (
+              <div key={i} className="flex gap-2 text-xs text-amber-700">
+                <span className="mt-0.5">⚠️</span><span>{w}</span>
+              </div>
+            ))}
+          </td>
+        </tr>
+      )}
+    </>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
 // MAIN MODAL
-// ─────────────────────────────────────────────────────────────
-const BulkUploadModal = ({ onClose, onSuccess }) => {
+// ═══════════════════════════════════════════════════════════════
+const BulkUploadModal = ({ isOpen, onClose }) => {
   const dispatch = useDispatch();
   const {
-    csvUploading, csvUploadPct, preview, csvError,
-    zipUploading, zipUploadPct, processing, result, zipError,
-  } = useSelector((s) => s.adminBulkUpload);
+    step, imageMode,
+    csvFile, csvPct, previewing, previewData, csvError,
+    zipFile, importPct, importing, result, importError,
+  } = useSelector(s => s.adminBulkUpload);
 
-  const [csvFile,    setCsvFile]    = useState(null);
-  const [zipFile,    setZipFile]    = useState(null);
-  const [localCsvPct, setLocalCsvPct] = useState(0);
-  const [localZipPct, setLocalZipPct] = useState(0);
-  const [resultTab,  setResultTab]  = useState("all");
-  const [expandedRow, setExpandedRow] = useState(null);
+  const [resultTab, setResultTab] = useState('all');
 
-  const isActive = csvUploading || zipUploading || processing;
-
-  const reset = () => {
+  const handleClose = () => {
     dispatch(resetBulkUpload());
-    setCsvFile(null);
-    setZipFile(null);
-    setLocalCsvPct(0);
-    setLocalZipPct(0);
-    setResultTab("all");
-    setExpandedRow(null);
+    setResultTab('all');
+    onClose();
   };
 
-  // ── STEP 1: Upload CSV ──
-  const handlePreview = async () => {
+  // ─── Mode A: parse + import in one shot ──────────────────
+  const handleModeAImport = () => {
     if (!csvFile) return;
-    setLocalCsvPct(0);
-    await dispatch(previewCSV({
-      file: csvFile,
-      onProgress: (pct) => { setLocalCsvPct(pct); dispatch(setCsvPct(pct)); },
-    }));
+    dispatch(importWithUrls(csvFile));
   };
 
-  // ── STEP 2: Import ZIP + confirm ──
-  const handleImport = async () => {
-    if (!preview?._parsedData) return;
-    setLocalZipPct(0);
-    const res = await dispatch(importZip({
-      zipFile,
-      parsedProducts: preview._parsedData,
-      onProgress: (pct) => { setLocalZipPct(pct); dispatch(setZipPct(pct)); },
-    }));
-    if (importZip.fulfilled.match(res)) onSuccess?.();
+  // ─── Mode A with preview: first preview, then import ─────
+  const handlePreview = () => {
+    if (!csvFile) return;
+    dispatch(previewCSV(csvFile));
   };
 
-  // ─────────────────────────────────────────────────────────
-  // RESULT PANEL
-  // ─────────────────────────────────────────────────────────
-  if (result) {
-    const all      = result.products || [];
-    const success  = all.filter(p => p.status === "success");
-    const warned   = all.filter(p => p.status === "saved_with_warnings");
-    const failed   = all.filter(p => p.status === "failed");
+  // ─── Mode B: preview → zip → import ─────────────────────
+  const handleZipImport = () => {
+    if (!csvFile || !zipFile) return;
+    dispatch(importWithZip({ csvFile, zipFile }));
+  };
 
-    const tabData = {
-      all     : all,
-      success : success,
-      warnings: warned,
-      failed  : failed,
-    };
-    const shown = tabData[resultTab] || all;
+  if (!isOpen) return null;
 
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center p-4 z-50 overflow-y-auto mt-[10%]">
-        <div className="bg-white rounded-2xl w-full max-w-5xl my-8 shadow-2xl">
+  // ─── Step indicators ──────────────────────────────────────
+  const modeASteps = ['Choose mode', 'Upload Excel', 'Done'];
+  const modeBSteps = ['Choose mode', 'Upload Excel', 'Preview', 'Upload ZIP', 'Done'];
+  const steps      = imageMode === 'zip' ? modeBSteps : modeASteps;
+  const stepIdx    = { mode: 0, upload: 1, preview: 2, zip: 3, importing: 4, result: imageMode === 'zip' ? 4 : 2 };
 
-          {/* Header */}
-          <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between mt-%]">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">Import Complete</h2>
-              <p className="text-sm text-gray-500 mt-0.5">Here's what happened with your products</p>
-            </div>
-            <button onClick={() => { reset(); onClose(); }}
-              className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
-              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-
-          <div className="p-6 space-y-5">
-
-            {/* ZIP global error */}
-            {result.zipError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-                ⚠ {result.zipError}
-              </div>
-            )}
-
-            {/* Stats */}
-            <div className="grid grid-cols-4 gap-3">
-              {[
-                { label: "Total",    value: result.totalProducts,  color: "blue"  },
-                { label: "Saved",    value: result.savedProducts,   color: "green" },
-                { label: "Warnings", value: warned.length,          color: "yellow"},
-                { label: "Failed",   value: result.failedProducts,  color: "red"   },
-              ].map(({ label, value, color }) => (
-                <div key={label} className={`bg-${color}-50 border border-${color}-200 rounded-xl p-3 text-center`}>
-                  <p className={`text-2xl font-bold text-${color}-700`}>{value}</p>
-                  <p className={`text-xs text-${color}-600 mt-0.5`}>{label}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Tabs */}
-            <div className="flex gap-2 flex-wrap">
-              {[
-                { key: "all",      label: `All (${all.length})`         },
-                { key: "success",  label: `✓ Saved (${success.length})` },
-                { key: "warnings", label: `⚠ Warnings (${warned.length})`},
-                { key: "failed",   label: `✗ Failed (${failed.length})`  },
-              ].map(({ key, label }) => (
-                <button key={key} onClick={() => setResultTab(key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
-                    ${resultTab === key
-                      ? "bg-indigo-100 text-indigo-700 border border-indigo-200"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {/* Product result table */}
-            <div className="border border-gray-200 rounded-xl overflow-hidden">
-              <div className="overflow-y-auto max-h-80">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 sticky top-0 z-10">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">#</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Product</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Images</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Details</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {shown.map((p, i) => (
-                      <React.Fragment key={i}>
-                        <tr className="hover:bg-gray-50">
-                          <td className="px-4 py-2.5 text-gray-400 text-xs">{i + 1}</td>
-                          <td className="px-4 py-2.5 font-medium text-gray-900 text-xs">{p.name}</td>
-                          <td className="px-4 py-2.5"><StatusBadge status={p.status}/></td>
-                          <td className="px-4 py-2.5 text-xs text-gray-600">
-                            {p.imageCount > 0
-                              ? <span className="text-green-600 font-medium">{p.imageCount} uploaded</span>
-                              : <span className="text-gray-400">none</span>}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            {(p.warnings?.length > 0 || p.errors?.length > 0) && (
-                              <button
-                                onClick={() => setExpandedRow(expandedRow === i ? null : i)}
-                                className="text-xs text-indigo-600 hover:underline">
-                                {expandedRow === i ? "hide" : `show ${(p.warnings?.length || 0) + (p.errors?.length || 0)} issue(s)`}
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                        {expandedRow === i && (p.warnings?.length > 0 || p.errors?.length > 0) && (
-                          <tr>
-                            <td colSpan={5} className="px-4 py-3 bg-gray-50">
-                              {p.errors?.map((e, j) => (
-                                <p key={j} className="text-xs text-red-600 mb-1">✗ {e}</p>
-                              ))}
-                              {p.warnings?.map((w, j) => (
-                                <p key={j} className="text-xs text-yellow-700 mb-1">⚠ {w}</p>
-                              ))}
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-3">
-              <button onClick={reset}
-                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors text-sm">
-                Upload Another Batch
-              </button>
-              <button onClick={() => { reset(); onClose(); }}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow text-sm">
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────
-  // MAIN MODAL BODY
-  // ─────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center p-4 z-50 overflow-y-auto mt-[13%]">
-      <div className="bg-white rounded-2xl w-full max-w-5xl my-8 shadow-2xl flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
 
         {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">Bulk Upload Products</h2>
-              <p className="text-sm text-gray-500">Two-step import — CSV data first, images ZIP second</p>
-            </div>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Bulk Product Upload</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Import products from Excel or CSV</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={downloadTemplate}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-              </svg>
-              Template
-            </button>
-            <button onClick={() => { reset(); onClose(); }} disabled={isActive}
-              className="p-2 hover:bg-gray-100 rounded-xl disabled:opacity-40 transition-colors">
-              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
+          <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors text-lg">
+            ✕
+          </button>
         </div>
 
-        <div className="p-6 space-y-6">
-
-          {/* ── STEP INDICATORS ── */}
-          <div className="flex items-center gap-0">
-            {[
-              { n: 1, label: "Upload CSV",    done: !!preview },
-              { n: 2, label: "Upload Images", done: !!result  },
-              { n: 3, label: "Done",          done: false      },
-            ].map(({ n, label, done }, idx) => (
-              <React.Fragment key={n}>
-                <div className="flex items-center gap-2">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2
-                    ${done
-                      ? "bg-green-500 border-green-500 text-white"
-                      : preview && n === 2
-                      ? "bg-indigo-600 border-indigo-600 text-white"
-                      : "bg-white border-gray-300 text-gray-400"}`}>
-                    {done ? "✓" : n}
-                  </div>
-                  <span className={`text-xs font-medium ${done || (preview && n === 2) ? "text-gray-800" : "text-gray-400"}`}>
-                    {label}
-                  </span>
-                </div>
-                {idx < 2 && <div className="flex-1 h-px bg-gray-200 mx-2"/>}
-              </React.Fragment>
-            ))}
-          </div>
-
-          {/* ── STEP 1: CSV UPLOAD ── */}
-          <div className={`space-y-4 ${preview ? "opacity-60 pointer-events-none" : ""}`}>
-            <div className="flex items-center gap-2">
-              <span className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
-              <h3 className="font-semibold text-gray-800 text-sm">Upload product data (CSV or Excel)</h3>
-            </div>
-
-            {csvError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
-                <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <p className="text-sm text-red-700">{csvError}</p>
-              </div>
-            )}
-
-            <DropZone
-              accept=".csv,.xls,.xlsx"
-              label="Drop your CSV or Excel file here"
-              sublabel="or click to browse · .csv .xls .xlsx"
-              hint="Required columns: name, category, basePrice, barcode"
-              file={csvFile}
-              onFile={setCsvFile}
-              onClear={() => setCsvFile(null)}
-              disabled={csvUploading}
-            />
-
-            {csvUploading && (
-              <ProgressBar pct={localCsvPct} label="Uploading CSV…" processing={false}/>
-            )}
-
-            {!preview && (
-              <button
-                onClick={handlePreview}
-                disabled={!csvFile || csvUploading}
-                className="w-full px-4 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700
-                  disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm flex items-center justify-center gap-2">
-                {csvUploading
-                  ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>Parsing…</>
-                  : "Parse & Preview →"}
-              </button>
-            )}
-          </div>
-
-          {/* ── PREVIEW TABLE (after step 1) ── */}
-          {preview && !result && (
-            <div className="space-y-3">
-              {/* Summary */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-bold">✓</span>
-                  <span className="text-sm font-semibold text-gray-800">
-                    {preview.totalProducts} products detected
-                    <span className="text-gray-400 font-normal ml-1">({preview.totalRows} rows)</span>
-                  </span>
-                </div>
-                <div className="flex gap-2 text-xs">
-                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">
-                    ✓ {preview.validCount} valid
-                  </span>
-                  {preview.invalidCount > 0 && (
-                    <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full font-medium">
-                      ✗ {preview.invalidCount} errors
+        {/* Step bar */}
+        {step !== 'mode' && (
+          <div className="px-6 py-3 border-b border-slate-50 flex items-center gap-2">
+            {steps.map((s, i) => {
+              const current = stepIdx[step] ?? 0;
+              const done    = i < current;
+              const active  = i === current;
+              return (
+                <React.Fragment key={i}>
+                  <div className={`flex items-center gap-1.5 text-xs font-medium transition-colors
+                    ${done ? 'text-emerald-600' : active ? 'text-indigo-700' : 'text-slate-300'}`}>
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold
+                      ${done ? 'bg-emerald-500 text-white' : active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                      {done ? '✓' : i + 1}
                     </span>
-                  )}
-                </div>
+                    <span className="hidden sm:block">{s}</span>
+                  </div>
+                  {i < steps.length - 1 && <div className={`flex-1 h-px ${done ? 'bg-emerald-200' : 'bg-slate-100'}`} />}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+          {/* ══ STEP: MODE SELECTION ══════════════════════════════ */}
+          {step === 'mode' && (
+            <div className="space-y-4">
+              <p className="text-sm text-slate-600 font-medium">How are you providing product images?</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                {/* Mode A */}
+                <button
+                  onClick={() => dispatch(setImageMode('url'))}
+                  className="group border-2 border-slate-200 rounded-2xl p-5 text-left hover:border-indigo-400 hover:bg-indigo-50/40 transition-all"
+                >
+                  <div className="text-3xl mb-3">🔗</div>
+                  <div className="font-semibold text-slate-800 group-hover:text-indigo-800 mb-1">Image URLs in Excel</div>
+                  <div className="text-xs text-slate-500 leading-relaxed">
+                    Your spreadsheet already has image URLs in the <code className="bg-slate-100 px-1 rounded">images</code> column.
+                    Upload just the Excel file — we fetch and upload images automatically.
+                  </div>
+                  <div className="mt-3 text-xs font-medium text-indigo-600 group-hover:text-indigo-700">
+                    1 file upload →
+                  </div>
+                </button>
+
+                {/* Mode B */}
+                <button
+                  onClick={() => dispatch(setImageMode('zip'))}
+                  className="group border-2 border-slate-200 rounded-2xl p-5 text-left hover:border-violet-400 hover:bg-violet-50/40 transition-all"
+                >
+                  <div className="text-3xl mb-3">📦</div>
+                  <div className="font-semibold text-slate-800 group-hover:text-violet-800 mb-1">Upload images separately</div>
+                  <div className="text-xs text-slate-500 leading-relaxed">
+                    Images are in a ZIP file. Each folder inside the ZIP is named after the product's{' '}
+                    <strong>barcode number</strong>. Drop the images inside their barcode folder.
+                  </div>
+                  <div className="mt-3 text-xs font-medium text-violet-600 group-hover:text-violet-700">
+                    Excel + ZIP →
+                  </div>
+                </button>
               </div>
+
+              {/* CSV format reminder */}
+              <div className="bg-slate-50 rounded-xl p-4 text-xs text-slate-500 leading-relaxed border border-slate-100">
+                <strong className="text-slate-700">Required columns:</strong>{' '}
+                name, title, category, basePrice, barcode — everything else is optional.
+                Multi-variant products: repeat the product name on multiple rows, one row per variant.
+              </div>
+            </div>
+          )}
+
+          {/* ══ STEP: UPLOAD (Mode A) ════════════════════════════ */}
+          {step === 'upload' && imageMode === 'url' && (
+            <div className="space-y-4">
+              <p className="text-xs text-slate-500 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
+                🔗 <strong>Mode: Image URLs in Excel</strong> — Make sure your Excel has an <code className="bg-white px-1 rounded">images</code> column
+                with comma-separated image URLs per row.
+              </p>
+              <DropZone
+                accept=".csv,.xls,.xlsx"
+                label="Drop your Excel / CSV file"
+                hint="CSV, XLS or XLSX — max 10MB"
+                icon="📄"
+                file={csvFile}
+                onFile={(f) => dispatch(setCsvFile(f))}
+                disabled={previewing}
+              />
+              {csvError && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{csvError}</p>}
+              {previewing && (
+                <div className="space-y-1">
+                  <p className="text-xs text-slate-500">Uploading… {csvPct}%</p>
+                  <ProgressBar pct={csvPct} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ══ STEP: UPLOAD (Mode B — just Excel, then preview) ════ */}
+          {step === 'upload' && imageMode === 'zip' && (
+            <div className="space-y-4">
+              <p className="text-xs text-slate-500 bg-violet-50 border border-violet-100 rounded-lg px-3 py-2">
+                📦 <strong>Mode: Separate ZIP images</strong> — Upload your Excel first to preview products, then upload the ZIP.
+              </p>
+              <DropZone
+                accept=".csv,.xls,.xlsx"
+                label="Drop your Excel / CSV file"
+                hint="CSV, XLS or XLSX — max 10MB"
+                icon="📄"
+                file={csvFile}
+                onFile={(f) => dispatch(setCsvFile(f))}
+                disabled={previewing}
+              />
+              {csvError && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{csvError}</p>}
+              {previewing && (
+                <div className="space-y-1">
+                  <p className="text-xs text-slate-500">Parsing file… {csvPct}%</p>
+                  <ProgressBar pct={csvPct} color="bg-violet-500" />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ══ STEP: PREVIEW ════════════════════════════════════ */}
+          {step === 'preview' && previewData && (
+            <div className="space-y-4">
+              {/* Summary bar */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'Total products', value: previewData.totalProducts, color: 'text-slate-800' },
+                  { label: 'Valid',           value: previewData.validCount,    color: 'text-emerald-700' },
+                  { label: 'Has errors',      value: previewData.invalidCount,  color: 'text-red-600' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="bg-slate-50 rounded-xl p-3 text-center border border-slate-100">
+                    <div className={`text-2xl font-bold ${color}`}>{fmt(value)}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Mode A hint if URLs detected */}
+              {imageMode === 'url' && previewData.hasImageUrls && (
+                <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 text-xs text-indigo-700">
+                  ✅ Image URLs detected in your file — they'll be downloaded and uploaded to Cloudinary on import.
+                </div>
+              )}
+              {imageMode === 'url' && !previewData.hasImageUrls && (
+                <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-xs text-amber-700">
+                  ⚠️ No image URLs found in your Excel. Products will be imported without images.
+                  You can add images to each product manually afterwards.
+                </div>
+              )}
 
               {/* Preview table */}
-              <div className="border border-gray-200 rounded-xl overflow-hidden">
-                <div className="overflow-y-auto max-h-52">
-                  <table className="w-full text-xs">
-                    <thead className="bg-gray-50 sticky top-0">
+              <div className="border border-slate-100 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto max-h-60">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 border-b border-slate-100 sticky top-0">
                       <tr>
-                        {["#","Product","Category","Variants","Barcodes","Price Range","Qty","Status"].map(h => (
-                          <th key={h} className="px-3 py-2.5 text-left font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">{h}</th>
+                        {['Product', 'Category', 'Variants', 'Barcodes', 'Qty', 'Images', 'Status'].map(h => (
+                          <th key={h} className="py-2 px-3 text-xs font-semibold text-slate-500 whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {preview.preview.map((p, i) => (
-                        <tr key={i} className={`hover:bg-gray-50 ${p.hasErrors ? "bg-red-50" : ""}`}>
-                          <td className="px-3 py-2 text-gray-400">{i + 1}</td>
-                          <td className="px-3 py-2 font-medium text-gray-900 max-w-[140px] truncate" title={p.name}>{p.name}</td>
-                          <td className="px-3 py-2 text-gray-600">{p.category || <span className="text-red-400">missing!</span>}</td>
-                          <td className="px-3 py-2 text-gray-600 text-center">{p.variantCount}</td>
-                          <td className="px-3 py-2 text-gray-500 max-w-[120px] truncate" title={p.barcodes.join(", ")}>
-                            {p.barcodes.length ? p.barcodes.join(", ") : <span className="text-gray-300 italic">none</span>}
-                          </td>
-                          <td className="px-3 py-2 text-gray-600">
-                            {p.priceRange.min === p.priceRange.max
-                              ? `₹${p.priceRange.min}`
-                              : `₹${p.priceRange.min}–${p.priceRange.max}`}
-                          </td>
-                          <td className="px-3 py-2 text-gray-600">{p.totalQuantity}</td>
-                          <td className="px-3 py-2">
+                    <tbody>
+                      {previewData.preview?.map((p, i) => (
+                        <tr key={i} className={`border-b border-slate-50 ${p.hasErrors ? 'bg-red-50/30' : ''}`}>
+                          <td className="py-2 px-3 text-xs font-medium text-slate-800 max-w-[140px] truncate">{p.name}</td>
+                          <td className="py-2 px-3 text-xs text-slate-500">{p.category}</td>
+                          <td className="py-2 px-3 text-xs text-center">{p.variantCount}</td>
+                          <td className="py-2 px-3 text-xs text-slate-500 max-w-[100px] truncate">{p.barcodes?.join(', ')}</td>
+                          <td className="py-2 px-3 text-xs text-center">{fmt(p.totalQuantity)}</td>
+                          <td className="py-2 px-3 text-xs text-center">{imageMode === 'url' ? (p.imageUrlCount || '—') : '(ZIP)'}</td>
+                          <td className="py-2 px-3">
                             {p.hasErrors
-                              ? <span className="text-red-600 font-medium" title={p.errors.join("; ")}>✗ {p.errors[0]}</span>
-                              : <span className="text-green-600 font-medium">✓ Ready</span>}
+                              ? <span className="text-xs text-red-600">⚠ {p.errors?.join('; ')}</span>
+                              : <span className="text-xs text-emerald-600">✓ OK</span>
+                            }
                           </td>
                         </tr>
                       ))}
@@ -510,94 +353,228 @@ const BulkUploadModal = ({ onClose, onSuccess }) => {
                 </div>
               </div>
 
-              {preview.invalidCount > 0 && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
-                  <p className="text-xs text-red-700 font-medium">
-                    ⚠ {preview.invalidCount} product(s) have errors and will be skipped.
-                    Fix the CSV and re-upload to include them.
-                  </p>
+              {previewData.invalidCount > 0 && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                  ⚠ {previewData.invalidCount} product(s) have validation errors and will be <strong>skipped</strong> during import.
+                  Fix them in your file and re-upload, or proceed to import only the valid ones.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* ══ STEP: ZIP UPLOAD (Mode B only) ═══════════════════ */}
+          {step === 'zip' && (
+            <div className="space-y-4">
+              <DropZone
+                accept=".zip"
+                label="Drop your ZIP file of product images"
+                hint="Max 500MB — one folder per barcode number"
+                icon="📦"
+                file={zipFile}
+                onFile={(f) => dispatch(setZipFile(f))}
+                disabled={importing}
+              />
+              {/* ZIP structure hint */}
+              <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs text-slate-600 space-y-2">
+                <p className="font-semibold text-slate-700">ZIP folder structure:</p>
+                <pre className="font-mono text-slate-500 leading-relaxed bg-white rounded-lg p-3 border border-slate-100 text-[11px]">
+{`images.zip
+├── 665563/          ← barcode number
+│   ├── front.jpg
+│   ├── back.jpg
+│   └── side.png
+├── 45225/
+│   ├── photo1.webp
+│   └── photo2.jpg
+└── 2233652/
+    └── main.jpg`}
+                </pre>
+                <p className="text-slate-400">Supported: JPG, PNG, WebP — up to 5 images per variant. ZIP can contain up to 500MB.</p>
+              </div>
+              {importError && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{importError}</p>}
+            </div>
+          )}
+
+          {/* ══ STEP: IMPORTING ═══════════════════════════════════ */}
+          {step === 'importing' && (
+            <div className="py-8 text-center space-y-4">
+              <div className="text-5xl animate-bounce">⚡</div>
+              <p className="font-semibold text-slate-800">Importing products…</p>
+              <p className="text-xs text-slate-400">
+                {imageMode === 'url'
+                  ? 'Downloading image URLs and uploading to Cloudinary. This may take a few minutes.'
+                  : 'Extracting ZIP, matching barcodes, uploading images to Cloudinary…'}
+              </p>
+              <div className="max-w-xs mx-auto space-y-1">
+                <ProgressBar pct={importPct} color={imageMode === 'zip' ? 'bg-violet-500' : 'bg-indigo-500'} />
+                <p className="text-xs text-slate-400">{importPct}% uploaded</p>
+              </div>
+              <p className="text-xs text-slate-300">Do not close this window.</p>
+            </div>
+          )}
+
+          {/* ══ STEP: RESULT ══════════════════════════════════════ */}
+          {step === 'result' && result && (
+            <div className="space-y-4">
+              {/* Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: 'Total',    value: result.totalRows,         color: 'text-slate-800' },
+                  { label: 'Saved',    value: result.insertedProducts,  color: 'text-emerald-700' },
+                  { label: 'Failed',   value: result.failedCount,       color: 'text-red-600' },
+                  { label: 'Images',   value: result.products?.reduce((s, p) => s + (p.imageCount || 0), 0), color: 'text-indigo-700' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="bg-slate-50 rounded-xl p-3 text-center border border-slate-100">
+                    <div className={`text-2xl font-bold ${color}`}>{fmt(value)}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {result.zipError && (
+                <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-xs text-amber-700">
+                  ⚠ {result.zipError}
                 </div>
               )}
 
-              {/* ── STEP 2: ZIP UPLOAD ── */}
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
-                  <h3 className="font-semibold text-gray-800 text-sm">Upload images ZIP (optional)</h3>
-                </div>
+              {/* Tab bar */}
+              <div className="flex gap-1 border-b border-slate-100">
+                {['all', 'success', 'warnings', 'failed'].map(tab => {
+                  const counts = {
+                    all     : result.products?.length,
+                    success : result.products?.filter(p => p.status === 'success').length,
+                    warnings: result.products?.filter(p => p.status === 'saved_with_warnings').length,
+                    failed  : result.products?.filter(p => p.status === 'failed').length,
+                  };
+                  return (
+                    <button key={tab} onClick={() => setResultTab(tab)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-t-lg border-b-2 transition-colors capitalize
+                        ${resultTab === tab ? 'border-indigo-500 text-indigo-700' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
+                      {tab} ({counts[tab] || 0})
+                    </button>
+                  );
+                })}
+              </div>
 
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 space-y-1">
-                  <p className="font-semibold">📁 How to structure your ZIP:</p>
-                  <p>Create one folder per variant named exactly after its barcode number.</p>
-                  <p>Example: <span className="font-mono bg-amber-100 px-1 rounded">665563/</span> folder → drop any images inside → zip it.</p>
-                  <p>Multiple variants of same product = multiple barcode folders. No image renaming needed.</p>
-                  <p className="text-amber-600">Skip this step to save products as drafts without images.</p>
-                </div>
-
-                {zipError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-                    ✗ {zipError}
-                  </div>
-                )}
-
-                <DropZone
-                  accept=".zip"
-                  label="Drop your images ZIP here"
-                  sublabel="or click to browse · .zip only · max 500MB"
-                  hint="Folder name = barcode number. Any image name works."
-                  file={zipFile}
-                  onFile={setZipFile}
-                  onClear={() => setZipFile(null)}
-                  disabled={zipUploading || processing}
-                />
-
-                {(zipUploading || processing) && (
-                  <ProgressBar
-                    pct={localZipPct}
-                    label="Uploading ZIP…"
-                    processing={processing}
-                  />
-                )}
-                {processing && (
-                  <div className="flex items-center justify-center gap-1.5 py-2">
-                    {[0, 0.15, 0.30].map((delay, i) => (
-                      <span key={i}
-                        className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce"
-                        style={{ animationDelay: `${delay}s` }}/>
-                    ))}
-                    <span className="ml-2 text-xs text-indigo-600">
-                      Uploading images to Cloudinary & saving products…
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex gap-3 pt-1">
-                  <button
-                    onClick={() => { dispatch(resetBulkUpload()); setCsvFile(null); setZipFile(null); }}
-                    disabled={isActive}
-                    className="px-4 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50
-                      disabled:opacity-40 transition-colors text-sm">
-                    ← Back
-                  </button>
-                  <button
-                    onClick={handleImport}
-                    disabled={isActive || !preview?._parsedData?.length}
-                    className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold
-                      rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed
-                      flex items-center justify-center gap-2 transition-all shadow-lg text-sm">
-                    {isActive
-                      ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>
-                          {processing ? "Saving to database…" : "Uploading…"}</>
-                      : zipFile
-                      ? `Import ${preview.validCount} products with images →`
-                      : `Import ${preview.validCount} products without images →`}
-                  </button>
+              {/* Result table */}
+              <div className="border border-slate-100 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto max-h-64">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 border-b border-slate-100 sticky top-0">
+                      <tr>
+                        {['Product', 'Status', 'Images', 'Warnings', 'Errors', ''].map(h => (
+                          <th key={h} className="py-2 px-4 text-xs font-semibold text-slate-500 whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.products
+                        ?.filter(p => {
+                          if (resultTab === 'all')      return true;
+                          if (resultTab === 'success')  return p.status === 'success';
+                          if (resultTab === 'warnings') return p.status === 'saved_with_warnings';
+                          if (resultTab === 'failed')   return p.status === 'failed';
+                          return true;
+                        })
+                        .map((p, i) => <ProductRow key={i} item={p} />)
+                      }
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
           )}
 
         </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3">
+          <button onClick={handleClose} className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
+            {step === 'result' ? 'Close' : 'Cancel'}
+          </button>
+
+          <div className="flex items-center gap-2">
+            {/* Back buttons */}
+            {step === 'upload' && (
+              <button onClick={() => dispatch(goToStep('mode'))}
+                className="text-sm px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">
+                ← Back
+              </button>
+            )}
+            {step === 'preview' && imageMode === 'zip' && (
+              <button onClick={() => dispatch(goToStep('upload'))}
+                className="text-sm px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">
+                ← Back
+              </button>
+            )}
+            {step === 'zip' && (
+              <button onClick={() => dispatch(goToStep('preview'))}
+                className="text-sm px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">
+                ← Back
+              </button>
+            )}
+
+            {/* Primary actions */}
+            {/* Mode A: Upload step → Preview */}
+            {step === 'upload' && imageMode === 'url' && (
+              <button
+                disabled={!csvFile || previewing}
+                onClick={handlePreview}
+                className="text-sm px-5 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                {previewing ? 'Parsing…' : 'Preview →'}
+              </button>
+            )}
+
+            {/* Mode A: Preview → Import */}
+            {step === 'preview' && imageMode === 'url' && (
+              <button
+                disabled={importing || (previewData?.validCount === 0)}
+                onClick={handleModeAImport}
+                className="text-sm px-5 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                Import {previewData?.validCount || 0} product{previewData?.validCount !== 1 ? 's' : ''} →
+              </button>
+            )}
+
+            {/* Mode B: Upload step → Preview */}
+            {step === 'upload' && imageMode === 'zip' && (
+              <button
+                disabled={!csvFile || previewing}
+                onClick={handlePreview}
+                className="text-sm px-5 py-2 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                {previewing ? 'Parsing…' : 'Preview →'}
+              </button>
+            )}
+
+            {/* Mode B: Preview → go to ZIP upload */}
+            {step === 'preview' && imageMode === 'zip' && (
+              <button
+                onClick={() => dispatch(goToStep('zip'))}
+                className="text-sm px-5 py-2 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 transition-colors">
+                Next: Upload ZIP →
+              </button>
+            )}
+
+            {/* Mode B: ZIP upload → Import */}
+            {step === 'zip' && (
+              <button
+                disabled={!zipFile || !csvFile || importing}
+                onClick={handleZipImport}
+                className="text-sm px-5 py-2 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                {importing ? 'Importing…' : `Import ${previewData?.validCount || 0} products →`}
+              </button>
+            )}
+
+            {/* Result: import another batch */}
+            {step === 'result' && (
+              <button
+                onClick={() => { dispatch(resetBulkUpload()); }}
+                className="text-sm px-5 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors">
+                Import another batch
+              </button>
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );
@@ -605,6 +582,616 @@ const BulkUploadModal = ({ onClose, onSuccess }) => {
 
 export default BulkUploadModal;
 
+// upload images separate in zip ?>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+// // ============================================================
+// // BulkUploadModal.jsx
+// // TWO-STEP BULK UPLOAD MODAL
+// // Step 1 — Upload CSV/Excel → preview products
+// // Step 2 — Upload ZIP (optional) → confirm → save to DB
+// // ============================================================
+
+// import React, { useState, useRef, useCallback } from "react";
+// import { useDispatch, useSelector } from "react-redux";
+// import {
+//   previewCSV,
+//   importZip,
+//   resetBulkUpload,
+//   setCsvPct,
+//   setZipPct,
+// } from "../ADMIN_REDUX_MANAGEMENT/bulkUploadSlice";
+
+// // ─────────────────────────────────────────────────────────────
+// // SAMPLE TEMPLATE (images column blank — ZIP handles images)
+// // ─────────────────────────────────────────────────────────────
+// const SAMPLE_CSV = `name,title,description,category,brand,status,isfeatured,barcode,basePrice,salePrice,quantity,variantAttributes,productAttributes,soldEnabled,soldCount,fomoEnabled,fomoType,viewingNow,productLeft,customMessage,weight,length,width,height
+// iPhone 15,Apple iPhone 15 128GB,Latest Apple smartphone,Mobiles,Apple,active,true,665563,80000,76000,45,Color:Black|Storage:128GB,Material:Aluminium|Warranty:1 Year,true,150,true,viewing_now,67,0,,0.5,15,7,1
+// iPhone 15,Apple iPhone 15 128GB,Latest Apple smartphone,Mobiles,Apple,active,true,665564,80000,76000,30,Color:White|Storage:128GB,,true,150,true,viewing_now,67,0,,0.5,15,7,1
+// Nike Shoes,Nike Running Shoes,Comfortable running shoes,Shoes,Nike,draft,false,45225,4000,,180,Color:Red|Size:9,Material:Mesh,true,78,false,viewing_now,0,0,,0.8,30,10,12`;
+
+// const downloadTemplate = () => {
+//   const blob = new Blob([SAMPLE_CSV], { type: "text/csv" });
+//   const url  = URL.createObjectURL(blob);
+//   const a    = document.createElement("a");
+//   a.href     = url;
+//   a.download = "bulk_upload_template.csv";
+//   a.click();
+//   URL.revokeObjectURL(url);
+// };
+
+// // ─────────────────────────────────────────────────────────────
+// // STATUS BADGE
+// // ─────────────────────────────────────────────────────────────
+// const StatusBadge = ({ status }) => {
+//   const map = {
+//     success             : "bg-green-100 text-green-700 border-green-200",
+//     saved_with_warnings : "bg-yellow-100 text-yellow-700 border-yellow-200",
+//     failed              : "bg-red-100 text-red-700 border-red-200",
+//     pending             : "bg-gray-100 text-gray-500 border-gray-200",
+//   };
+//   const label = {
+//     success             : "✓ Saved",
+//     saved_with_warnings : "⚠ Saved with warnings",
+//     failed              : "✗ Failed",
+//     pending             : "Pending",
+//   };
+//   return (
+//     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${map[status] || map.pending}`}>
+//       {label[status] || status}
+//     </span>
+//   );
+// };
+
+// // ─────────────────────────────────────────────────────────────
+// // PROGRESS BAR
+// // ─────────────────────────────────────────────────────────────
+// const ProgressBar = ({ pct, label, processing }) => (
+//   <div className="space-y-2">
+//     <div className="flex justify-between text-sm font-medium text-gray-600">
+//       <span>{processing ? "Server processing…" : label}</span>
+//       <span className="text-indigo-600">{processing ? "100% ✓" : `${pct}%`}</span>
+//     </div>
+//     <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+//       <div
+//         className="h-3 rounded-full transition-all duration-300"
+//         style={{
+//           width     : `${processing ? 100 : pct}%`,
+//           background: "linear-gradient(90deg,#6366f1,#a855f7)",
+//         }}
+//       />
+//     </div>
+//   </div>
+// );
+
+// // ─────────────────────────────────────────────────────────────
+// // DROP ZONE
+// // ─────────────────────────────────────────────────────────────
+// const DropZone = ({ accept, label, sublabel, hint, file, onFile, onClear, disabled }) => {
+//   const inputRef = useRef(null);
+//   const [drag, setDrag] = useState(false);
+
+//   const handle = (f) => { if (f && !disabled) onFile(f); };
+
+//   return (
+//     <div
+//       onClick={() => !disabled && inputRef.current?.click()}
+//       onDragOver={(e) => { e.preventDefault(); if (!disabled) setDrag(true); }}
+//       onDragLeave={() => setDrag(false)}
+//       onDrop={(e) => { e.preventDefault(); setDrag(false); handle(e.dataTransfer.files[0]); }}
+//       className={`relative border-2 border-dashed rounded-2xl p-8 text-center select-none transition-all duration-200
+//         ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+//         ${drag    ? "border-indigo-500 bg-indigo-50 scale-[1.01]"
+//           : file  ? "border-green-400 bg-green-50"
+//                   : "border-gray-300 hover:border-indigo-400 hover:bg-indigo-50"}`}
+//     >
+//       <input ref={inputRef} type="file" accept={accept} className="hidden"
+//         onChange={(e) => handle(e.target.files[0])} disabled={disabled} />
+
+//       {file ? (
+//         <div className="flex items-center justify-center gap-4">
+//           <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+//             <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+//             </svg>
+//           </div>
+//           <div className="text-left flex-1">
+//             <p className="font-semibold text-gray-900 text-sm">{file.name}</p>
+//             <p className="text-xs text-gray-500 mt-0.5">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+//           </div>
+//           <button type="button"
+//             onClick={(e) => { e.stopPropagation(); onClear(); }}
+//             className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+//             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+//             </svg>
+//           </button>
+//         </div>
+//       ) : (
+//         <>
+//           <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+//             <svg className="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+//                 d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+//             </svg>
+//           </div>
+//           <p className="font-semibold text-gray-800 text-sm">{label}</p>
+//           <p className="text-xs text-gray-500 mt-1">{sublabel}</p>
+//           {hint && <p className="text-xs text-gray-400 mt-2 font-mono">{hint}</p>}
+//         </>
+//       )}
+//     </div>
+//   );
+// };
+
+// // ─────────────────────────────────────────────────────────────
+// // MAIN MODAL
+// // ─────────────────────────────────────────────────────────────
+// const BulkUploadModal = ({ onClose, onSuccess }) => {
+//   const dispatch = useDispatch();
+//   const {
+//     csvUploading, csvUploadPct, preview, csvError,
+//     zipUploading, zipUploadPct, processing, result, zipError,
+//   } = useSelector((s) => s.adminBulkUpload);
+
+//   const [csvFile,    setCsvFile]    = useState(null);
+//   const [zipFile,    setZipFile]    = useState(null);
+//   const [localCsvPct, setLocalCsvPct] = useState(0);
+//   const [localZipPct, setLocalZipPct] = useState(0);
+//   const [resultTab,  setResultTab]  = useState("all");
+//   const [expandedRow, setExpandedRow] = useState(null);
+
+//   const isActive = csvUploading || zipUploading || processing;
+
+//   const reset = () => {
+//     dispatch(resetBulkUpload());
+//     setCsvFile(null);
+//     setZipFile(null);
+//     setLocalCsvPct(0);
+//     setLocalZipPct(0);
+//     setResultTab("all");
+//     setExpandedRow(null);
+//   };
+
+//   // ── STEP 1: Upload CSV ──
+//   const handlePreview = async () => {
+//     if (!csvFile) return;
+//     setLocalCsvPct(0);
+//     await dispatch(previewCSV({
+//       file: csvFile,
+//       onProgress: (pct) => { setLocalCsvPct(pct); dispatch(setCsvPct(pct)); },
+//     }));
+//   };
+
+//   // ── STEP 2: Import ZIP + confirm ──
+//   const handleImport = async () => {
+//     if (!preview?._parsedData) return;
+//     setLocalZipPct(0);
+//     const res = await dispatch(importZip({
+//       zipFile,
+//       parsedProducts: preview._parsedData,
+//       onProgress: (pct) => { setLocalZipPct(pct); dispatch(setZipPct(pct)); },
+//     }));
+//     if (importZip.fulfilled.match(res)) onSuccess?.();
+//   };
+
+//   // ─────────────────────────────────────────────────────────
+//   // RESULT PANEL
+//   // ─────────────────────────────────────────────────────────
+//   if (result) {
+//     const all      = result.products || [];
+//     const success  = all.filter(p => p.status === "success");
+//     const warned   = all.filter(p => p.status === "saved_with_warnings");
+//     const failed   = all.filter(p => p.status === "failed");
+
+//     const tabData = {
+//       all     : all,
+//       success : success,
+//       warnings: warned,
+//       failed  : failed,
+//     };
+//     const shown = tabData[resultTab] || all;
+
+//     return (
+//       <div className="fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center p-4 z-50 overflow-y-auto mt-[10%]">
+//         <div className="bg-white rounded-2xl w-full max-w-5xl my-8 shadow-2xl">
+
+//           {/* Header */}
+//           <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between mt-%]">
+//             <div>
+//               <h2 className="text-xl font-bold text-gray-900">Import Complete</h2>
+//               <p className="text-sm text-gray-500 mt-0.5">Here's what happened with your products</p>
+//             </div>
+//             <button onClick={() => { reset(); onClose(); }}
+//               className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+//               <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+//               </svg>
+//             </button>
+//           </div>
+
+//           <div className="p-6 space-y-5">
+
+//             {/* ZIP global error */}
+//             {result.zipError && (
+//               <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+//                 ⚠ {result.zipError}
+//               </div>
+//             )}
+
+//             {/* Stats */}
+//             <div className="grid grid-cols-4 gap-3">
+//               {[
+//                 { label: "Total",    value: result.totalProducts,  color: "blue"  },
+//                 { label: "Saved",    value: result.savedProducts,   color: "green" },
+//                 { label: "Warnings", value: warned.length,          color: "yellow"},
+//                 { label: "Failed",   value: result.failedProducts,  color: "red"   },
+//               ].map(({ label, value, color }) => (
+//                 <div key={label} className={`bg-${color}-50 border border-${color}-200 rounded-xl p-3 text-center`}>
+//                   <p className={`text-2xl font-bold text-${color}-700`}>{value}</p>
+//                   <p className={`text-xs text-${color}-600 mt-0.5`}>{label}</p>
+//                 </div>
+//               ))}
+//             </div>
+
+//             {/* Tabs */}
+//             <div className="flex gap-2 flex-wrap">
+//               {[
+//                 { key: "all",      label: `All (${all.length})`         },
+//                 { key: "success",  label: `✓ Saved (${success.length})` },
+//                 { key: "warnings", label: `⚠ Warnings (${warned.length})`},
+//                 { key: "failed",   label: `✗ Failed (${failed.length})`  },
+//               ].map(({ key, label }) => (
+//                 <button key={key} onClick={() => setResultTab(key)}
+//                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
+//                     ${resultTab === key
+//                       ? "bg-indigo-100 text-indigo-700 border border-indigo-200"
+//                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+//                   {label}
+//                 </button>
+//               ))}
+//             </div>
+
+//             {/* Product result table */}
+//             <div className="border border-gray-200 rounded-xl overflow-hidden">
+//               <div className="overflow-y-auto max-h-80">
+//                 <table className="w-full text-sm">
+//                   <thead className="bg-gray-50 sticky top-0 z-10">
+//                     <tr>
+//                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">#</th>
+//                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Product</th>
+//                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Status</th>
+//                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Images</th>
+//                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200">Details</th>
+//                     </tr>
+//                   </thead>
+//                   <tbody className="divide-y divide-gray-100">
+//                     {shown.map((p, i) => (
+//                       <React.Fragment key={i}>
+//                         <tr className="hover:bg-gray-50">
+//                           <td className="px-4 py-2.5 text-gray-400 text-xs">{i + 1}</td>
+//                           <td className="px-4 py-2.5 font-medium text-gray-900 text-xs">{p.name}</td>
+//                           <td className="px-4 py-2.5"><StatusBadge status={p.status}/></td>
+//                           <td className="px-4 py-2.5 text-xs text-gray-600">
+//                             {p.imageCount > 0
+//                               ? <span className="text-green-600 font-medium">{p.imageCount} uploaded</span>
+//                               : <span className="text-gray-400">none</span>}
+//                           </td>
+//                           <td className="px-4 py-2.5">
+//                             {(p.warnings?.length > 0 || p.errors?.length > 0) && (
+//                               <button
+//                                 onClick={() => setExpandedRow(expandedRow === i ? null : i)}
+//                                 className="text-xs text-indigo-600 hover:underline">
+//                                 {expandedRow === i ? "hide" : `show ${(p.warnings?.length || 0) + (p.errors?.length || 0)} issue(s)`}
+//                               </button>
+//                             )}
+//                           </td>
+//                         </tr>
+//                         {expandedRow === i && (p.warnings?.length > 0 || p.errors?.length > 0) && (
+//                           <tr>
+//                             <td colSpan={5} className="px-4 py-3 bg-gray-50">
+//                               {p.errors?.map((e, j) => (
+//                                 <p key={j} className="text-xs text-red-600 mb-1">✗ {e}</p>
+//                               ))}
+//                               {p.warnings?.map((w, j) => (
+//                                 <p key={j} className="text-xs text-yellow-700 mb-1">⚠ {w}</p>
+//                               ))}
+//                             </td>
+//                           </tr>
+//                         )}
+//                       </React.Fragment>
+//                     ))}
+//                   </tbody>
+//                 </table>
+//               </div>
+//             </div>
+
+//             {/* Actions */}
+//             <div className="flex gap-3">
+//               <button onClick={reset}
+//                 className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors text-sm">
+//                 Upload Another Batch
+//               </button>
+//               <button onClick={() => { reset(); onClose(); }}
+//                 className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow text-sm">
+//                 Done
+//               </button>
+//             </div>
+//           </div>
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   // ─────────────────────────────────────────────────────────
+//   // MAIN MODAL BODY
+//   // ─────────────────────────────────────────────────────────
+//   return (
+//     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center p-4 z-50 overflow-y-auto mt-[13%]">
+//       <div className="bg-white rounded-2xl w-full max-w-5xl my-8 shadow-2xl flex flex-col">
+
+//         {/* Header */}
+//         <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
+//           <div className="flex items-center gap-3">
+//             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
+//               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+//                   d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+//               </svg>
+//             </div>
+//             <div>
+//               <h2 className="text-xl font-bold text-gray-900">Bulk Upload Products</h2>
+//               <p className="text-sm text-gray-500">Two-step import — CSV data first, images ZIP second</p>
+//             </div>
+//           </div>
+//           <div className="flex items-center gap-3">
+//             <button onClick={downloadTemplate}
+//               className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors">
+//               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+//                   d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+//               </svg>
+//               Template
+//             </button>
+//             <button onClick={() => { reset(); onClose(); }} disabled={isActive}
+//               className="p-2 hover:bg-gray-100 rounded-xl disabled:opacity-40 transition-colors">
+//               <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+//               </svg>
+//             </button>
+//           </div>
+//         </div>
+
+//         <div className="p-6 space-y-6">
+
+//           {/* ── STEP INDICATORS ── */}
+//           <div className="flex items-center gap-0">
+//             {[
+//               { n: 1, label: "Upload CSV",    done: !!preview },
+//               { n: 2, label: "Upload Images", done: !!result  },
+//               { n: 3, label: "Done",          done: false      },
+//             ].map(({ n, label, done }, idx) => (
+//               <React.Fragment key={n}>
+//                 <div className="flex items-center gap-2">
+//                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2
+//                     ${done
+//                       ? "bg-green-500 border-green-500 text-white"
+//                       : preview && n === 2
+//                       ? "bg-indigo-600 border-indigo-600 text-white"
+//                       : "bg-white border-gray-300 text-gray-400"}`}>
+//                     {done ? "✓" : n}
+//                   </div>
+//                   <span className={`text-xs font-medium ${done || (preview && n === 2) ? "text-gray-800" : "text-gray-400"}`}>
+//                     {label}
+//                   </span>
+//                 </div>
+//                 {idx < 2 && <div className="flex-1 h-px bg-gray-200 mx-2"/>}
+//               </React.Fragment>
+//             ))}
+//           </div>
+
+//           {/* ── STEP 1: CSV UPLOAD ── */}
+//           <div className={`space-y-4 ${preview ? "opacity-60 pointer-events-none" : ""}`}>
+//             <div className="flex items-center gap-2">
+//               <span className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
+//               <h3 className="font-semibold text-gray-800 text-sm">Upload product data (CSV or Excel)</h3>
+//             </div>
+
+//             {csvError && (
+//               <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+//                 <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+//                 </svg>
+//                 <p className="text-sm text-red-700">{csvError}</p>
+//               </div>
+//             )}
+
+//             <DropZone
+//               accept=".csv,.xls,.xlsx"
+//               label="Drop your CSV or Excel file here"
+//               sublabel="or click to browse · .csv .xls .xlsx"
+//               hint="Required columns: name, category, basePrice, barcode"
+//               file={csvFile}
+//               onFile={setCsvFile}
+//               onClear={() => setCsvFile(null)}
+//               disabled={csvUploading}
+//             />
+
+//             {csvUploading && (
+//               <ProgressBar pct={localCsvPct} label="Uploading CSV…" processing={false}/>
+//             )}
+
+//             {!preview && (
+//               <button
+//                 onClick={handlePreview}
+//                 disabled={!csvFile || csvUploading}
+//                 className="w-full px-4 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700
+//                   disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm flex items-center justify-center gap-2">
+//                 {csvUploading
+//                   ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>Parsing…</>
+//                   : "Parse & Preview →"}
+//               </button>
+//             )}
+//           </div>
+
+//           {/* ── PREVIEW TABLE (after step 1) ── */}
+//           {preview && !result && (
+//             <div className="space-y-3">
+//               {/* Summary */}
+//               <div className="flex items-center justify-between">
+//                 <div className="flex items-center gap-2">
+//                   <span className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-bold">✓</span>
+//                   <span className="text-sm font-semibold text-gray-800">
+//                     {preview.totalProducts} products detected
+//                     <span className="text-gray-400 font-normal ml-1">({preview.totalRows} rows)</span>
+//                   </span>
+//                 </div>
+//                 <div className="flex gap-2 text-xs">
+//                   <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">
+//                     ✓ {preview.validCount} valid
+//                   </span>
+//                   {preview.invalidCount > 0 && (
+//                     <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full font-medium">
+//                       ✗ {preview.invalidCount} errors
+//                     </span>
+//                   )}
+//                 </div>
+//               </div>
+
+//               {/* Preview table */}
+//               <div className="border border-gray-200 rounded-xl overflow-hidden">
+//                 <div className="overflow-y-auto max-h-52">
+//                   <table className="w-full text-xs">
+//                     <thead className="bg-gray-50 sticky top-0">
+//                       <tr>
+//                         {["#","Product","Category","Variants","Barcodes","Price Range","Qty","Status"].map(h => (
+//                           <th key={h} className="px-3 py-2.5 text-left font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">{h}</th>
+//                         ))}
+//                       </tr>
+//                     </thead>
+//                     <tbody className="divide-y divide-gray-100">
+//                       {preview.preview.map((p, i) => (
+//                         <tr key={i} className={`hover:bg-gray-50 ${p.hasErrors ? "bg-red-50" : ""}`}>
+//                           <td className="px-3 py-2 text-gray-400">{i + 1}</td>
+//                           <td className="px-3 py-2 font-medium text-gray-900 max-w-[140px] truncate" title={p.name}>{p.name}</td>
+//                           <td className="px-3 py-2 text-gray-600">{p.category || <span className="text-red-400">missing!</span>}</td>
+//                           <td className="px-3 py-2 text-gray-600 text-center">{p.variantCount}</td>
+//                           <td className="px-3 py-2 text-gray-500 max-w-[120px] truncate" title={p.barcodes.join(", ")}>
+//                             {p.barcodes.length ? p.barcodes.join(", ") : <span className="text-gray-300 italic">none</span>}
+//                           </td>
+//                           <td className="px-3 py-2 text-gray-600">
+//                             {p.priceRange.min === p.priceRange.max
+//                               ? `₹${p.priceRange.min}`
+//                               : `₹${p.priceRange.min}–${p.priceRange.max}`}
+//                           </td>
+//                           <td className="px-3 py-2 text-gray-600">{p.totalQuantity}</td>
+//                           <td className="px-3 py-2">
+//                             {p.hasErrors
+//                               ? <span className="text-red-600 font-medium" title={p.errors.join("; ")}>✗ {p.errors[0]}</span>
+//                               : <span className="text-green-600 font-medium">✓ Ready</span>}
+//                           </td>
+//                         </tr>
+//                       ))}
+//                     </tbody>
+//                   </table>
+//                 </div>
+//               </div>
+
+//               {preview.invalidCount > 0 && (
+//                 <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+//                   <p className="text-xs text-red-700 font-medium">
+//                     ⚠ {preview.invalidCount} product(s) have errors and will be skipped.
+//                     Fix the CSV and re-upload to include them.
+//                   </p>
+//                 </div>
+//               )}
+
+//               {/* ── STEP 2: ZIP UPLOAD ── */}
+//               <div className="space-y-3 pt-2">
+//                 <div className="flex items-center gap-2">
+//                   <span className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
+//                   <h3 className="font-semibold text-gray-800 text-sm">Upload images ZIP (optional)</h3>
+//                 </div>
+
+//                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 space-y-1">
+//                   <p className="font-semibold">📁 How to structure your ZIP:</p>
+//                   <p>Create one folder per variant named exactly after its barcode number.</p>
+//                   <p>Example: <span className="font-mono bg-amber-100 px-1 rounded">665563/</span> folder → drop any images inside → zip it.</p>
+//                   <p>Multiple variants of same product = multiple barcode folders. No image renaming needed.</p>
+//                   <p className="text-amber-600">Skip this step to save products as drafts without images.</p>
+//                 </div>
+
+//                 {zipError && (
+//                   <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+//                     ✗ {zipError}
+//                   </div>
+//                 )}
+
+//                 <DropZone
+//                   accept=".zip"
+//                   label="Drop your images ZIP here"
+//                   sublabel="or click to browse · .zip only · max 500MB"
+//                   hint="Folder name = barcode number. Any image name works."
+//                   file={zipFile}
+//                   onFile={setZipFile}
+//                   onClear={() => setZipFile(null)}
+//                   disabled={zipUploading || processing}
+//                 />
+
+//                 {(zipUploading || processing) && (
+//                   <ProgressBar
+//                     pct={localZipPct}
+//                     label="Uploading ZIP…"
+//                     processing={processing}
+//                   />
+//                 )}
+//                 {processing && (
+//                   <div className="flex items-center justify-center gap-1.5 py-2">
+//                     {[0, 0.15, 0.30].map((delay, i) => (
+//                       <span key={i}
+//                         className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce"
+//                         style={{ animationDelay: `${delay}s` }}/>
+//                     ))}
+//                     <span className="ml-2 text-xs text-indigo-600">
+//                       Uploading images to Cloudinary & saving products…
+//                     </span>
+//                   </div>
+//                 )}
+
+//                 <div className="flex gap-3 pt-1">
+//                   <button
+//                     onClick={() => { dispatch(resetBulkUpload()); setCsvFile(null); setZipFile(null); }}
+//                     disabled={isActive}
+//                     className="px-4 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50
+//                       disabled:opacity-40 transition-colors text-sm">
+//                     ← Back
+//                   </button>
+//                   <button
+//                     onClick={handleImport}
+//                     disabled={isActive || !preview?._parsedData?.length}
+//                     className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold
+//                       rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed
+//                       flex items-center justify-center gap-2 transition-all shadow-lg text-sm">
+//                     {isActive
+//                       ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>
+//                           {processing ? "Saving to database…" : "Uploading…"}</>
+//                       : zipFile
+//                       ? `Import ${preview.validCount} products with images →`
+//                       : `Import ${preview.validCount} products without images →`}
+//                   </button>
+//                 </div>
+//               </div>
+//             </div>
+//           )}
+
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default BulkUploadModal;
+
+
+// upload product with link in exel.... ?>?>????>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // // PRODUCT_MODAL_SEGMENT/BulkUploadModal.jsx
 
 // import React, { useState, useRef, useCallback } from "react";

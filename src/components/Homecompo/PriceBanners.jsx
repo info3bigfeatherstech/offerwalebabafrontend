@@ -34,6 +34,20 @@ const PriceBanners = () => {
             gradient: "from-[#1a1a1a] to-[#111111]",
             accentColor: "from-[#f7a221]/20 to-transparent"
         },
+         {
+            label: "Under ₹99",
+            tag: "SUPER SAVER",
+            icon: <Zap size={20} />,
+            gradient: "from-[#1a1a1a] to-[#111111]",
+            accentColor: "from-[#f7a221]/20 to-transparent"
+        },
+         {
+            label: "Under ₹99",
+            tag: "SUPER SAVER",
+            icon: <Zap size={20} />,
+            gradient: "from-[#1a1a1a] to-[#111111]",
+            accentColor: "from-[#f7a221]/20 to-transparent"
+        },
     ];
 
     useEffect(() => {
@@ -63,7 +77,7 @@ const PriceBanners = () => {
             }`}
         >
             <div className="flex items-center justify-between mb-6 md:mb-10">
-                <h3 className="text-xl sm:text-2xl md:text-4xl font- flex items-center gap-3 md:gap-4 text-gray-900 uppercase tracking-tight">
+                <h3 className="text-xl sm:text-2xl md:text-4xl font-rubik flex items-center gap-3 md:gap-4 text-gray-900  tracking-tight">
                     <span className="w-2 h-8 md:h-12 bg-[#f7a221] rounded-full shadow-[0_0_15px_rgba(247,162,33,0.4)]"></span>
                     Shop By Price
                 </h3>
@@ -97,7 +111,7 @@ const PriceBanners = () => {
                             </div>
 
                             <div className="space-y-1 md:space-y-3">
-                                <h4 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tighter">
+                                <h4 style={{fontSize:"35px"}} className="text-xl sm:text-3xl md:text-4xl lg:text-5xl text-white tracking-tighter">
                                     {banner.label}
                                 </h4>
                                 
@@ -105,9 +119,8 @@ const PriceBanners = () => {
                                 <div className={`h-[2px] bg-gradient-to-r from-[#f7a221] to-transparent rounded-full transition-all duration-1000 delay-300 ${
                                     isInView ? 'w-full' : 'w-0'
                                 }`} />
-                                
-                                <div className="flex items-center gap-1.5 md:gap-2 text-[8px] md:text-[10px] font-black uppercase tracking-wider text-gray-400 group-hover:text-white transition-colors duration-300">
-                                    Explore <ArrowRight size={10} className="group-hover:translate-x-1 transition-transform" />
+                                 <div className="flex items-center gap-1.5 md:gap-2 text-[8px] md:text-[14px] font-black uppercase tracking-wider text-gray-400 group-hover:text-white transition-colors duration-300">
+                                    Explore <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                                 </div>
                             </div>
                         </div>
