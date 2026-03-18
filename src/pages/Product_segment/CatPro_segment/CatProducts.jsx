@@ -16,11 +16,10 @@ import SkeletonCard from "../Product_Card_Skelleton/SkeletonCard";
 
 import {
   fetchProductsByCategory,
-  clearProducts,
-  selectAllProducts,
-  selectProductPagination,
-  selectProductsLoading,
-  selectProductsError,
+  selectProductsBySlug,
+  selectLoadingBySlug,
+  selectErrorBySlug,
+  selectPaginationBySlug,
 } from "../../../components/REDUX_FEATURES/REDUX_SLICES/userProductsSlice";
 
 import {
@@ -80,50 +79,68 @@ const CatProducts = () => {
   const { slug } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  
+
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  // 1. ALL HOOKS AT THE TOP (Fixed Rule of Hooks)
-  const products = useSelector(selectAllProducts) || [];
-  const pagination = useSelector(selectProductPagination) || { page: 1, totalPages: 1, total: 0 };
-  const loadingMap = useSelector(selectProductsLoading);
-  const errorMap = useSelector(selectProductsError);
-  const currentCategory = useSelector(selectCurrentCategory);
+  // ── Selectors ──────────────────────────────────────────────────────────────
+  // ✅ now reads from per-slug buckets — no race condition with homepage sections
+  const products   = useSelector(selectProductsBySlug(slug));
+  const pagination = useSelector(selectPaginationBySlug(slug)) || { page: 1, totalPages: 1, total: 0 };
+  const catLoading = useSelector(selectLoadingBySlug(slug));
+  const catError   = useSelector(selectErrorBySlug(slug));
+
+  // category meta (name, image, description)
+  const currentCategory    = useSelector(selectCurrentCategory);
   const categoryLoadingState = useSelector((s) => s.userCategories.loading.category);
-  const categoryErrorState = useSelector((s) => s.userCategories.error.category);
+  const categoryErrorState   = useSelector((s) => s.userCategories.error.category);
 
-  // 2. LOGIC AFTER HOOKS
-  const isLoading = loadingMap.categoryProducts || categoryLoadingState;
-  const hasError = !isLoading && (!!errorMap.categoryProducts || !!categoryErrorState);
+  // ── Derived state ──────────────────────────────────────────────────────────
+  const isLoading = catLoading || categoryLoadingState;
+  const hasError  = !isLoading && (!!catError || !!categoryErrorState);
 
+  // ── Effects ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!slug) return;
-    dispatch(clearProducts());
+
+    console.log(`🗂️ [CatProducts] slug changed → "${slug}"`);
+
+    // clear previous category meta so stale name/image doesn't flash
     dispatch(clearCurrentCategory());
+
+    // fetch category meta (name, description, image)
     dispatch(fetchCategoryBySlug(slug));
+
+    // fetch products for this slug
+    // ✅ stored in categoryProducts[slug] — won't overwrite other slugs
     dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 }));
 
     return () => {
-      dispatch(clearProducts());
+      console.log(`🧹 [CatProducts] cleanup for slug="${slug}"`);
       dispatch(clearCurrentCategory());
+      // NOTE: we intentionally do NOT clear categoryProducts[slug] here
+      // so if the user navigates back, they see cached products instantly
     };
   }, [slug, dispatch]);
 
+  // ── Handlers ───────────────────────────────────────────────────────────────
   const handlePageChange = useCallback((newPage) => {
+    console.log(`📄 [CatProducts] slug="${slug}" → page=${newPage}`);
     window.scrollTo({ top: 0, behavior: "smooth" });
     dispatch(fetchProductsByCategory({ slug, page: newPage, limit: 12 }));
   }, [slug, dispatch]);
 
   const handleRetry = () => {
+    console.log(`🔄 [CatProducts] Retrying slug="${slug}"`);
     dispatch(fetchCategoryBySlug(slug));
     dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 }));
   };
 
   const categoryName = currentCategory?.name || slug?.replace(/-/g, " ") || "Collection";
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-      
+
       {/* ── BREADCRUMB HEADER ── */}
       <div className="bg-white border-b border-zinc-100 sticky top-0 z-40">
         <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-3 flex items-center justify-between">
@@ -137,7 +154,7 @@ const CatProducts = () => {
               <span className="text-zinc-900 font-bold">{categoryName}</span>
             </nav>
           </div>
-          <button 
+          <button
             onClick={() => setIsFilterOpen(true)}
             className="md:hidden p-2 text-zinc-900"
           >
@@ -150,8 +167,8 @@ const CatProducts = () => {
       <section className="relative h-[40vh] md:h-[50vh] flex items-center justify-center overflow-hidden bg-zinc-900">
         {currentCategory?.image?.url ? (
           <>
-            <img 
-              src={currentCategory.image.url} 
+            <img
+              src={currentCategory.image.url}
               alt={categoryName}
               className="absolute inset-0 w-full h-full object-cover opacity-60"
             />
@@ -160,7 +177,7 @@ const CatProducts = () => {
         ) : (
           <div className="absolute inset-0 bg-zinc-100" />
         )}
-        
+
         <div className="relative z-10 text-center px-4">
           <h1 className="text-4xl md:text-6xl font-bold text-white uppercase tracking-tight mb-4">
             {categoryName}
@@ -175,7 +192,7 @@ const CatProducts = () => {
 
       {/* ── MAIN CONTENT AREA ── */}
       <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-12 flex flex-col md:flex-row gap-10">
-        
+
         {/* ── SIDEBAR ── */}
         <aside className="hidden md:block w-64 flex-shrink-0">
           <div className="sticky top-24 space-y-8">
@@ -183,7 +200,7 @@ const CatProducts = () => {
               <SlidersHorizontal size={16} />
               <span className="text-sm font-bold uppercase tracking-widest">Filters</span>
             </div>
-            
+
             <div className="space-y-6">
               <div>
                 <h4 className="text-[11px] font-black uppercase tracking-widest mb-4">Price Range</h4>
@@ -208,21 +225,32 @@ const CatProducts = () => {
             </p>
           </div>
 
+          {/* Error State */}
           {hasError && (
             <div className="py-20 text-center">
               <AlertCircle size={40} className="mx-auto text-red-400 mb-4" />
-              <p className="text-zinc-600 mb-6">{errorMap.categoryProducts?.message || "Error loading products"}</p>
-              <button onClick={handleRetry} className="bg-zinc-900 text-white px-8 py-3 text-xs font-bold uppercase tracking-widest">
-                Retry
+              <p className="text-zinc-600 mb-2">
+                {catError?.message || categoryErrorState?.message || "Error loading products"}
+              </p>
+              <p className="text-zinc-400 text-xs mb-6">slug: {slug}</p>
+              <button
+                onClick={handleRetry}
+                className="inline-flex items-center gap-2 bg-zinc-900 text-white px-8 py-3 text-xs font-bold uppercase tracking-widest"
+              >
+                <RefreshCw size={14} /> Retry
               </button>
             </div>
           )}
 
-          {isLoading ? (
+          {/* Loading State */}
+          {isLoading && (
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
             </div>
-          ) : products.length > 0 ? (
+          )}
+
+          {/* Products */}
+          {!isLoading && !hasError && products.length > 0 && (
             <>
               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8">
                 {products.map((product, idx) => (
@@ -231,7 +259,10 @@ const CatProducts = () => {
               </div>
               <Pagination pagination={pagination} onPageChange={handlePageChange} />
             </>
-          ) : (
+          )}
+
+          {/* Empty State */}
+          {!isLoading && !hasError && products.length === 0 && (
             <div className="py-20 text-center border-2 border-dashed border-zinc-100">
               <p className="text-zinc-400 uppercase tracking-widest text-xs">No products found</p>
             </div>
@@ -242,7 +273,10 @@ const CatProducts = () => {
       {/* ── MOBILE FILTER DRAWER ── */}
       {isFilterOpen && (
         <div className="fixed inset-0 z-[100] md:hidden">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsFilterOpen(false)} />
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setIsFilterOpen(false)}
+          />
           <div className="absolute inset-y-0 right-0 w-[80%] bg-white p-6 shadow-2xl animate-in slide-in-from-right duration-300">
             <div className="flex items-center justify-between mb-8">
               <h3 className="text-lg font-bold uppercase tracking-tighter">Filter</h3>
@@ -258,7 +292,10 @@ const CatProducts = () => {
                   </div>
                 ))}
               </div>
-              <button onClick={() => setIsFilterOpen(false)} className="w-full bg-zinc-900 text-white py-4 text-xs font-black uppercase tracking-widest">
+              <button
+                onClick={() => setIsFilterOpen(false)}
+                className="w-full bg-zinc-900 text-white py-4 text-xs font-black uppercase tracking-widest"
+              >
                 Apply Filters
               </button>
             </div>
