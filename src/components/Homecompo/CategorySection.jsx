@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { ArrowRight, RefreshCw,ChevronRight } from 'lucide-react';
+import { ArrowRight, RefreshCw, ChevronRight } from 'lucide-react';
 import {
   fetchProductsByCategory,
   selectProductsBySlug,
@@ -8,8 +8,8 @@ import {
   selectErrorBySlug,
   selectPaginationBySlug,
 } from '../REDUX_FEATURES/REDUX_SLICES/userProductsSlice';
-import ProductCard from '../../pages/Product_segment/ProductCard';
-import SkeletonCard from '../../pages/Product_segment/Product_Card_Skelleton/SkeletonCard';
+import ProductCard from '../../User_Side_Web_Interface/Product_segment/ProductCard';
+import SkeletonCard from '../../User_Side_Web_Interface/Product_segment/Product_Card_Skelleton/SkeletonCard';
 
 // ── outside component — stable reference
 const WAVE_PATHS = [
@@ -22,14 +22,22 @@ const CategorySection = ({ slug, title }) => {
   const dispatch = useDispatch();
   const [pathIndex, setPathIndex] = useState(0);
 
-  const products   = useSelector(selectProductsBySlug(slug));
-  const loading    = useSelector(selectLoadingBySlug(slug));
-  const error      = useSelector(selectErrorBySlug(slug));
-  const pagination = useSelector(selectPaginationBySlug(slug));
+  // ── Memoize selector instances so the same function reference is reused
+  // across renders for the same slug. Without this, each render creates a
+  // brand-new selector function → react-redux detects a changed selector →
+  // warns about "different result with same parameters".
+  const selectProducts   = useMemo(() => selectProductsBySlug(slug),   [slug]);
+  const selectLoading    = useMemo(() => selectLoadingBySlug(slug),    [slug]);
+  const selectError      = useMemo(() => selectErrorBySlug(slug),      [slug]);
+  const selectPagination = useMemo(() => selectPaginationBySlug(slug), [slug]);
+
+  const products   = useSelector(selectProducts);
+  const loading    = useSelector(selectLoading);
+  const error      = useSelector(selectError);
+  const pagination = useSelector(selectPagination);
 
   useEffect(() => {
     if (!products || products.length === 0) {
-      // console.log(`🚀 [CategorySection] Fetching slug="${slug}"`);
       dispatch(fetchProductsByCategory({ slug, page: 1, limit: 10 }));
     }
   }, [slug, dispatch]);
@@ -42,26 +50,22 @@ const CategorySection = ({ slug, title }) => {
   }, []);
 
   const handleRetry = () => {
-    // console.log(`🔄 [CategorySection] Retrying slug="${slug}"`);
     dispatch(fetchProductsByCategory({ slug, page: 1, limit: 10 }));
   };
 
   const handlePageChange = (newPage) => {
-    // console.log(`📄 [CategorySection] slug="${slug}" → page=${newPage}`);
     dispatch(fetchProductsByCategory({ slug, page: newPage, limit: 10 }));
   };
 
-  // ── Loading — skeleton grid instead of bouncing dots ─────────────────────
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="w-full bg-white py-8 md:py-16 overflow-hidden">
         <section className="container mx-auto px-4">
-          {/* Header skeleton */}
           <div className="flex flex-col sm:flex-row items-center justify-between mb-8 md:mb-12">
             <div className="h-8 md:h-10 w-56 bg-gray-100 animate-pulse rounded" />
             <div className="h-5 w-24 bg-gray-100 animate-pulse rounded mt-4 sm:mt-0" />
           </div>
-          {/* Cards skeleton */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
             {[...Array(10)].map((_, i) => (
               <SkeletonCard key={i} />
@@ -108,64 +112,59 @@ const CategorySection = ({ slug, title }) => {
 
         {/* Products Grid */}
         {products.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
             {products.map((product, index) => (
               <ProductCard key={product._id} product={product} index={index} />
             ))}
           </div>
         ) : (
           <div className="relative overflow-hidden rounded-3xl border border-zinc-100 bg-gradient-to-b from-zinc-50 to-white py-24 px-6 text-center shadow-sm">
-  {/* Animated Decorative Circles in Background */}
-  <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-yellow-50/50 blur-3xl" />
-  <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-zinc-100/50 blur-3xl" />
+            <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-yellow-50/50 blur-3xl" />
+            <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-zinc-100/50 blur-3xl" />
 
-  <div className="relative z-10 flex flex-col items-center">
-    {/* Interactive Icon Container */}
-    <div className="group relative mb-8 flex h-24 w-24 items-center justify-center">
-      <div className="absolute inset-0 animate-ping rounded-full bg-zinc-100 opacity-20 duration-[3000ms]" />
-      <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-xl transition-transform duration-500 group-hover:scale-110">
-        <span className="text-4xl grayscale transition-all duration-500 group-hover:grayscale-0">
-          🔍
-        </span>
-      </div>
-    </div>
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="group relative mb-8 flex h-24 w-24 items-center justify-center">
+                <div className="absolute inset-0 animate-ping rounded-full bg-zinc-100 opacity-20 duration-[3000ms]" />
+                <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-xl transition-transform duration-500 group-hover:scale-110">
+                  <span className="text-4xl grayscale transition-all duration-500 group-hover:grayscale-0">
+                    🔍
+                  </span>
+                </div>
+              </div>
 
-    {/* Text Content */}
-    <h3 className="mb-2 text-xl font-black uppercase tracking-tighter text-zinc-900 md:text-2xl">
-      The Vault is Quiet
-    </h3>
-    <p className="mx-auto max-w-xs text-sm font-medium leading-relaxed text-zinc-400">
-      We couldn't find any items matching this selection. 
-      Perhaps a different path?
-    </p>
+              <h3 className="mb-2 text-xl font-black uppercase tracking-tighter text-zinc-900 md:text-2xl">
+                The Vault is Quiet
+              </h3>
+              <p className="mx-auto max-w-xs text-sm font-medium leading-relaxed text-zinc-400">
+                We couldn't find any items matching this selection.
+                Perhaps a different path?
+              </p>
 
-    {/* Interactive Actions */}
-    <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-      <button 
-        onClick={() => navigate("/")}
-        className="group flex items-center gap-3 bg-zinc-900 px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-yellow-600 active:scale-95"
-      >
-        Explore All Collections
-        <ChevronRight size={14} className="transition-transform group-hover:translate-x-1" />
-      </button>
-      
-      <button 
-        onClick={() => window.location.reload()}
-        className="border-b-2 border-zinc-200 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-900 transition-all hover:border-zinc-900"
-      >
-        Reset Filters
-      </button>
-    </div>
-  </div>
+              <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+                <button
+                  onClick={() => navigate("/")}
+                  className="group flex items-center gap-3 bg-zinc-900 px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-yellow-600 active:scale-95"
+                >
+                  Explore All Collections
+                  <ChevronRight size={14} className="transition-transform group-hover:translate-x-1" />
+                </button>
 
-  {/* Sub-Interactive Hint */}
-  <div className="mt-16 border-t border-zinc-50 pt-8">
-    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-300">
-      Need help finding something specific? 
-      <a href="/contact" className="ml-2 text-zinc-900 underline underline-offset-4">Talk to us</a>
-    </p>
-  </div>
-</div>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="border-b-2 border-zinc-200 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-900 transition-all hover:border-zinc-900"
+                >
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-16 border-t border-zinc-50 pt-8">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-300">
+                Need help finding something specific?
+                <a href="/contact" className="ml-2 text-zinc-900 underline underline-offset-4">Talk to us</a>
+              </p>
+            </div>
+          </div>
         )}
 
         {/* Pagination */}

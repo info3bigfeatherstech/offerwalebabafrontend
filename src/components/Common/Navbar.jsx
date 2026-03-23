@@ -6,6 +6,7 @@ import {
   selectWishlistGuestItems,
 } from '../REDUX_FEATURES/REDUX_SLICES/userWishlistSlice';
 import { selectDisplayCartCount } from '../REDUX_FEATURES/REDUX_SLICES/userCartSlice';
+import CartSidebar from './CartSidebar'
 import {
     Search, User, Heart, ShoppingCart, Menu, X, Phone, Mail, Clock,
     ChevronRight, Home, Flame, Package, Tag, Ticket, HeadphonesIcon,
@@ -60,10 +61,10 @@ const UserAccountDropdown = ({ user, onLogout, onClose }) => {
     }, [onClose]);
 
     const menuItems = [
-        { icon: <UserCircle size={16} />, label: 'My Profile', path: '/profile' },
-        { icon: <Heart size={16} />, label: 'My Wishlist', path: '/wishlist' },
-        { icon: <ShoppingCart size={16} />, label: 'My Orders', path: '/orders' },
-        { icon: <Settings size={16} />, label: 'Settings', path: '/settings' },
+        { icon: <UserCircle size={16} />, label: 'My Profile', path: '/account' },
+        { icon: <Heart size={16} />, label: 'My Wishlist', path: '/account/userwishlist' },
+        { icon: <ShoppingCart size={16} />, label: 'My Orders', path: '/account/userorders' },
+        // { icon: <Settings size={16} />, label: 'Settings', path: '/settings' },
     ];
 
     return (
@@ -192,12 +193,14 @@ const ImageIcon = ({ src, alt, className = "", animation = "animate-bounce-soft"
 
 const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLoggedIn, user, onOpenAuth }) => {
     const dispatch = useDispatch();
+    const navigate = useNavigate();
     const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
     const [isLogoHovered, setIsLogoHovered] = useState(false);
     const [burstIcons, setBurstIcons] = useState([]);
     const wishlistCount  = useSelector(selectWishlistCount);
     const guestItems     = useSelector(selectWishlistGuestItems);
     const cartCount     = useSelector(selectDisplayCartCount);
+    const [isCartOpen, setIsCartOpen] = useState(false);
     // ✅ show DB count if logged in, localStorage count if guest
   const displayCount = isLoggedIn ? wishlistCount : guestItems.length;
     const handleSearchChange = useCallback((e) => {
@@ -216,6 +219,10 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             onOpenAuth();
         }
     };
+
+    const HandlWishlist =()=>{
+        navigate('/account/userwishlist')
+    }
     
     useEffect(() => {
         let interval;
@@ -253,8 +260,8 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             label: isLoggedIn ? (user?.name || "Account") : "Account",
             onClick: handleAccountClick
         },
-        { icon: <Heart size={22} />, label: "Wishlist", count: displayCount, badge: "bg-red-600" },
-        { icon: <ShoppingCart size={22} />, label: "Cart", count: cartCount, badge: "bg-black" }
+        { icon: <Heart size={22} />, label: "Wishlist", count: displayCount, badge: "bg-red-600" ,onClick:HandlWishlist },
+        { icon: <ShoppingCart size={22} />, label: "Cart", count: cartCount, badge: "bg-black",onClick: () => setIsCartOpen(true) }
     ];
 
     // Updated bottomNavLinks with PNG images and individual animations
@@ -489,6 +496,12 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                     </div>
                 </div>
             )}
+
+            {/* Sidebar Component */}
+            <CartSidebar 
+                isOpen={isCartOpen} 
+                onClose={() => setIsCartOpen(false)} 
+            />
 
             <style jsx>{`
                 .nav-link {

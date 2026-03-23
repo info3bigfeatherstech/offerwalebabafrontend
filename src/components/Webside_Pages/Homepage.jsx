@@ -5,12 +5,12 @@ import {
   selectAllCategories,
   selectCategoriesLoading,
   selectCategoriesError,
-} from '../components/REDUX_FEATURES/REDUX_SLICES/userCategoriesSlice';
-import CategorySection from '../components/Homecompo/CategorySection';
-import Categories from '../components/Homecompo/Categories';
-import PriceBanners from '../components/Homecompo/PriceBanners';
-import BestSellers from '../components/Homecompo/BestSellers';
-import HeroSlider from '../components/Homecompo/HeroSlider';
+} from '../REDUX_FEATURES/REDUX_SLICES/userCategoriesSlice';
+import CategorySection from '../Homecompo/CategorySection';
+import Categories from '../Homecompo/Categories';
+import PriceBanners from '../Homecompo/PriceBanners';
+import BestSellers from '../Homecompo/BestSellers';
+import HeroSlider from '../Homecompo/HeroSlider';
 
 const Homepage = () => {
   const dispatch = useDispatch();

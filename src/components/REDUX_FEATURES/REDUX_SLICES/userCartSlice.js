@@ -90,19 +90,20 @@ export const fetchCart = createAsyncThunk(
 // POST /api/cart
 export const addToCart = createAsyncThunk(
   "userCart/addToCart",
-  async ({ productSlug, variantId, quantity = 1 }, { rejectWithValue }) => {
+  async ({ productSlug, productId, variantId, quantity = 1 }, { rejectWithValue }) => {
     try {
       console.log(`🛒 [addToCart] slug="${productSlug}" qty=${quantity}`);
       const response = await axiosInstance.post("/cart", {
         productSlug,
         variantId,
+        productId,
         quantity,
       });
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to add to cart");
       console.log(`✅ [addToCart] slug="${productSlug}" added`);
       // ✅ return productSlug alongside cart so reducer can attach it
-      return { cart: response.data.cart, productSlug };
+      return { cart: response.data.cart, productSlug, productId, variantId, quantity };
     } catch (error) {
       logError("addToCart", error, { productSlug, quantity });
       return rejectWithValue({
@@ -128,7 +129,8 @@ export const updateCartItem = createAsyncThunk(
         throw new Error(response.data.message || "Failed to update cart item");
       console.log(`✅ [updateCartItem] updated qty=${quantity}`);
       // ✅ pass existing slugMap through so we don't lose slug info
-      return { cart: response.data.cart, productSlug };
+      // return { cart: response.data.cart, productSlug };
+      return { cart: response.data.cart, productSlug, productId, variantId, quantity };
     } catch (error) {
       logError("updateCartItem", error, { productId, variantId, quantity });
       return rejectWithValue({
@@ -151,7 +153,8 @@ export const removeCartItem = createAsyncThunk(
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to remove cart item");
       console.log(`✅ [removeCartItem] removed`);
-      return { cart: response.data.cart, productSlug };
+      // return { cart: response.data.cart, productSlug };
+     return { cart: response.data.cart, productSlug, productId, variantId };
     } catch (error) {
       logError("removeCartItem", error, { productId, variantId });
       return rejectWithValue({
@@ -440,12 +443,15 @@ const userCartSlice = createSlice({
       })
       .addCase(updateCartItem.fulfilled, (state, action) => {
         state.loading.update = false;
-        const rawItems = action.payload?.cart?.items || [];
-        state.slugMap = buildSlugMap(state.slugMap, rawItems);
-        const items = applySlugMap(rawItems, state.slugMap);
-        state.items = items;
-        state.totalAmount = action.payload?.cart?.totalAmount ?? 0;
-        state.totalItems = items.reduce((sum, i) => sum + (i.quantity || 1), 0);
+        const { productId, variantId, quantity, cart } = action.payload;
+        const existingItem = state.items.find(
+          (item) =>
+            String(item.productId?._id || item.productId) === String(productId) &&
+            String(item.variantId) === String(variantId)
+        );
+        if (existingItem) existingItem.quantity = quantity;
+        state.totalAmount = cart?.totalAmount ?? state.totalAmount;
+        state.totalItems = state.items.reduce((sum, i) => sum + (i.quantity || 1), 0);
         console.log("✅ [updateCartItem.fulfilled] cart updated");
       })
       .addCase(updateCartItem.rejected, (state, action) => {
@@ -461,12 +467,14 @@ const userCartSlice = createSlice({
       })
       .addCase(removeCartItem.fulfilled, (state, action) => {
         state.loading.remove = false;
-        const rawItems = action.payload?.cart?.items || [];
-        state.slugMap = buildSlugMap(state.slugMap, rawItems);
-        const items = applySlugMap(rawItems, state.slugMap);
-        state.items = items;
-        state.totalAmount = action.payload?.cart?.totalAmount ?? 0;
-        state.totalItems = items.reduce((sum, i) => sum + (i.quantity || 1), 0);
+        const { productId, variantId, cart } = action.payload;
+        state.items = state.items.filter(
+          (item) =>
+            !(String(item.productId?._id || item.productId) === String(productId) &&
+              String(item.variantId) === String(variantId))
+        );
+        state.totalAmount = cart?.totalAmount ?? state.totalAmount;
+        state.totalItems = state.items.reduce((sum, i) => sum + (i.quantity || 1), 0);
         console.log("✅ [removeCartItem.fulfilled] item removed");
       })
       .addCase(removeCartItem.rejected, (state, action) => {
@@ -567,13 +575,13 @@ export const {
 } = userCartSlice.actions;
 
 // ── Selectors ─────────────────────────────────────────────────────────────────
-export const selectCartItems       = (state) => state.userCart.items;
-export const selectCartGuestItems  = (state) => state.userCart.guestItems;
+export const selectCartItems = (state) => state.userCart.items;
+export const selectCartGuestItems = (state) => state.userCart.guestItems;
 export const selectCartTotalAmount = (state) => state.userCart.totalAmount;
-export const selectCartTotalItems  = (state) => state.userCart.totalItems;
-export const selectCartLoading     = (state) => state.userCart.loading;
-export const selectCartError       = (state) => state.userCart.error;
-export const selectLastOrder       = (state) => state.userCart.lastOrder;
+export const selectCartTotalItems = (state) => state.userCart.totalItems;
+export const selectCartLoading = (state) => state.userCart.loading;
+export const selectCartError = (state) => state.userCart.error;
+export const selectLastOrder = (state) => state.userCart.lastOrder;
 
 // ✅ FIXED — uses _productSlug we attached, works for both fresh + refresh
 export const selectCartItemBySlug = (productSlug) => (state) => {

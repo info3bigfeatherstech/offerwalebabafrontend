@@ -7,8 +7,9 @@ import {
   selectProductsLoading,
   selectProductsError,
 } from '../../components/REDUX_FEATURES/REDUX_SLICES/userProductsSlice';
-import ProductCard from '../../pages/Product_segment/ProductCard';
-import SkeletonCard from '../../pages/Product_segment/Product_Card_Skelleton/SkeletonCard';
+import ProductCard from '../../User_Side_Web_Interface/Product_segment/ProductCard';
+// import ProductCard from '../../pages/Product_segment/ProductCard';
+import SkeletonCard from '../../User_Side_Web_Interface/Product_segment/Product_Card_Skelleton/SkeletonCard';
 
 const BestSellers = () => {
   const dispatch = useDispatch();

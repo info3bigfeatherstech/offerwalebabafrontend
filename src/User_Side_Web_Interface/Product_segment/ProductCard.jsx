@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { Heart, Eye, Minus, Plus, Loader2 } from "lucide-react";
+import { Heart, Eye, Minus, Plus, Loader2, ShoppingCart } from "lucide-react";
 
 import {
   addToWishlist,
@@ -58,23 +58,23 @@ const ProductCard = ({ product, index }) => {
   const isProcessing = localLoading.add || localLoading.update || localLoading.remove;
 
   // ── Cart state from Redux — reads by slug ─────────────────────────────────
-  const cartItem   = useSelector(selectCartItemBySlug(product?.slug));
-  const isInCart   = !!cartItem;
+  const cartItem = useSelector(selectCartItemBySlug(product?.slug));
+  const isInCart = !!cartItem;
   const currentQty = cartItem?.quantity ?? 0;
 
   // ── Product derived values ────────────────────────────────────────────────
-  const variant     = product?.variants?.[0] ?? {};
-  const title       = product?.title || product?.name || "Untitled product";
-  const salePrice   = variant.price?.sale ?? variant.price?.base ?? null;
-  const basePrice   = variant.price?.base ?? null;
+  const variant = product?.variants?.[0] ?? {};
+  const title = product?.title || product?.name || "Untitled product";
+  const salePrice = variant.price?.sale ?? variant.price?.base ?? null;
+  const basePrice = variant.price?.base ?? null;
   const hasDiscount = basePrice != null && salePrice != null && basePrice > salePrice;
   const discountPct = variant.discountPercentage ??
     (hasDiscount ? Math.round(((basePrice - salePrice) / basePrice) * 100) : null);
-  const imgUrl      = variant.images?.[0]?.url || null;
-  const maxStock    = variant.inventory?.trackInventory
+  const imgUrl = variant.images?.[0]?.url || null;
+  const maxStock = variant.inventory?.trackInventory
     ? (variant.inventory?.quantity ?? 0)
     : Infinity;
-  const inStock     = maxStock > 0;
+  const inStock = maxStock > 0;
   const isAtMaxStock = currentQty >= maxStock && maxStock !== Infinity;
 
   // ── Navigation ────────────────────────────────────────────────────────────
@@ -142,7 +142,13 @@ const ProductCard = ({ product, index }) => {
           variantId: variant?._id?.toString(),
           quantity: 1,
         })).unwrap();
-        toast.success("Added to cart 🛒");
+        // toast.success("Added to cart 🛒");
+        toast.success(
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <ShoppingCart size={18} />
+            <span>Added to cart</span>
+          </div>
+        );
         console.log(`✅ [ProductCard] slug="${product.slug}" added to cart`);
       } else {
         dispatch(addGuestCartItem({
@@ -150,7 +156,13 @@ const ProductCard = ({ product, index }) => {
           variantId: variant?._id?.toString() || "",
           quantity: 1,
         }));
-        toast.success("Added to cart 🛒");
+        // toast.success("Added to cart 🛒");
+        toast.success(
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <ShoppingCart size={18} />
+            <span>Added to cart</span>
+          </div>
+        );
         console.log(`✅ [ProductCard] guest slug="${product.slug}" added`);
       }
     } catch (error) {
@@ -261,6 +273,7 @@ const ProductCard = ({ product, index }) => {
       className="group flex flex-col cursor-pointer font-sans"
       style={{ animationDelay: `${index * 50}ms` }}
       onClick={handleCardClick}
+
     >
       {/* ── IMAGE ── */}
       <div className="relative aspect-[1/1] overflow-hidden bg-zinc-50 rounded-sm mb-4">
@@ -303,15 +316,14 @@ const ProductCard = ({ product, index }) => {
         )}
 
         {/* Wishlist + View buttons */}
-        <div className="absolute top-3 right-3 flex flex-col gap-2 translate-x-12 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
+        <div className="absolute  top-3 right-3 flex flex-col gap-2 translate-x-12 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
           <button
             onClick={handleWishlist}
             disabled={localLoading.wishlist}
-            className={`w-8 h-8 rounded-full flex items-center justify-center border transition-colors ${
-              wishlisted
+            className={`w-8 h-8 rounded-full cursor-pointer flex items-center justify-center border transition-colors ${wishlisted
                 ? "bg-red-500 border-red-500 text-white"
                 : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-900 hover:text-white"
-            }`}
+              }`}
           >
             {localLoading.wishlist
               ? <Loader2 size={12} className="animate-spin" />
@@ -323,7 +335,7 @@ const ProductCard = ({ product, index }) => {
               e.stopPropagation();
               if (product?.slug) navigate(`/products/${product.slug}`);
             }}
-            className="w-8 h-8 bg-white border border-zinc-200 rounded-full flex items-center justify-center text-zinc-600 hover:bg-zinc-900 hover:text-white transition-all"
+            className="w-8 h-8 cursor-pointer bg-white border border-zinc-200 rounded-full flex items-center justify-center text-zinc-600 hover:bg-zinc-900 hover:text-white transition-all"
           >
             <Eye size={14} />
           </button>
@@ -379,11 +391,10 @@ const ProductCard = ({ product, index }) => {
           <button
             onClick={handleAddToCart}
             disabled={localLoading.add}
-            className={`w-full py-3 text-[9px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${
-              localLoading.add
+            className={`w-full py-3 text-[9px] cursor-pointer font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${localLoading.add
                 ? "bg-zinc-400 text-white cursor-wait"
                 : "bg-zinc-900 text-white hover:bg-yellow-600"
-            }`}
+              }`}
           >
             {localLoading.add ? (
               <>
@@ -404,11 +415,10 @@ const ProductCard = ({ product, index }) => {
               <button
                 onClick={handleDecrement}
                 disabled={isProcessing}
-                className={`flex-shrink-0 w-10 h-10 flex items-center justify-center transition-all ${
-                  isProcessing
+                className={`flex-shrink-0 cursor-pointer w-10 h-10 flex items-center justify-center transition-all ${isProcessing
                     ? "bg-zinc-100 text-zinc-300 cursor-wait"
                     : "bg-zinc-100 text-zinc-700 hover:bg-red-500 hover:text-white"
-                }`}
+                  }`}
               >
                 {localLoading.remove
                   ? <Loader2 size={12} className="animate-spin" />
@@ -428,13 +438,12 @@ const ProductCard = ({ product, index }) => {
               <button
                 onClick={handleIncrement}
                 disabled={isAtMaxStock || isProcessing}
-                className={`flex-shrink-0 w-10 h-10 flex items-center justify-center transition-all ${
-                  isAtMaxStock
+                className={`flex-shrink-0 cursor-pointer w-10 h-10 flex items-center justify-center transition-all ${isAtMaxStock
                     ? "bg-zinc-100 text-zinc-300 cursor-not-allowed"
                     : isProcessing
-                    ? "bg-zinc-100 text-zinc-300 cursor-wait"
-                    : "bg-zinc-900 text-white hover:bg-yellow-600"
-                }`}
+                      ? "bg-zinc-100 text-zinc-300 cursor-wait"
+                      : "bg-zinc-900 text-white hover:bg-yellow-600"
+                  }`}
               >
                 {localLoading.add
                   ? <Loader2 size={12} className="animate-spin" />
