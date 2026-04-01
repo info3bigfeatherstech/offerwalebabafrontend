@@ -53,16 +53,6 @@ const UserAccountDropdown = ({ user, onLogout, onClose }) => {
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
 
-  // useEffect(() => {
-  //   const handleClickOutside = (event) => {
-  //     if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-  //       onClose();
-  //     }
-  //   };
-  //   document.addEventListener('mousedown', handleClickOutside);
-  //   return () => document.removeEventListener('mousedown', handleClickOutside);
-  // }, [onClose]);
-
   const menuItems = [
     
     { icon: <UserCircle size={16} />, label: 'My Profile', path: '/account/userprofile' },
@@ -88,6 +78,7 @@ const UserAccountDropdown = ({ user, onLogout, onClose }) => {
             key={index}
             onClick={() => {
               navigate(item.path);
+              close();
             }}
             className="w-full px-4 py-3 flex items-center gap-3 hover:bg-orange-50 transition-colors text-left group"
           >
@@ -153,29 +144,53 @@ const LocationDisplay = ({ isLoggedIn, userAddress }) => {
   }, [isLoggedIn, userAddress]);
 
   return (
-    <div className="hidden xl:flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-xl transition-all border border-transparent hover:border-gray-100 group">
-      <MapPin size={22} className="text-red-600 animate-bounce" />
-      <div className="flex flex-col overflow-hidden w-44 items-center py-2">
-        <span className="text-[10px] text-gray-500 font-bold uppercase leading-none mb-0.5">
-          Deliver to
-        </span>
-        <div className={`overflow-hidden flex items-center ${!isLoggedIn ? "ml-10" : "ml-0"} gap-1 w-44 justify-center`} style={{ height: '38px' }}>
-          {!isLoggedIn && (
-            <h1 className='font-semibold text-sm'>Your</h1>
-          )}
-         {/* Your */}
-         <span
-            className={`text-sm tracking-tighter text-gray-900 font-semibold ${ !isLoggedIn ? "w-18" : ""} block transition-all duration-300 ease-in-out`}
-            style={{
-              transform: isAnimating && !isLoggedIn ? 'translateY(-100%)' : 'translateY(0)',
-              opacity: isAnimating && !isLoggedIn ? 0 : 1,
-            }}
-          >
-            { isLoggedIn ? address : destinations[currentIndex]}
-          </span>
-        </div>
-      </div>
-    </div>
+  <div className="hidden xl:flex items-center gap-3 bg-white cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-xl transition-all border border-gray-200 hover:border-gray-300 shadow-sm group">
+
+  <MapPin size={20} className="text-red-500" />
+
+  <div className="flex flex-col w-44 overflow-hidden">
+    
+    <span className="text-[10px] text-gray-500 font-semibold uppercase leading-none">
+      Deliver to
+    </span>
+
+  <div className="flex items-center mt-1">
+
+  {!isLoggedIn && (
+    <span className="text-sm font-medium text-gray-700 mr-1 whitespace-nowrap">
+      Your
+    </span>
+  )}
+
+  <div className="relative h-[20px] overflow-hidden flex-1">
+    
+    {/* CURRENT */}
+    <span
+      className="absolute left-0 w-full text-sm font-semibold text-gray-900 leading-[20px] transition-transform duration-500 ease-in-out"
+      style={{
+        top: 0,
+        transform: isAnimating && !isLoggedIn ? "translateY(-100%)" : "translateY(0)",
+      }}
+    >
+      { isLoggedIn ? address : destinations[currentIndex]}
+    </span>
+
+    {/* NEXT */}
+    <span
+      className="absolute left-0 w-full text-sm font-semibold text-gray-900 leading-[20px] transition-transform duration-500 ease-in-out"
+      style={{
+        top: "100%",
+        transform: isAnimating && !isLoggedIn ? "translateY(-100%)" : "translateY(0)",
+        transitionDelay: isAnimating && !isLoggedIn ? "0.25s" : "0s", // 🔥 KEY FIX
+      }}
+    >
+      { isLoggedIn ? address : destinations[(currentIndex + 1) % destinations.length]}
+    </span>
+
+  </div>
+</div>
+  </div>
+</div>
   );
 };
 
@@ -275,42 +290,34 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
  const handleSearchFocus = useCallback(() => {
   setIsSearchModalOpen(true);
 }, []);
- useEffect(() => {
+useEffect(() => {
   let lastScrollY = window.scrollY;
   let ticking = false;
 
-  let scrollUpDistance = 0;
-  let scrollDownDistance = 0;
-
-  const SHOW_THRESHOLD = 40;  // scroll up kitna kare tab show
-  const HIDE_THRESHOLD = 60;  // scroll down kitna kare tab hide
+  let currentDirection = "up"; // internal lock
+  const SCROLL_THRESHOLD = 10; // 🔥 key for flicker fix
 
   const updateScroll = () => {
     const currentScrollY = window.scrollY;
     const delta = currentScrollY - lastScrollY;
 
-    // 🚫 ignore tiny noise
-    if (Math.abs(delta) < 2) {
+    // 🚫 ignore very small scrolls (main flicker fix)
+    if (Math.abs(delta) < SCROLL_THRESHOLD) {
       ticking = false;
       return;
     }
 
     if (delta > 0) {
-      // scrolling DOWN
-      scrollDownDistance += delta;
-      scrollUpDistance = 0;
-
-      if (scrollDownDistance > HIDE_THRESHOLD) {
-        setScrollDirection("down");
+      // 🔻 SCROLL DOWN
+      if (currentDirection !== "down") {
+        currentDirection = "down";
+        setScrollDirection((prev) => (prev !== "down" ? "down" : prev));
       }
-
     } else {
-      // scrolling UP
-      scrollUpDistance += Math.abs(delta);
-      scrollDownDistance = 0;
-
-      if (scrollUpDistance > SHOW_THRESHOLD) {
-        setScrollDirection("up");
+      // 🔺 SCROLL UP
+      if (currentDirection !== "up") {
+        currentDirection = "up";
+        setScrollDirection((prev) => (prev !== "up" ? "up" : prev));
       }
     }
 
@@ -320,7 +327,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
 
   const handleScroll = () => {
     if (!ticking) {
-      window.requestAnimationFrame(updateScroll);
+      requestAnimationFrame(updateScroll);
       ticking = true;
     }
   };
@@ -532,14 +539,14 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             </div>
 
             {/* ROW 2: Search Bar */}
-         <div
-  className={`transition-all duration-300 ease-in-out overflow-hidden ${
+    <div
+  className={`transition-all duration-500 ease-in-out overflow-hidden ${
     ScrollDirection === "down"
-      ? "max-h-0 opacity-0"
-      : "max-h-[80px] opacity-100"
+      ? "max-h-0 opacity-0 py-0"
+      : "max-h-[80px] opacity-100 py-3"
   }`}
 >
-  <div className={`py-3`}>
+  <div className={`px-0`}>
     <div className="relative group">
       <div className="absolute -inset-0.5 bg-gradient-to-r from-[#F7A221] via-orange-400 to-[#F7A221] rounded-2xl opacity-0 group-focus-within:opacity-100 transition-all duration-500 blur-sm"></div>
       

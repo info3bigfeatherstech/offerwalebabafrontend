@@ -85,7 +85,7 @@ const AppContent = () => {
             {!isAdminRoute && (
                 <Navbar
                     searchQuery={searchQuery}
-                    setSearchQuery={setSearchQuery}
+                    setSearchQuery={setSearchQuery} 
                     isMenuOpen={isMenuOpen}
                     setIsMenuOpen={setIsMenuOpen}
                     isLoggedIn={isLoggedIn}
