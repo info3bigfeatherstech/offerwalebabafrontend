@@ -53,17 +53,18 @@ const UserAccountDropdown = ({ user, onLogout, onClose }) => {
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        onClose();
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [onClose]);
+  // useEffect(() => {
+  //   const handleClickOutside = (event) => {
+  //     if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+  //       onClose();
+  //     }
+  //   };
+  //   document.addEventListener('mousedown', handleClickOutside);
+  //   return () => document.removeEventListener('mousedown', handleClickOutside);
+  // }, [onClose]);
 
   const menuItems = [
+    
     { icon: <UserCircle size={16} />, label: 'My Profile', path: '/account/userprofile' },
     { icon: <Heart size={16} />, label: 'My Wishlist', path: '/account/userwishlist' },
     { icon: <ShoppingCart size={16} />, label: 'My Orders', path: '/account/userorders' },
@@ -72,7 +73,7 @@ const UserAccountDropdown = ({ user, onLogout, onClose }) => {
   return (
     <div 
       ref={dropdownRef}
-      className="absolute top-full right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[100] animate-slideDown"
+      className="absolute top-full right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[500] animate-slideDown"
     >
       <div className="bg-gradient-to-r from-[#F7A221]/10 to-transparent p-4 border-b">
         <p className="text-xs text-gray-500 mb-1">Welcome back,</p>
@@ -87,7 +88,6 @@ const UserAccountDropdown = ({ user, onLogout, onClose }) => {
             key={index}
             onClick={() => {
               navigate(item.path);
-              onClose();
             }}
             className="w-full px-4 py-3 flex items-center gap-3 hover:bg-orange-50 transition-colors text-left group"
           >
@@ -118,31 +118,62 @@ const UserAccountDropdown = ({ user, onLogout, onClose }) => {
 
 // Location Display Component
 const LocationDisplay = ({ isLoggedIn, userAddress }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+
   const getDisplayAddress = () => {
     if (isLoggedIn && userAddress) {
-      // Format address like "City, Pincode" or "Locality, City"
-      const addressParts = [];
-      if (userAddress.city) addressParts.push(userAddress.city);
-      if (userAddress.postalCode) addressParts.push(userAddress.postalCode);
-      if (addressParts.length > 0) return addressParts.join(' ,');
+      const parts = [];
+      if (userAddress.city) parts.push(userAddress.city);
+      if (userAddress.postalCode) parts.push(userAddress.postalCode);
+      if (parts.length > 0) return parts.join(', ');
       if (userAddress.addressLine1) return userAddress.addressLine1.substring(0, 20);
       return "Select Address";
     }
-    return "YOUR ADDRESS";
+    return "ADDRESS";
   };
+   let address = getDisplayAddress()
 
+  const destinations = [
+    
+    address === !"ADDRESS" ? getDisplayAddress() : address,
+    "HOME",
+    "OFFICE",
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsAnimating(true);
+      setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % destinations.length);
+        setIsAnimating(false);
+      }, 300);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [isLoggedIn, userAddress]);
 
   return (
-    <div 
-      
-      className="hidden xl:flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-xl transition-all border border-transparent hover:border-gray-100 group"
-    >
+    <div className="hidden xl:flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-xl transition-all border border-transparent hover:border-gray-100 group">
       <MapPin size={22} className="text-red-600 animate-bounce" />
-      <div className="flex flex-col">
-        <span className="text-[10px] text-gray-500 font-bold uppercase leading-none">Deliver to</span>
-        <span className="text-sm text-gray-900 leading-tight font-semibold">
-          {getDisplayAddress()}
+      <div className="flex flex-col overflow-hidden w-44 items-center py-2">
+        <span className="text-[10px] text-gray-500 font-bold uppercase leading-none mb-0.5">
+          Deliver to
         </span>
+        <div className={`overflow-hidden flex items-center ${!isLoggedIn ? "ml-10" : "ml-0"} gap-1 w-44 justify-center`} style={{ height: '38px' }}>
+          {!isLoggedIn && (
+            <h1 className='font-semibold text-sm'>Your</h1>
+          )}
+         {/* Your */}
+         <span
+            className={`text-sm tracking-tighter text-gray-900 font-semibold ${ !isLoggedIn ? "w-18" : ""} block transition-all duration-300 ease-in-out`}
+            style={{
+              transform: isAnimating && !isLoggedIn ? 'translateY(-100%)' : 'translateY(0)',
+              opacity: isAnimating && !isLoggedIn ? 0 : 1,
+            }}
+          >
+            { isLoggedIn ? address : destinations[currentIndex]}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -232,6 +263,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
   const [isWishCartOpen, setIsWishCartOpen] = useState(false);
   const displayCount = isLoggedIn ? wishlistCount : guestItems.length;
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [ScrollDirection, setScrollDirection] = useState("up");
 
   // Fetch user address when logged in
   useEffect(() => {
@@ -242,6 +274,59 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
 
  const handleSearchFocus = useCallback(() => {
   setIsSearchModalOpen(true);
+}, []);
+ useEffect(() => {
+  let lastScrollY = window.scrollY;
+  let ticking = false;
+
+  let scrollUpDistance = 0;
+  let scrollDownDistance = 0;
+
+  const SHOW_THRESHOLD = 40;  // scroll up kitna kare tab show
+  const HIDE_THRESHOLD = 60;  // scroll down kitna kare tab hide
+
+  const updateScroll = () => {
+    const currentScrollY = window.scrollY;
+    const delta = currentScrollY - lastScrollY;
+
+    // 🚫 ignore tiny noise
+    if (Math.abs(delta) < 2) {
+      ticking = false;
+      return;
+    }
+
+    if (delta > 0) {
+      // scrolling DOWN
+      scrollDownDistance += delta;
+      scrollUpDistance = 0;
+
+      if (scrollDownDistance > HIDE_THRESHOLD) {
+        setScrollDirection("down");
+      }
+
+    } else {
+      // scrolling UP
+      scrollUpDistance += Math.abs(delta);
+      scrollDownDistance = 0;
+
+      if (scrollUpDistance > SHOW_THRESHOLD) {
+        setScrollDirection("up");
+      }
+    }
+
+    lastScrollY = currentScrollY;
+    ticking = false;
+  };
+
+  const handleScroll = () => {
+    if (!ticking) {
+      window.requestAnimationFrame(updateScroll);
+      ticking = true;
+    }
+  };
+
+  window.addEventListener("scroll", handleScroll);
+  return () => window.removeEventListener("scroll", handleScroll);
 }, []);
 
   const handleLogout = async () => {
@@ -391,7 +476,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
               </Link>
 
               {/* Right Icons Group */}
-              <div className="flex items-center gap-3 relative">
+              <div className="flex items-center gap-3 relative z-[500]">
                 {/* User Icon */}
                 <div
                   onClick={handleAccountClick}
@@ -447,26 +532,35 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             </div>
 
             {/* ROW 2: Search Bar */}
-            <div className="py-3">
-              <div className="relative group">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-[#F7A221] via-orange-400 to-[#F7A221] rounded-2xl opacity-0 group-focus-within:opacity-100 transition-all duration-500 blur-sm"></div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search 10,000+ products..."
-                    className="w-full py-3.5 pl-12 pr-12 rounded-2xl text-black focus:outline-none bg-gray-100 border border-gray-200 focus:border-[#F7A221] focus:bg-white transition-all font-medium text-sm"
-                    value={searchQuery}
-                    onClick={handleSearchFocus}
-                  />
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#F7A221] transition-colors" size={18} />
-                  
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    <TrendingUp size={12} className="text-gray-400" />
-                    <span className="text-[9px] text-gray-400 hidden xs:inline">Trending</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+         <div
+  className={`transition-all duration-300 ease-in-out overflow-hidden ${
+    ScrollDirection === "down"
+      ? "max-h-0 opacity-0"
+      : "max-h-[80px] opacity-100"
+  }`}
+>
+  <div className={`py-3`}>
+    <div className="relative group">
+      <div className="absolute -inset-0.5 bg-gradient-to-r from-[#F7A221] via-orange-400 to-[#F7A221] rounded-2xl opacity-0 group-focus-within:opacity-100 transition-all duration-500 blur-sm"></div>
+      
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="Search 10,000+ products..."
+          className="w-full py-3.5 pl-12 pr-12 rounded-2xl text-black focus:outline-none bg-gray-100 border border-gray-200 focus:border-[#F7A221] focus:bg-white transition-all font-medium text-sm"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onClick={handleSearchFocus}
+        />
+        
+        <Search
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#F7A221]"
+          size={18}
+        />
+      </div>
+    </div>
+  </div>
+</div>
           </div>
 
           {/* DESKTOP LAYOUT */}
@@ -520,7 +614,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             </div>
 
             {/* Action Icons */}
-            <div className="flex items-center gap-2 md:gap-4 lg:gap-8 relative">
+            <div className="flex items-center gap-2 md:gap-4 lg:gap-8 relative z-[500]">
               {actionIcons.map((item, idx) => (
                 <ActionIcon 
                   key={idx} 
@@ -567,7 +661,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
 
       {/* Mobile Sidebar Overlay */}
       {isMenuOpen && (
-        <div className="fixed inset-0 bg-black/60 z-[60] lg:hidden backdrop-blur-sm transition-opacity" onClick={() => setIsMenuOpen(false)}>
+        <div className="fixed inset-0 bg-black/60 z-[200] lg:hidden backdrop-blur-sm transition-opacity" onClick={() => setIsMenuOpen(false)}>
           <div className="w-[85%] max-w-[320px] h-full bg-white shadow-2xl animate-slideRight" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 border-b flex justify-between items-center bg-gradient-to-r from-[#F7A221]/5 to-transparent">
               <div className="flex items-center gap-2">
@@ -640,7 +734,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
       />
 
 
-      <style jsx>{`
+      <style>{`
         .nav-link {
           padding: 10px 18px;
           font-size: 12px;
@@ -739,7 +833,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
       `}</style>
     </>
   );
-};
+}
 
 export default memo(Navbar);
 // add address upside code

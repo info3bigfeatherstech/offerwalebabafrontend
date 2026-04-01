@@ -161,7 +161,8 @@ const VariantModal = ({
               }
             </label>
             <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+              {/* removed pointer-events-none */}
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                     d="M3 5h2M3 9h2M3 13h2M3 17h2M3 19h2 M7 5v14M10 5v14M13 5v4M13 11v8 M16 5v14M19 5h2M19 9h2M19 13h2M19 17h2M19 19h2" />
