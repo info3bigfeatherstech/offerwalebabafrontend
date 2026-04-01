@@ -3,7 +3,7 @@ import {
   Facebook, Instagram, Youtube, ShieldCheck, Star, Award, 
   ChevronRight, Zap,Briefcase,Globe
 } from 'lucide-react';
-import logo from "../assets/logo.jpg"; 
+import logo from "../../assets/logo.jpg"; 
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -81,7 +81,7 @@ const Footer = () => {
                 </div>
                 
                 <h1 
-                    className="text-7xl md:text-[10rem] font-black tracking-tighter leading-[0.75] uppercase italic bg-cover bg-center bg-no-repeat"
+                    className="text-7xl md:text-[10rem] font-black tracking-tighter leading-[0.75] uppercase bg-cover bg-center bg-no-repeat"
                     style={{ 
                         backgroundImage: `url(${logo})`,
                         backgroundSize: 'cover',
@@ -94,7 +94,7 @@ const Footer = () => {
                     BABA
                 </h1>
                 
-                <h2 className="mt-8 text-2xl md:text-3xl font-black text-white tracking-tighter max-w-2xl mx-auto uppercase italic">
+                <h2 className="mt-8 text-2xl md:text-3xl font-black text-white tracking-tighter max-w-2xl mx-auto uppercase">
                     The New Standard of <span className="text-[#f7a221] not-italic">Indian Minimalism</span>
                 </h2>
             </div>
@@ -181,7 +181,7 @@ const Footer = () => {
                 <ShieldCheck size={40} className="text-blue-500" strokeWidth={1.5} />
             </div>
             <div>
-                <p className="text-white font-black text-xl italic uppercase tracking-tighter">IndiaMart</p>
+                <p className="text-white font-black text-xl  uppercase tracking-tighter">IndiaMart</p>
                 <p className="text-[10px] uppercase font-bold text-gray-500 group-hover:text-blue-400 transition-colors">Gold Verified</p>
             </div>
         </div>
@@ -192,7 +192,7 @@ const Footer = () => {
                 <Briefcase size={40} className="text-[#f7a221]" strokeWidth={1.5} />
             </div>
             <div>
-                <p className="text-white font-black text-xl italic uppercase tracking-tighter">Trade India</p>
+                <p className="text-white font-black text-xl  uppercase tracking-tighter">Trade India</p>
                 <p className="text-[10px] uppercase font-bold text-gray-500 group-hover:text-[#f7a221] transition-colors">Premium Member</p>
             </div>
         </div>
@@ -203,7 +203,7 @@ const Footer = () => {
                 <Globe size={40} className="text-green-500" strokeWidth={1.5} />
             </div>
             <div>
-                <p className="text-white font-black text-xl italic uppercase tracking-tighter">Export India</p>
+                <p className="text-white font-black text-xl  uppercase tracking-tighter">Export India</p>
                 <p className="text-[10px] uppercase font-bold text-gray-500 group-hover:text-green-400 transition-colors">Global Trust</p>
             </div>
         </div>

@@ -118,7 +118,7 @@ export const forgotPassword = createAsyncThunk(
 
 // ✅ RESET PASSWORD — with OTP
 export const resetPassword = createAsyncThunk(
-  "auth/resetPassword",
+  "auth/reset-password",
   async ({ email, otp, newPassword }, { rejectWithValue }) => {
     try {
       const res = await axiosInstance.post("/auth/reset-password", {

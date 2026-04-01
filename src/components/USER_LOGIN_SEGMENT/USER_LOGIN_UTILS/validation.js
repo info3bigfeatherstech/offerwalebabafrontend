@@ -14,7 +14,7 @@ export const validateName = (name) => {
 };
 
 export const validatePhone = (phone) => {
-    if (!phone) return true; // Phone is optional
+    if (!phone) return true; 
     const re = /^[0-9]{10}$/;
     return re.test(phone.replace(/\D/g, ''));
 };

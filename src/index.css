@@ -85,7 +85,7 @@ body {
     @apply w-full;
   } */
 
- 
+
 
   .glass-card {
     backdrop-filter: blur(24px);
@@ -131,3 +131,52 @@ body {
 }
 
 
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-8px);
+  }
+
+  50% {
+    transform: translateX(8px);
+  }
+
+  75% {
+    transform: translateX(-8px);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+@media only screen and (max-width: 480px) {
+  .Toastify__toast-container {
+    width: 100vw !important;
+    padding: 16px !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 !important;
+  }
+
+  .Toastify__toast {
+    margin-bottom: 12px !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+
+  /* .Toastify__toast-body {
+    padding-left: 12px !important;
+  } */
+  /* index.css */
+  .Toastify__toast-body {
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 !important; /* Let our Tailwind classes handle internal spacing */
+  }
+}
