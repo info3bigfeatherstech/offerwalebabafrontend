@@ -22,6 +22,7 @@ import { logoutUser, fetchMe, forceLogout } from "./components/REDUX_FEATURES/RE
 import useWishlistInit from "./components/HOOKS/useWishlistInit";
 import useCartInit from "./components/HOOKS/useCartInit";
 import CustomerDashboard from "./components/ADMIN_SEGMENT/ADMIN_TABS/CUSTOMER_SEGMENT/CustomerDashboard";
+import ShopByPrice from "./User_Side_Web_Interface/ShopByPriceSegment/ShopByPrice";
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Optional: protect /account routes ────────────────────────────────────────
@@ -101,6 +102,7 @@ const AppContent = () => {
                 <Route path="/customer-care"   element={<CustomerCare onOpenAuth={openAuthModal} />} />
                 <Route path="/category/:slug"  element={<CatProducts />} />
                 <Route path="/products/:slug"  element={<ProductDetail />} />
+                <Route path="/shopbyprice/:slug" element={<ShopByPrice />} />
 
                 {/* ── Admin routes ───────────────────────────────────────── */}
                 <Route path="/admin"           element={<AdminDashboard />} />

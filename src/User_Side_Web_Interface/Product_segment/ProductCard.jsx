@@ -400,7 +400,10 @@ const ProductCard = ({ product, index }) => {
                 Adding...
               </>
             ) : (
-              "Add To Bag"
+              <>
+              Add to Cart
+              
+              </>
             )}
           </button>
         )}

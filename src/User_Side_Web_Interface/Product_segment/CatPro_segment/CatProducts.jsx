@@ -1,6 +1,10 @@
 import React, { useEffect, useCallback, useState, useRef, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import bannerImage from "../../../assets/premium_photo-1663956066898-282c7609afc9.png";
+import Home from "../../../assets/Home.png";
+import gadgets from "../../../assets/gadgets.png";
+import tour from "../../../assets/tour.png";
 import {
   ArrowLeft,
   AlertCircle,
@@ -101,7 +105,7 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8 pb-10">
+              <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8 pb-10">
                 {isSkeletonRow
                   ? Array(cols).fill(null).map((_, i) => (
                       <SkeletonCard key={`skel-${virtualRow.index}-${i}`} />
@@ -140,6 +144,20 @@ const CatProducts = () => {
   const currentCategory      = useSelector(selectCurrentCategory);
   const categoryLoadingState = useSelector((s) => s.userCategories.loading.category);
   const categoryErrorState   = useSelector((s) => s.userCategories.error.category);
+  // component ke andar — selectors ke neeche
+const images = [
+  { url: Home    },
+  { url: gadgets },
+  { url: tour    },
+];
+
+// slug → image mapping
+const categoryImages = {
+  'home-kitchen':     { url: Home    },
+  'smart-life':       { url: gadgets },
+  'tours-travels':    { url: tour    },
+  // baaki slugs add karo
+};
 
   // ── Derived ────────────────────────────────────────────────────────────────
   // isLoading: true only on the initial load (no products yet)
@@ -157,7 +175,7 @@ const CatProducts = () => {
     console.log(`🗂️ [CatProducts] slug changed → "${slug}"`);
 
     dispatch(clearCurrentCategory());
-    dispatch(fetchCategoryBySlug(slug));
+    dispatch(fetchCategoryBySlug(slug));  
     dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 }));
 
     return () => {
@@ -209,30 +227,56 @@ const CatProducts = () => {
       </div>
 
       {/* ── HERO ── */}
-      <section className="relative h-[40vh] md:h-[50vh] flex items-center justify-center overflow-hidden bg-zinc-900">
-        {currentCategory?.image?.url ? (
-          <>
-            <img
-              src={currentCategory.image.url}
-              alt={categoryName}
-              className="absolute inset-0 w-full h-full object-cover opacity-60"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/80 via-transparent to-transparent" />
-          </>
-        ) : (
-          <div className="absolute inset-0 bg-zinc-100" />
+   <section className="relative h-[40vh] md:h-[50vh] flex items-end overflow-hidden bg-gray-900">
+
+  {/* Background — slug se match karo, warna pehla image */}
+  <img
+    src={categoryImages[slug]?.url || images[0].url}
+    alt={categoryName}
+    className="absolute inset-0 w-full h-full object-cover opacity-50"
+  />
+
+  {/* Dark gradient overlay */}
+  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+
+  {/* Orange top accent bar */}
+  <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#F7A221]" />
+
+  {/* Content */}
+  <div className="relative z-10 w-full max-w-7xl mx-auto px-4 md:px-8 pb-10 md:pb-14">
+    <div className="flex items-end justify-between gap-6">
+
+      <div>
+        <p className="text-[#F7A221] text-[10px] font-black uppercase tracking-[0.25em] mb-3 flex items-center gap-2">
+          <span className="w-6 h-[2px] bg-[#F7A221] inline-block" />
+          Collection
+        </p>
+        <h1 className="text-5xl md:text-7xl font-black text-white uppercase leading-none tracking-tighter">
+          {categoryName}
+        </h1>
+        {currentCategory?.description && (
+          <p className="mt-4 max-w-md text-gray-400 text-sm leading-relaxed font-medium">
+            {currentCategory.description}
+          </p>
         )}
-        <div className="relative z-10 text-center px-4">
-          <h1 className="text-4xl md:text-6xl font-bold text-white uppercase tracking-tight mb-4">
-            {categoryName}
-          </h1>
-          {currentCategory?.description && (
-            <p className="max-w-xl mx-auto text-zinc-200 text-sm md:text-base font-light leading-relaxed">
-              {currentCategory.description}
-            </p>
-          )}
+      </div>
+
+      {/* Product count — desktop only */}
+      {!isLoading && (
+        <div className="hidden md:flex flex-col items-end flex-shrink-0">
+          <span className="text-5xl font-black text-white leading-none">
+            {pagination.total || 0}
+          </span>
+          <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-500 mt-1">
+            Products
+          </span>
         </div>
-      </section>
+      )}
+
+    </div>
+  </div>
+
+</section>
 
       {/* ── MAIN CONTENT ── */}
       <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-12 flex flex-col md:flex-row gap-10">

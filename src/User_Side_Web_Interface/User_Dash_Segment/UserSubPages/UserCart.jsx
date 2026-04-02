@@ -92,10 +92,10 @@ const CartRow = ({ item, isLoggedIn, onUpdate, onRemove, isUpdating, isRemoving 
 
   return (
     <div className="group bg-white border-2 border-gray-100 rounded-[32px] p-4 sm:p-6 hover:border-black transition-all duration-300">
-      <div className="flex gap-4 sm:gap-6">
+      <div className="gap-4 sm:gap-6">
 
         {/* Image */}
-        <div className="w-24 h-32 sm:w-32 sm:h-40 bg-gray-100 rounded-2xl overflow-hidden flex-shrink-0">
+        <div className="w-full h-32 sm:w-32 sm:h-40 bg-gray-100 rounded-2xl overflow-hidden flex-shrink-0">
           {image ? (
             <img
               src={image}
@@ -338,103 +338,107 @@ const UserCart = () => {
 
   // ── Main render ────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-8 animate-fadeIn">
+   <div className="space-y-6 sm:space-y-8 animate-fadeIn">
 
-      {/* Header */}
-      <header>
-        <h1 className="text-3xl font-black text-gray-900 tracking-tight">
-          Shopping Cart
-        </h1>
-        <p className="text-gray-500 font-bold text-sm uppercase tracking-widest mt-1">
-          {totalCount} item{totalCount !== 1 ? 's' : ''} ready for checkout
-        </p>
-      </header>
+  {/* Header */}
+  <header>
+    <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
+      Shopping Cart
+    </h1>
+    <p className="text-gray-500 font-bold text-xs sm:text-sm uppercase tracking-widest mt-1">
+      {totalCount} item{totalCount !== 1 ? 's' : ''} ready for checkout
+    </p>
+  </header>
 
-      {/* Update/remove error banner */}
-      {(error.update || error.remove) && (
-        <div className="flex items-start gap-3 bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
-          <AlertCircle size={16} className="text-red-400 mt-0.5 flex-shrink-0" />
-          <p className="text-xs font-semibold text-red-700 flex-1">
-            {error.update?.message || error.remove?.message || 'Something went wrong'}
-          </p>
-          <button
-            onClick={() => dispatch(clearCartErrors())}
-            className="text-red-300 hover:text-red-500 transition-colors"
-          >
-            ×
-          </button>
-        </div>
-      )}
+  {/* Error banner */}
+  {(error.update || error.remove) && (
+    <div className="flex items-start gap-3 bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
+      <AlertCircle size={16} className="text-red-400 mt-0.5 flex-shrink-0" />
+      <p className="text-xs font-semibold text-red-700 flex-1">
+        {error.update?.message || error.remove?.message || 'Something went wrong'}
+      </p>
+      <button
+        onClick={() => dispatch(clearCartErrors())}
+        className="text-red-300 hover:text-red-500 transition-colors"
+      >
+        ×
+      </button>
+    </div>
+  )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-10">
+  <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 xl:gap-10">
 
-        {/* ── Items list ─────────────────────────────────────────────────── */}
-        <div className="xl:col-span-2 space-y-4">
-          {currentItems.map((item, index) => (
-            <CartRow
-              key={item._id || `${item.productSlug || item._productSlug}-${item.variantId}-${index}`}
-              item={item}
-              isLoggedIn={isLoggedIn}
-              onUpdate={handleUpdate}
-              onRemove={handleRemove}
-              isUpdating={isUpdating}
-              isRemoving={isRemoving}
-            />
-          ))}
-        </div>
+    {/* ── Items list ── */}
+    <div className="xl:col-span-2 space-y-3 sm:space-y-4">
+      {currentItems.map((item, index) => (
+        <CartRow
+          key={item._id || `${item.productSlug || item._productSlug}-${item.variantId}-${index}`}
+          item={item}
+          isLoggedIn={isLoggedIn}
+          onUpdate={handleUpdate}
+          onRemove={handleRemove}
+          isUpdating={isUpdating}
+          isRemoving={isRemoving}
+        />
+      ))}
+    </div>
 
-        {/* ── Order summary ──────────────────────────────────────────────── */}
-        <div className="xl:col-span-1">
-          <div className="bg-gray-900 text-white rounded-[40px] p-8 sticky top-24 shadow-2xl">
-            <h3 className="text-xl font-black mb-6 border-b border-white/10 pb-4">
-              Order Summary
-            </h3>
+    {/* ── Order Summary ── */}
+    <div className="xl:col-span-1">
+      <div className="bg-gray-900 text-white rounded-3xl sm:rounded-[40px] p-5 sm:p-8 xl:sticky xl:top-24 shadow-2xl">
+        
+        <h3 className="text-lg sm:text-xl font-black mb-5 sm:mb-6 border-b border-white/10 pb-4">
+          Order Summary
+        </h3>
 
-            <div className="space-y-4">
-              <div className="flex justify-between text-gray-400 font-bold text-sm">
-                <span>Subtotal ({totalCount} items)</span>
-                <span className="text-white">{fmt(subtotal)}</span>
-              </div>
-              <div className="flex justify-between text-gray-400 font-bold text-sm">
-                <span>Shipping</span>
-                <span className="text-green-400 uppercase text-xs font-black">
-                  {subtotal >= 499 ? 'Free' : fmt(49)}
-                </span>
-              </div>
+        <div className="space-y-3 sm:space-y-4">
 
-              <div className="pt-6 mt-2 border-t border-white/10">
-                <div className="flex justify-between items-end">
-                  <span className="font-black text-gray-400 uppercase text-xs tracking-widest">
-                    Total
-                  </span>
-                  <span className="text-3xl font-black text-[#F7A221]">
-                    {fmt(subtotal >= 499 ? subtotal : subtotal + 49)}
-                  </span>
-                </div>
-                {subtotal > 0 && subtotal < 499 && (
-                  <p className="text-[10px] text-gray-500 mt-1 text-right">
-                    Add {fmt(499 - subtotal)} more for free shipping
-                  </p>
-                )}
-              </div>
-
-              <Link
-                to="/checkout"
-                className="w-full mt-8 bg-[#F7A221] text-black py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:bg-white transition-all active:scale-95 shadow-xl shadow-orange-900/20"
-              >
-                Checkout Now <ArrowRight size={20} />
-              </Link>
-
-              <div className="mt-4 flex items-center justify-center gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                <ShieldCheck size={14} className="text-green-500" />
-                Secure 256-bit SSL Payment
-              </div>
-            </div>
+          <div className="flex justify-between text-gray-400 font-bold text-sm">
+            <span>Subtotal ({totalCount} items)</span>
+            <span className="text-white">{fmt(subtotal)}</span>
           </div>
-        </div>
 
+          <div className="flex justify-between text-gray-400 font-bold text-sm">
+            <span>Shipping</span>
+            <span className="text-green-400 uppercase text-xs font-black">
+              {subtotal >= 499 ? 'Free' : fmt(49)}
+            </span>
+          </div>
+
+          <div className="pt-4 sm:pt-6 mt-2 border-t border-white/10">
+            <div className="flex justify-between items-end">
+              <span className="font-black text-gray-400 uppercase text-xs tracking-widest">
+                Total
+              </span>
+              <span className="text-2xl sm:text-3xl font-black text-[#F7A221]">
+                {fmt(subtotal >= 499 ? subtotal : subtotal + 49)}
+              </span>
+            </div>
+            {subtotal > 0 && subtotal < 499 && (
+              <p className="text-[10px] text-gray-500 mt-1 text-right">
+                Add {fmt(499 - subtotal)} more for free shipping
+              </p>
+            )}
+          </div>
+
+          <Link
+            to="/checkout"
+            className="w-full mt-6 sm:mt-8 bg-[#F7A221] text-black py-4 sm:py-5 rounded-xl sm:rounded-2xl font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:bg-white transition-all active:scale-95 shadow-xl shadow-orange-900/20"
+          >
+            Checkout Now <ArrowRight size={18} />
+          </Link>
+
+          <div className="mt-3 sm:mt-4 flex items-center justify-center gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+            <ShieldCheck size={13} className="text-green-500" />
+            Secure 256-bit SSL Payment
+          </div>
+
+        </div>
       </div>
     </div>
+
+  </div>
+</div>
   );
 };
 

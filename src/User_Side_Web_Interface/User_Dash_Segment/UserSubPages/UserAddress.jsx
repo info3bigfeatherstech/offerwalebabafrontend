@@ -59,52 +59,75 @@ const EMPTY_FORM = {
 // Address Card
 // ─────────────────────────────────────────────────────────────────────────────
 const AddressCard = ({ address, isDefault, onEdit, onDelete, onSetDefault, isDeleting }) => (
-  <div className={`p-6 bg-white rounded-[32px] relative overflow-hidden transition-all duration-300 border-2 cursor-pointer hover:shadow-xl ${
+  <div className={`p-4 sm:p-6 bg-white rounded-2xl sm:rounded-[32px] relative overflow-hidden transition-all duration-300 border-2 cursor-pointer hover:shadow-xl ${
     isDefault ? "border-black shadow-xl ring-4 ring-black/5" : "border-gray-100 hover:border-black"
   }`}>
+
+    {/* Default badge */}
     {isDefault && (
-      <div className="absolute top-4 right-4 flex items-center gap-1 bg-black text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full">
-        <Star size={10} className="fill-[#F7A221] text-[#F7A221]" /> Default
+      <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-1 bg-black text-white text-[9px] font-black uppercase tracking-widest px-2.5 sm:px-3 py-1.5 rounded-full">
+        <Star size={10} className="fill-[#F7A221] text-[#F7A221]" />
+        <span className="hidden sm:inline">Default</span>
       </div>
     )}
-    <div className="flex items-center gap-2 mb-4">
-      <div className="p-2 bg-gray-50 rounded-lg">
+
+    {/* Type */}
+    <div className="flex items-center gap-2 mb-3 sm:mb-4">
+      <div className="p-1.5 sm:p-2 bg-gray-50 rounded-lg">
         {ADDRESS_TYPE_ICON[address.addressType] || ADDRESS_TYPE_ICON.other}
       </div>
       <span className="font-black uppercase text-[10px] tracking-widest text-gray-400">
         {address.addressType}
       </span>
     </div>
-    <h4 className="font-black text-gray-900 text-base">{address.fullName}</h4>
-    <p className="text-xs text-gray-400 font-bold mb-4">{address.phone}</p>
-    <p className="text-sm font-medium text-gray-600 leading-relaxed min-h-[60px]">
-      {[address.houseNumber, address.area, address.landmark, address.addressLine1, address.addressLine2].filter(Boolean).join(", ")}
+
+    {/* Name + Phone */}
+    <h4 className="font-black text-gray-900 text-sm sm:text-base">{address.fullName}</h4>
+    <p className="text-xs text-gray-400 font-bold mb-3 sm:mb-4">{address.phone}</p>
+
+    {/* Address */}
+    <p className="text-xs sm:text-sm font-medium text-gray-600 leading-relaxed min-h-[50px] sm:min-h-[60px]">
+      {[address.houseNumber, address.area, address.landmark, address.addressLine1, address.addressLine2]
+        .filter(Boolean)
+        .join(", ")}
       <br />
-      <span className="text-gray-900 font-bold">{address.city}, {address.state} — {address.postalCode}</span>
+      <span className="text-gray-900 font-bold">
+        {address.city}, {address.state} — {address.postalCode}
+      </span>
     </p>
-    <div className="mt-6 pt-6 border-t border-gray-50 flex items-center gap-4">
+
+    {/* Actions */}
+    <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-50 flex items-center gap-2 sm:gap-4">
       {!isDefault && (
-        <button 
-          onClick={(e) => { e.stopPropagation(); onSetDefault(address); }} 
-          className="text-[10px] font-black uppercase tracking-widest text-[#F7A221] hover:underline cursor-pointer"
+        <button
+          onClick={(e) => { e.stopPropagation(); onSetDefault(address); }}
+          className="text-[10px] font-black uppercase tracking-widest text-[#F7A221] hover:underline cursor-pointer whitespace-nowrap"
         >
           Set Default
         </button>
       )}
-      <button 
-        onClick={(e) => { e.stopPropagation(); onEdit(address); }} 
+      <button
+        onClick={(e) => { e.stopPropagation(); onEdit(address); }}
         className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-black cursor-pointer"
       >
-        <Pencil size={12} /> Edit
+        <Pencil size={12} />
+        <span className="hidden sm:inline">Edit</span>
       </button>
-      <button 
-        onClick={(e) => { e.stopPropagation(); onDelete(address._id); }} 
-        disabled={isDeleting} 
+      <button
+        onClick={(e) => { e.stopPropagation(); onDelete(address._id); }}
+        disabled={isDeleting}
         className="ml-auto flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 disabled:opacity-30 cursor-pointer"
       >
-        {isDeleting ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
+        {isDeleting
+          ? <RefreshCw size={12} className="animate-spin" />
+          : <Trash2 size={12} />
+        }
+        <span className="hidden sm:inline">
+          {isDeleting ? "Deleting..." : "Delete"}
+        </span>
       </button>
     </div>
+
   </div>
 );
 
@@ -383,14 +406,14 @@ const UserAddress = () => {
     <div className="max-w-6xl mx-auto py-10 px-4">
       <div className="flex justify-between items-center mb-10 pb-8 border-b border-gray-100">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Saved Addresses</h1>
+          <h1 className="text-xl font-black text-gray-900 tracking-tight">Saved Addresses</h1>
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">{allCount} Total</p>
         </div>
         <button 
           onClick={openAdd} 
-          className="bg-black text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all cursor-pointer hover:bg-[#F7A221] hover:text-black"
+          className="bg-black text-white px-3 py-2 rounded-2xl flex gap-1 font-black uppercase tracking-widest items-center shadow-xl active:scale-95 transition-all cursor-pointer hover:bg-[#F7A221] hover:text-black"
         >
-          <Plus size={18} className="inline mr-2" /> Add New
+          <Plus size={18} className="inline mr-2" /> <h1 className="text-[0.8rem]">Add</h1>
         </button>
       </div>
 

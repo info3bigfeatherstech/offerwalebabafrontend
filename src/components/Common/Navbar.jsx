@@ -14,11 +14,12 @@ import {
   Smartphone, ChefHat, Shirt, Dumbbell, Plane, Book, Baby, Car, Box, Gift,
   MapPin, LogOut, UserCircle, Settings, Sparkles, TrendingUp, Star, Zap
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import logo from "../../assets/logo2.png";
 import homeIcon from "../../assets/home (2).png";
 import justarrivedIcon from "../../assets/just-arrived (1).png";
 import dealIcon from "../../assets/deal.png";
+import { AnimatePresence, motion } from 'framer-motion';
 import saleIcon from "../../assets/sale.png";
 import coupanIcon from "../../assets/coupon.png";
 import customercareIcon from "../../assets/service.png";
@@ -26,6 +27,7 @@ import discountBannerIcon from "../../assets/discount-voucher.png";
 import WishlistSidebar from './WishlistSidebar';
 import { selectDefaultAddress, fetchAddresses } from '../REDUX_FEATURES/REDUX_SLICES/userAddressSlice';
 import SearchModal from './Search_Modal/SearchModal';
+import MobileBottomNav from './Mobilebottomnav';
 
 // --- Sub-Components ---
 
@@ -198,15 +200,15 @@ const MegaDropdown = ({ isOpen }) => {
   if (!isOpen) return null;
 
   const categories = [
-    { label: "Smart Life Gadgets", icon: <Smartphone size={18} className="text-blue-600" />, path: "/category/smart-life" },
-    { label: "Home & Kitchen", icon: <ChefHat size={18} className="text-red-600" />, path: "/category/home-kitchen" },
-    { label: "Fashion World", icon: <Shirt size={18} className="text-[#F7A221]" />, path: "/category/fashion" },
-    { label: "Sports & Fitness", icon: <Dumbbell size={18} className="text-blue-600" />, path: "/category/sports-fitness" },
-    { label: "Tours & Travels", icon: <Plane size={18} className="text-[#F7A221]" />, path: "/category/travel" },
+    { label: "Smart Life Gadgets", icon: <Smartphone size={18} className="text-blue-600" />, path: "/category/smart-life-gadgets" },
+    { label: "Home & Kitchen", icon: <ChefHat size={18} className="text-red-600" />, path: "/category/home-and-kitchen" },
+    { label: "Fashion World", icon: <Shirt size={18} className="text-[#F7A221]" />, path: "/category/fashion-world" },
+    { label: "Sports & Fitness", icon: <Dumbbell size={18} className="text-blue-600" />, path: "/category/sports-and-fitness" },
+    { label: "Tours & Travels", icon: <Plane size={18} className="text-[#F7A221]" />, path: "/category/tours-and-travels" },
     { label: "Stationary", icon: <Book size={18} className="text-red-600" />, path: "/category/stationary" },
     { label: "Baby Items", icon: <Baby size={18} className="text-blue-600" />, path: "/category/baby-items" },
     { label: "Car Accessories", icon: <Car size={18} className="text-[#F7A221]" />, path: "/category/car-accessories" },
-    { label: "Mix Items Daily use", icon: <Box size={18} className="text-red-600" />, path: "/category/daily-use" },
+    { label: "Mix Items Daily use", icon: <Box size={18} className="text-red-600" />, path: "/category/mix-items-daily-use" },
     { label: "Gifts", icon: <Gift size={18} className="text-blue-600" />, path: "/category/gifts" }
   ];
 
@@ -218,12 +220,12 @@ const MegaDropdown = ({ isOpen }) => {
             <Link
               key={index}
               to={category.path}
-              className="flex items-center gap-4 p-4 rounded-2xl hover:bg-orange-50 transition-all group border border-transparent hover:border-orange-100 shadow-sm min-w-0"
+              className="flex items-center gap-4 px-3 py-2 rounded-2xl hover:bg-orange-50 transition-all group border border-transparent hover:border-orange-100 shadow-sm min-w-0"
             >
               <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 group-hover:shadow-md group-hover:rotate-3 transition-all duration-300">
                 {category.icon}
               </div>
-              <span className="font-bold text-black group-hover:text-[#F7A221] transition-colors text-[10px] md:text-[12px] tracking-tight whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]">
+              <span className="font-bold text-black group-hover:text-[#F7A221] transition-colors text-[10px] md:text-[12px] tracking-tight whitespace-nowrap text-ellipsis">
                 {category.label}
               </span>
             </Link>
@@ -265,6 +267,7 @@ const ImageIcon = ({ src, alt, className = "", animation = "animate-bounce-soft"
 );
 
 const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLoggedIn, user, onOpenAuth }) => {
+  console.count('NAVBAR RENDER');
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
@@ -278,8 +281,6 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
   const [isWishCartOpen, setIsWishCartOpen] = useState(false);
   const displayCount = isLoggedIn ? wishlistCount : guestItems.length;
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-  const [ScrollDirection, setScrollDirection] = useState("up");
-
   // Fetch user address when logged in
   useEffect(() => {
     if (isLoggedIn) {
@@ -287,53 +288,19 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
     }
   }, [dispatch, isLoggedIn]);
 
+// 3. duplicate fetchAddresses useEffect bhi hata do — do baar hai
+// yeh wala rakho sirf ek baar:
+useEffect(() => {
+  if (isLoggedIn) dispatch(fetchAddresses());
+}, [dispatch, isLoggedIn]);
+useEffect(() => {
+  if (isLoggedIn) {
+    dispatch(fetchAddresses());
+  }
+}, [dispatch, isLoggedIn]);
+
  const handleSearchFocus = useCallback(() => {
   setIsSearchModalOpen(true);
-}, []);
-useEffect(() => {
-  let lastScrollY = window.scrollY;
-  let ticking = false;
-
-  let currentDirection = "up"; // internal lock
-  const SCROLL_THRESHOLD = 10; // 🔥 key for flicker fix
-
-  const updateScroll = () => {
-    const currentScrollY = window.scrollY;
-    const delta = currentScrollY - lastScrollY;
-
-    // 🚫 ignore very small scrolls (main flicker fix)
-    if (Math.abs(delta) < SCROLL_THRESHOLD) {
-      ticking = false;
-      return;
-    }
-
-    if (delta > 0) {
-      // 🔻 SCROLL DOWN
-      if (currentDirection !== "down") {
-        currentDirection = "down";
-        setScrollDirection((prev) => (prev !== "down" ? "down" : prev));
-      }
-    } else {
-      // 🔺 SCROLL UP
-      if (currentDirection !== "up") {
-        currentDirection = "up";
-        setScrollDirection((prev) => (prev !== "up" ? "up" : prev));
-      }
-    }
-
-    lastScrollY = currentScrollY;
-    ticking = false;
-  };
-
-  const handleScroll = () => {
-    if (!ticking) {
-      requestAnimationFrame(updateScroll);
-      ticking = true;
-    }
-  };
-
-  window.addEventListener("scroll", handleScroll);
-  return () => window.removeEventListener("scroll", handleScroll);
 }, []);
 
   const handleLogout = async () => {
@@ -539,35 +506,33 @@ useEffect(() => {
             </div>
 
             {/* ROW 2: Search Bar */}
-    <div
-  className={`transition-all duration-500 ease-in-out overflow-hidden ${
-    ScrollDirection === "down"
-      ? "max-h-0 opacity-0 py-0"
-      : "max-h-[80px] opacity-100 py-3"
-  }`}
->
-  <div className={`px-0`}>
-    <div className="relative group">
-      <div className="absolute -inset-0.5 bg-gradient-to-r from-[#F7A221] via-orange-400 to-[#F7A221] rounded-2xl opacity-0 group-focus-within:opacity-100 transition-all duration-500 blur-sm"></div>
-      
-      <div className="relative">
-        <input
-          type="text"
-          placeholder="Search 10,000+ products..."
-          className="w-full py-3.5 pl-12 pr-12 rounded-2xl text-black focus:outline-none bg-gray-100 border border-gray-200 focus:border-[#F7A221] focus:bg-white transition-all font-medium text-sm"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onClick={handleSearchFocus}
-        />
-        
-        <Search
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#F7A221]"
-          size={18}
-        />
-      </div>
-    </div>
-  </div>
-</div>
+                <motion.div
+                  key="search-bar"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                  style={{ overflow: 'hidden' }}
+                  className="border-b border-gray-100"
+                >
+                  <div className="py-3 relative group">
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-[#F7A221] via-orange-400 to-[#F7A221] rounded-2xl opacity-0 group-focus-within:opacity-100 transition-all duration-500 blur-sm" />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search 10,000+ products..."
+                        className="w-full py-3.5 pl-12 pr-12 rounded-2xl text-black focus:outline-none bg-gray-100 border border-gray-200 focus:border-[#F7A221] focus:bg-white transition-all font-medium text-sm"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onClick={handleSearchFocus}
+                      />
+                      <Search
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#F7A221]"
+                        size={18}
+                      />
+                    </div>
+                  </div>
+                </motion.div>
           </div>
 
           {/* DESKTOP LAYOUT */}
@@ -739,7 +704,17 @@ useEffect(() => {
         onClose={() => setIsSearchModalOpen(false)}
         initialQuery={searchQuery}
       />
-
+    {/* <MobileBottomNav
+  wishlistCount={displayCount}
+  cartCount={cartCount}
+  isLoggedIn={isLoggedIn}
+  onWishlist={handleWishlist}
+  // onCart={() => setIsCartOpen(true)}
+  onCart={() => setIsCartOpen(prev => !prev)}
+  onAccount={handleAccountClick}
+  onSearch={handleSearchFocus}
+  onHome={() => navigate('/')}
+/> */}
 
       <style>{`
         .nav-link {
@@ -840,7 +815,7 @@ useEffect(() => {
       `}</style>
     </>
   );
-}
+};
 
 export default memo(Navbar);
 // add address upside code

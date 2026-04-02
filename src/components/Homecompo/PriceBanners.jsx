@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, Sparkles, Zap } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const PriceBanners = () => {
     const [isInView, setIsInView] = useState(false);
@@ -88,7 +89,7 @@ const PriceBanners = () => {
             
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
                 {darkBanners.map((banner, idx) => (
-                    <div
+                    <Link to={`/shopbyprice/${banner.label.toLowerCase().replace(/\s/g, '-')}`}
                         key={idx}
                         className={`group relative h-36 sm:h-44 md:h-52 lg:h-60 bg-gradient-to-br ${banner.gradient} rounded-2xl md:rounded-[2.5rem] overflow-hidden cursor-pointer border border-white/5 hover:border-[#f7a221]/40 transition-all duration-500 ${
                             isInView 
@@ -124,7 +125,7 @@ const PriceBanners = () => {
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </Link>
                 ))}
             </div>
         </section>
