@@ -17,6 +17,7 @@ import {
   selectCartError,
   selectDisplayCartCount,
 } from '../../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice';
+// import CartComponent from './CartComponent';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -44,6 +45,8 @@ const logError = (context, error, info = {}) => {
 // item.priceSnapshot = { base, sale } — per-item price snapshot
 // ─────────────────────────────────────────────────────────────────────────────
 const getItemDisplayData = (item) => {
+  console.log(item.productId.maxDiscountPercentage);
+  
   const isPopulated = typeof item.productId === 'object' && item.productId !== null;
 
   // Find matched variant by variantId
@@ -86,123 +89,133 @@ const getItemDisplayData = (item) => {
 // CartRow — single item row
 // ─────────────────────────────────────────────────────────────────────────────
 const CartRow = ({ item, isLoggedIn, onUpdate, onRemove, isUpdating, isRemoving }) => {
+  console.log("items", item);
   const { name, image, price, brand, attrs, slug } = getItemDisplayData(item);
-  const qty      = item.quantity || 1;
+  const qty = item.quantity || 1;
+  
   const itemTotal = price != null ? price * qty : null;
 
   return (
-    <div className="group bg-white border-2 border-gray-100 rounded-[32px] p-4 sm:p-6 hover:border-black transition-all duration-300">
-      <div className="gap-4 sm:gap-6">
-
-        {/* Image */}
-        <div className="w-full h-32 sm:w-32 sm:h-40 bg-gray-100 rounded-2xl overflow-hidden flex-shrink-0">
-          {image ? (
-            <img
-              src={image}
-              alt={name}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.target.style.display = 'none';
-                logError('CartRow img', new Error('Image failed'), { name, image });
-              }}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <ShoppingBag size={24} className="text-gray-300" />
-            </div>
-          )}
-        </div>
-
-        {/* Details */}
-        <div className="flex-1 flex flex-col justify-between py-1 min-w-0">
-          <div className="flex justify-between items-start gap-2">
-            <div className="min-w-0">
-              {/* Name — clickable if slug exists */}
-              {slug ? (
-                <Link to={`/products/${slug}`}>
-                  <h3 className="font-black text-base sm:text-lg text-gray-900 leading-tight group-hover:text-[#F7A221] transition-colors truncate">
-                    {name}
-                  </h3>
-                </Link>
-              ) : (
-                <h3 className="font-black text-base sm:text-lg text-gray-900 leading-tight truncate">
-                  {name}
-                </h3>
-              )}
-
-              {/* Brand + variant attrs */}
-              <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                {brand && (
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                    {brand}
-                  </span>
-                )}
-                {attrs.map((a) => (
-                  <span
-                    key={a._id || a.key}
-                    className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter"
-                  >
-                    · {a.key}: {a.value}
-                  </span>
-                ))}
-              </div>
-
-              {/* Unit price */}
-              {price != null && (
-                <p className="text-xs text-gray-400 mt-0.5">{fmt(price)} each</p>
-              )}
-            </div>
-
-            {/* Remove button */}
-            <button
-              onClick={() => onRemove(item)}
-              disabled={isRemoving}
-              aria-label="Remove item"
-              className="p-2 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-40 flex-shrink-0"
-            >
-              {isRemoving
-                ? <RefreshCw size={18} className="animate-spin" />
-                : <Trash2 size={18} />
-              }
-            </button>
-          </div>
-
-          {/* Qty + total */}
-          <div className="flex justify-between items-end mt-4 flex-wrap gap-3">
-            {/* Qty selector */}
-            <div className="flex items-center bg-gray-50 rounded-xl p-1 border border-gray-100">
-              <button
-                onClick={() => onUpdate(item, qty - 1)}
-                disabled={qty <= 1 || isUpdating}
-                className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all disabled:opacity-40"
-                aria-label="Decrease quantity"
-              >
-                <Minus size={14} />
-              </button>
-              <span className="px-4 font-black text-sm min-w-[2rem] text-center">
-                {isUpdating ? '…' : qty}
-              </span>
-              <button
-                onClick={() => onUpdate(item, qty + 1)}
-                disabled={isUpdating}
-                className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all disabled:opacity-40"
-                aria-label="Increase quantity"
-              >
-                <Plus size={14} />
-              </button>
-            </div>
-
-            {/* Item total */}
-            {itemTotal != null && (
-              <p className="font-black text-xl text-gray-900">{fmt(itemTotal)}</p>
-            )}
-          </div>
-        </div>
-      </div>
+    <div className="p-4 sm:p-6 transition-all duration-300">
+      <CartComponent item={item}
+        isLoggedIn={isLoggedIn}
+        onUpdate={onUpdate}
+        onRemove={onRemove}
+        isUpdating={isUpdating}
+        isRemoving={isRemoving}
+        name={name}
+        image={image}
+        price={price}
+        brand={brand}
+        attrs={attrs}
+        slug={slug}
+        itemTotal={itemTotal}
+        qty={qty}
+      />
     </div>
   );
 };
 
+  
+
+const CartComponent = ({ item, isLoggedIn, onUpdate, onRemove, isUpdating, isRemoving, name, image, price, brand, attrs, slug, itemTotal, qty }) => {
+  console.log("items", item);
+  const maxDiscount = item.productId?.maxDiscountPercentage ?? 0;
+  
+  
+  
+  return (
+    <>
+  <div className="flex gap-3 md:gap-6 py-2">
+
+  {/* Image */}
+  <div className="w-14 h-14 md:w-25 md:h-25 rounded-lg flex-shrink-0">
+    <div className='w-full h-full bg-zinc-100 p-1'>
+      {image ? (
+        <img
+          src={image}
+          alt={name}
+          className="w-full h-full rounded-lg object-cover"
+          onError={(e) => e.target.style.display = 'none'}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <ShoppingBag size={20} className="text-gray-300" />
+        </div>
+      )}
+    </div>
+  </div>
+
+  {/* Details */}
+  <div className="flex-1 flex flex-col md:flex-row md:justify-between md:items-center py-0.5 min-w-0 gap-2 md:gap-4">
+
+    {/* Left — name + price */}
+    <div className="min-w-0 flex-1">
+      {slug ? (
+        <Link to={`/products/${slug}`}>
+          <h3 className="text-xs md:text-lg leading-snug line-clamp-2 hover:text-[#F7A221] transition-colors text-gray-900">
+            {name}
+          </h3>
+        </Link>
+      ) : (
+        <h3 className="text-xs md:text-lg text-gray-900 leading-snug line-clamp-2">
+          {name}
+        </h3>
+      )}
+
+      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+        <span className="font-semibold text-xs md:text-sm">{fmt(price)}</span>
+        <span className="text-gray-400 text-[11px] line-through">{fmt(price * 2)}</span>
+        <span className="font-semibold text-[11px] text-[#79AE6F]">{maxDiscount}% OFF</span>
+      </div>
+    </div>
+
+    {/* Right — trash + qty + total */}
+    <div className="flex items-center gap-2 md:gap-4">
+
+      <button
+        onClick={() => onRemove(item)}
+        disabled={isRemoving}
+        aria-label="Remove item"
+        className="p-1 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40 flex-shrink-0"
+      >
+        {isRemoving
+          ? <RefreshCw size={14} className="animate-spin" />
+          : <Trash2 size={14} />
+        }
+      </button>
+
+      <div className="flex items-center rounded-full px-1 py-0.5 border border-gray-300">
+        <button
+          onClick={() => onUpdate(item, qty - 1)}
+          disabled={qty <= 1 || isUpdating}
+          className="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded-full transition-all disabled:opacity-40"
+        >
+          <Minus size={11} />
+        </button>
+        <span className="px-2 font-semibold text-xs min-w-[1.5rem] text-center">
+          {isUpdating ? '…' : qty}
+        </span>
+        <button
+          onClick={() => onUpdate(item, qty + 1)}
+          disabled={isUpdating}
+          className="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded-full transition-all disabled:opacity-40"
+        >
+          <Plus size={11} />
+        </button>
+      </div>
+
+      {itemTotal != null && (
+        <p className="font-semibold text-sm text-gray-900 md:min-w-[4rem] md:text-right">{fmt(itemTotal)}</p>
+      )}
+
+    </div>
+  </div>
+</div>
+    
+    </>
+  )
+}
 // ─────────────────────────────────────────────────────────────────────────────
 // UserCart — Main Page
 // ─────────────────────────────────────────────────────────────────────────────
@@ -341,14 +354,6 @@ const UserCart = () => {
    <div className="space-y-6 sm:space-y-8 animate-fadeIn">
 
   {/* Header */}
-  <header>
-    <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
-      Shopping Cart
-    </h1>
-    <p className="text-gray-500 font-bold text-xs sm:text-sm uppercase tracking-widest mt-1">
-      {totalCount} item{totalCount !== 1 ? 's' : ''} ready for checkout
-    </p>
-  </header>
 
   {/* Error banner */}
   {(error.update || error.remove) && (
@@ -366,78 +371,79 @@ const UserCart = () => {
     </div>
   )}
 
-  <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 xl:gap-10">
+ <div className="flex flex-col">
 
-    {/* ── Items list ── */}
-    <div className="xl:col-span-2 space-y-3 sm:space-y-4">
-      {currentItems.map((item, index) => (
-        <CartRow
-          key={item._id || `${item.productSlug || item._productSlug}-${item.variantId}-${index}`}
-          item={item}
-          isLoggedIn={isLoggedIn}
-          onUpdate={handleUpdate}
-          onRemove={handleRemove}
-          isUpdating={isUpdating}
-          isRemoving={isRemoving}
-        />
-      ))}
-    </div>
-
-    {/* ── Order Summary ── */}
-    <div className="xl:col-span-1">
-      <div className="bg-gray-900 text-white rounded-3xl sm:rounded-[40px] p-5 sm:p-8 xl:sticky xl:top-24 shadow-2xl">
-        
-        <h3 className="text-lg sm:text-xl font-black mb-5 sm:mb-6 border-b border-white/10 pb-4">
-          Order Summary
-        </h3>
-
-        <div className="space-y-3 sm:space-y-4">
-
-          <div className="flex justify-between text-gray-400 font-bold text-sm">
-            <span>Subtotal ({totalCount} items)</span>
-            <span className="text-white">{fmt(subtotal)}</span>
-          </div>
-
-          <div className="flex justify-between text-gray-400 font-bold text-sm">
-            <span>Shipping</span>
-            <span className="text-green-400 uppercase text-xs font-black">
-              {subtotal >= 499 ? 'Free' : fmt(49)}
-            </span>
-          </div>
-
-          <div className="pt-4 sm:pt-6 mt-2 border-t border-white/10">
-            <div className="flex justify-between items-end">
-              <span className="font-black text-gray-400 uppercase text-xs tracking-widest">
-                Total
-              </span>
-              <span className="text-2xl sm:text-3xl font-black text-[#F7A221]">
-                {fmt(subtotal >= 499 ? subtotal : subtotal + 49)}
-              </span>
-            </div>
-            {subtotal > 0 && subtotal < 499 && (
-              <p className="text-[10px] text-gray-500 mt-1 text-right">
-                Add {fmt(499 - subtotal)} more for free shipping
-              </p>
-            )}
-          </div>
-
-          <Link
-            to="/checkout"
-            className="w-full mt-6 sm:mt-8 bg-[#F7A221] text-black py-4 sm:py-5 rounded-xl sm:rounded-2xl font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:bg-white transition-all active:scale-95 shadow-xl shadow-orange-900/20"
-          >
-            Checkout Now <ArrowRight size={18} />
-          </Link>
-
-          <div className="mt-3 sm:mt-4 flex items-center justify-center gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-            <ShieldCheck size={13} className="text-green-500" />
-            Secure 256-bit SSL Payment
-          </div>
-
-        </div>
-      </div>
-    </div>
-
+  {/* ── Items list ── */}
+  <div className="xl:col-span-2 space-y-3 sm:space-y-4 overflow-y-auto scrollbar-hide max-h-[500px]">
+    {currentItems.map((item, index) => (
+      <CartRow
+        key={item._id || `${item.productSlug || item._productSlug}-${item.variantId}-${index}`}
+        item={item}
+        isLoggedIn={isLoggedIn}
+        onUpdate={handleUpdate}
+        onRemove={handleRemove}
+        isUpdating={isUpdating}
+        isRemoving={isRemoving}
+      />
+    ))}
   </div>
+ <hr className='border-gray-300 block' />
+
+  {/* ── Order Summary ── */}
+<div className='flex flex-col gap-4 px-1 sm:px-2 mt-6'>
+
+  {/* Line items */}
+  <div className='flex flex-col gap-1.5'>
+    <div className='flex items-center justify-between'>
+      <span className="text-sm text-gray-600">Item Total</span>
+      <span className='text-sm font-semibold'>{fmt(subtotal)}</span>
+    </div>
+    <div className='flex items-center justify-between'>
+      <span className="text-sm text-gray-600">Delivery Fees</span>
+      <span className='text-sm font-semibold text-gray-800'>
+        {subtotal >= 499 ? 'Free' : fmt(49)}
+      </span>
+    </div>
+    {subtotal > 0 && subtotal < 499 && (
+      <p className="text-[11px] text-gray-400 text-right">
+        Add {fmt(499 - subtotal)} more for free delivery
+      </p>
+    )}
+  </div>
+
+  <hr className="border-gray-200" />
+
+  {/* Grand total */}
+  <div className='flex items-center justify-between'>
+    <span className='font-bold text-base sm:text-lg'>Grand Total</span>
+    <span className='font-bold text-base sm:text-lg'>
+      {fmt(subtotal >= 499 ? subtotal : subtotal + 49)}
+    </span>
+  </div>
+
+  {/* Pay Now */}
+  <Link
+    to="/checkout"
+    className='w-full px-4 py-3 flex items-center justify-center rounded-xl bg-zinc-800 hover:bg-zinc-700 transition-colors active:scale-95'
+  >
+    <span className='text-white font-semibold flex items-center text-base'>Checkout <ArrowRight size={16} className="ml-2" /></span>
+  </Link>
+
+  {/* Trust badges */}
+  <div className="flex items-center justify-center gap-4 text-[11px] text-gray-400">
+    <div className="flex items-center gap-1">
+      <ShieldCheck size={11} className="text-gray-500" />
+      <span><strong className="text-gray-600 font-semibold">Secured</strong> Payment</span>
+    </div>
+    <div className="flex items-center gap-1">
+      <ShieldCheck size={11} className="text-gray-500" />
+      <span><strong className="text-gray-600 font-semibold">Verified</strong> Merchant</span>
+    </div>
+  </div>
+
+</div>
+
+</div>
 </div>
   );
 };

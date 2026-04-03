@@ -228,7 +228,7 @@ const CategorySection = ({ slug, title }) => {
 
       <section className="container mx-auto px-4">
         <div className="flex flex-col sm:flex-row items-center justify-between mb-8 md:mb-12">
-          <h3 className="text-xl sm:text-2xl md:text-4xl font-lato flex items-center gap-2 md:gap-4 text-gray-900 mb-4 sm:mb-0">
+          <h3 className="text-2xl sm:text-2xl md:text-4xl font-lato flex items-center gap-2 md:gap-4 text-gray-900 mb-4 sm:mb-0">
             <span className="w-2 h-8 md:w-3 md:h-12 bg-[#f7a221] rounded-full" />
             {title}
           </h3>

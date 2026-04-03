@@ -178,7 +178,7 @@ const CartItem = ({ item, isLoggedIn, onUpdateQty, onRemove, isUpdating, isRemov
   const itemTotal = price != null ? price * qty : null;
 
   return (
-    <div className="flex gap-4 group py-2">
+    <div className="flex gap-4 group py-2 cursor-pointer">
       {/* Image */}
       <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
         {image ? (
@@ -199,7 +199,7 @@ const CartItem = ({ item, isLoggedIn, onUpdateQty, onRemove, isUpdating, isRemov
       </div>
 
       {/* Details */}
-      <div className="flex flex-1 flex-col justify-between py-1 min-w-0">
+      <div className="flex flex-1 cursor-pointer flex-col justify-between py-1 min-w-0">
         <div>
           <div className="flex justify-between items-start gap-2">
             <h3 className="text-sm font-bold text-gray-900 line-clamp-1 uppercase tracking-tight flex-1">
@@ -277,7 +277,7 @@ const CartItem = ({ item, isLoggedIn, onUpdateQty, onRemove, isUpdating, isRemov
 // ─────────────────────────────────────────────────────────────────────────────
 // CartSidebar
 // ─────────────────────────────────────────────────────────────────────────────
-const CartSidebar = ({ isOpen, onClose }) => {
+const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -399,6 +399,15 @@ const CartSidebar = ({ isOpen, onClose }) => {
     const itemId = item._id || `${item.productSlug}-${item.variantId}`;
     return itemLoading[itemId] || { updating: false, removing: false };
   };
+
+  const handleCart = () => {
+    if(!isLoggedIn) {
+      onOpenAuth();
+    } else {
+      navigate('/account/usercart');
+    }
+    onClose();
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -599,8 +608,8 @@ const CartSidebar = ({ isOpen, onClose }) => {
                 <ArrowRight size={15} />
               </Link>
               <Link
-                to="/cart"
-                onClick={onClose}
+                onClick={handleCart}
+                onClose={onClose}
                 className="w-full bg-white border-2 border-black text-black py-3.5 rounded-xl font-black uppercase tracking-[0.2em] text-[11px] flex items-center justify-center hover:bg-gray-50 transition-all active:scale-95"
               >
                 View Full Cart

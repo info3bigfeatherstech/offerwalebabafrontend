@@ -130,7 +130,7 @@ const UserDashboard = () => {
                                                 isActive ? 'max-h-[5000px] opacity-100 mt-4 mb-4' : 'max-h-0 opacity-0'
                                             }`}
                                         >
-                                            <div className="bg-white rounded-[24px] border border-gray-100 p-4 shadow-inner overflow-x-hidden">
+                                            <div className="bg-white p-4 overflow-x-hidden">
                                                 {isActive && item.component}
                                             </div>
                                         </div>
@@ -151,7 +151,7 @@ const UserDashboard = () => {
                 </aside>
 
                 {/* ── DESKTOP PANEL (Hidden on MD/SM) ── */}
-                <main className="hidden lg:block flex-1 bg-white rounded-[40px] shadow-sm border border-gray-100 p-10 min-h-[700px]">
+                <main className="hidden lg:block flex-1 rounded-[40px] shadow-sm border border-gray-100 p-10 min-h-[700px]">
                     {openTab ? (
                         <div key={openTab} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                             {menuItems.find(i => i.id === openTab)?.component}

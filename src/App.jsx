@@ -23,6 +23,7 @@ import useWishlistInit from "./components/HOOKS/useWishlistInit";
 import useCartInit from "./components/HOOKS/useCartInit";
 import CustomerDashboard from "./components/ADMIN_SEGMENT/ADMIN_TABS/CUSTOMER_SEGMENT/CustomerDashboard";
 import ShopByPrice from "./User_Side_Web_Interface/ShopByPriceSegment/ShopByPrice";
+import CartComponent from "./User_Side_Web_Interface/User_Dash_Segment/UserSubPages/UserCart";
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Optional: protect /account routes ────────────────────────────────────────
@@ -103,6 +104,7 @@ const AppContent = () => {
                 <Route path="/category/:slug"  element={<CatProducts />} />
                 <Route path="/products/:slug"  element={<ProductDetail />} />
                 <Route path="/shopbyprice/:slug" element={<ShopByPrice />} />
+                <Route path="/cart" element={<CartComponent />} />
 
                 {/* ── Admin routes ───────────────────────────────────────── */}
                 <Route path="/admin"           element={<AdminDashboard />} />

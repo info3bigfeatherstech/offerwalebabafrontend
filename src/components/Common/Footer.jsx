@@ -81,7 +81,7 @@ const Footer = () => {
                 </div>
                 
                 <h1 
-                    className="text-7xl md:text-[10rem] font-black tracking-tighter leading-[0.75] uppercase bg-cover bg-center bg-no-repeat"
+                    className="text-6xl md:text-[10rem] font-black tracking-tighter leading-[0.75] uppercase bg-cover bg-center bg-no-repeat"
                     style={{ 
                         backgroundImage: `url(${logo})`,
                         backgroundSize: 'cover',

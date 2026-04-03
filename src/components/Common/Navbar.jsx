@@ -110,10 +110,19 @@ const UserAccountDropdown = ({ user, onLogout, onClose }) => {
 };
 
 // Location Display Component
-const LocationDisplay = ({ isLoggedIn, userAddress }) => {
+const LocationDisplay = ({ isLoggedIn, onOpenAuth, userAddress }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  let navigate = useNavigate();
 
+  let handleAddress = () => {
+    if(isLoggedIn) {
+      navigate('/account/useraddress');
+    } else {
+      // Trigger animation to show destinations
+      onOpenAuth();
+    }
+  }
   const getDisplayAddress = () => {
     if (isLoggedIn && userAddress) {
       const parts = [];
@@ -146,11 +155,11 @@ const LocationDisplay = ({ isLoggedIn, userAddress }) => {
   }, [isLoggedIn, userAddress]);
 
   return (
-  <div className="hidden xl:flex items-center gap-3 bg-white cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-xl transition-all border border-gray-200 hover:border-gray-300 shadow-sm group">
+  <div className="hidden xl:flex items-center gap-3 bg-white cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-xl transition-all hover:border-gray-300 group">
 
   <MapPin size={20} className="text-red-500" />
 
-  <div className="flex flex-col w-44 overflow-hidden">
+  <div onClick={handleAddress} className="flex flex-col w-44 overflow-hidden">
     
     <span className="text-[10px] text-gray-500 font-semibold uppercase leading-none">
       Deliver to
@@ -214,23 +223,23 @@ const MegaDropdown = ({ isOpen }) => {
 
   return (
     <div className="absolute top-[100%] left-0 w-full bg-white shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] border-t-2 border-[#F7A221] animate-slideDown z-50 hidden lg:block">
-      <div className="container mx-auto px-4 py-10">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-          {categories.map((category, index) => (
-            <Link
-              key={index}
-              to={category.path}
-              className="flex items-center gap-4 px-3 py-2 rounded-2xl hover:bg-orange-50 transition-all group border border-transparent hover:border-orange-100 shadow-sm min-w-0"
-            >
-              <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 group-hover:shadow-md group-hover:rotate-3 transition-all duration-300">
-                {category.icon}
-              </div>
-              <span className="font-bold text-black group-hover:text-[#F7A221] transition-colors text-[10px] md:text-[12px] tracking-tight whitespace-nowrap text-ellipsis">
-                {category.label}
-              </span>
-            </Link>
-          ))}
-        </div>
+      <div className="container mx-auto px-4 py-6">
+       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+  {categories.map((category, index) => (
+    <Link
+      key={index}
+      to={category.path}
+      className="flex items-center gap-2 px-2 py-2.5 rounded-xl hover:bg-orange-50 transition-all group border border-transparent hover:border-orange-100"
+    >
+      <div className="p-1.5 bg-white rounded-lg shadow-sm group-hover:scale-110 group-hover:shadow-md group-hover:rotate-3 transition-all duration-300 shrink-0">
+        {category.icon}
+      </div>
+      <span className="font-bold text-black group-hover:text-[#F7A221] transition-colors text-[10px] xl:text-[12px] tracking-tight leading-tight">
+        {category.label}
+      </span>
+    </Link>
+  ))}
+</div>
       </div>
     </div>
   );
@@ -393,7 +402,16 @@ useEffect(() => {
   ];
 
   const mobileCategories = [
-    "Smart Life", "Home & Kitchen", "Fashion World", "Sports & Fitness", "Tours & Travels", "Stationary", "Baby Items", "Car Accessories", "Mix Items Daily use" , "Gifts"
+    { label: "Smart Life", path: "/category/smart-life-gadgets" },
+    { label: "Home & Kitchen", path: "/category/home-and-kitchen" },
+    { label: "Fashion World", path: "/category/fashion-world" },
+    { label: "Sports & Fitness", path: "/category/sports-and-fitness" },
+    { label: "Tours & Travels", path: "/category/tours-and-travels" },
+    { label: "Stationary", path: "/category/stationary" },
+    { label: "Baby Items", path: "/category/baby-items" },
+    { label: "Car Accessories", path: "/category/car-accessories" },
+    { label: "Mix Items Daily use", path: "/category/mix-items-daily-use" },
+    { label: "Gifts", path: "/category/gifts" }
   ];
 
   return (
@@ -568,7 +586,7 @@ useEffect(() => {
             </div>
 
             {/* Location Display - Desktop Only */}
-            <LocationDisplay isLoggedIn={isLoggedIn} userAddress={userAddress} />
+            <LocationDisplay isLoggedIn={isLoggedIn} onOpenAuth={onOpenAuth} userAddress={userAddress} />
 
             {/* Search Bar */}
             <div className="flex-1 max-w-xl relative">
@@ -618,12 +636,12 @@ useEffect(() => {
                 <Link
                   key={idx}
                   to={link.path}
-                  className="nav-link flex items-center gap-2 hover:bg-white/10 group overflow-hidden"
+                  className="nav-link text-center justify-center flex items-center px-2 py-3 gap-2 hover:bg-white/10 group"
                 >
                   <div className="transition-transform duration-300 group-hover:scale-125">
                     {link.icon}
                   </div>
-                  <span className="font-bold text-black relative z-10">{link.label}</span>
+                  <span className="font-bold text-black text-md md:text-[0.7rem] relative z-10">{link.label}</span>
                 </Link>
               ))}
             </div>
@@ -667,9 +685,9 @@ useEffect(() => {
                   <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mb-4">🔥 Top Categories</p>
                   <div className="grid grid-cols-2 gap-2">
                     {mobileCategories.map((cat, i) => (
-                      <div key={i} className="p-3 bg-gray-50 rounded-xl text-[11px] font-bold text-center border border-gray-100 text-gray-800 hover:border-[#F7A221] hover:bg-orange-50 transition-all cursor-pointer">
-                        {cat}
-                      </div>
+                      <Link key={i} to={cat.path} className="p-3 bg-gray-50 rounded-xl text-[11px] font-bold text-center border border-gray-100 text-gray-800 hover:border-[#F7A221] hover:bg-orange-50 transition-all cursor-pointer">
+                        {cat.label}
+                      </Link>
                     ))}
                   </div>
                 </div>
@@ -690,8 +708,11 @@ useEffect(() => {
 
       {/* Cart Sidebar */}
       <CartSidebar 
-        isOpen={isCartOpen} 
-        onClose={() => setIsCartOpen(false)} 
+        isOpen={isCartOpen}
+        isLoggedIn={isLoggedIn}
+        onOpenAuth={onOpenAuth}
+        user={user}
+        onClose={() => setIsCartOpen(false)}
       />
       {/* Wishlist Sidebar */}
       <WishlistSidebar 
