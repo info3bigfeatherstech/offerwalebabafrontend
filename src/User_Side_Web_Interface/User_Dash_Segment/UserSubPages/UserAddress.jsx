@@ -59,76 +59,76 @@ const EMPTY_FORM = {
 // Address Card
 // ─────────────────────────────────────────────────────────────────────────────
 const AddressCard = ({ address, isDefault, onEdit, onDelete, onSetDefault, isDeleting }) => (
- <div className={`p-3 xs:p-4 sm:p-6 rounded-2xl sm:rounded-[32px] relative overflow-hidden transition-all duration-300 border-2 cursor-pointer hover:shadow-xl ${
-  isDefault ? "border-black shadow-xl ring-4 ring-black/5" : "border-gray-100 hover:border-black"
-}`}>
+  <div className={`p-5 sm:p-6 rounded-[28px] sm:rounded-[32px] relative overflow-hidden transition-all duration-300 border-2 cursor-pointer hover:shadow-xl ${
+    isDefault ? "border-black shadow-xl ring-4 ring-black/5" : "border-gray-100 hover:border-black"
+  }`}>
 
-  {/* Default badge */}
-  {isDefault && (
-    <div className="absolute top-2.5 right-2.5 sm:top-4 sm:right-4 flex items-center gap-1 bg-black text-white text-[9px] font-black uppercase tracking-widest px-2 sm:px-3 py-1 sm:py-1.5 rounded-full">
-      <Star size={9} className="fill-[#F7A221] text-[#F7A221]" />
-      <span className="hidden xs:inline">Default</span>
-    </div>
-  )}
-
-  {/* Type */}
-  <div className="flex items-center gap-1.5 sm:gap-2 mb-2.5 sm:mb-4">
-    <div className="p-1 sm:p-2 bg-gray-50 rounded-lg">
-      {ADDRESS_TYPE_ICON[address.addressType] || ADDRESS_TYPE_ICON.other}
-    </div>
-    <span className="font-black uppercase text-[9px] sm:text-[10px] tracking-widest text-gray-400">
-      {address.addressType}
-    </span>
-  </div>
-
-  {/* Name + Phone */}
-  <h4 className="font-black text-gray-900 text-sm sm:text-base leading-tight">{address.fullName}</h4>
-  <p className="text-[11px] sm:text-xs text-gray-400 font-bold mb-2.5 sm:mb-4">{address.phone}</p>
-
-  {/* Address */}
-  <p className="text-[11px] sm:text-sm font-medium text-gray-600 leading-relaxed min-h-[44px] sm:min-h-[60px]">
-    {[address.houseNumber, address.area, address.landmark, address.addressLine1, address.addressLine2]
-      .filter(Boolean)
-      .join(", ")}
-    <br />
-    <span className="text-gray-900 font-bold">
-      {address.city}, {address.state} — {address.postalCode}
-    </span>
-  </p>
-
-  {/* Actions */}
-  <div className="mt-3 sm:mt-6 pt-3 sm:pt-6 border-t border-gray-50 flex items-center gap-1.5 sm:gap-4">
-    {!isDefault && (
-      <button
-        onClick={(e) => { e.stopPropagation(); onSetDefault(address); }}
-        className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-[#F7A221] hover:underline cursor-pointer whitespace-nowrap"
-      >
-        Set Default
-      </button>
+    {/* Default badge */}
+    {isDefault && (
+      <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-black text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full">
+        <Star size={10} className="fill-[#F7A221] text-[#F7A221]" />
+        <span>Default</span>
+      </div>
     )}
-    <button
-      onClick={(e) => { e.stopPropagation(); onEdit(address); }}
-      className="flex items-center gap-1 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-black cursor-pointer"
-    >
-      <Pencil size={11} className="sm:w-3 sm:h-3" />
-      <span className="hidden sm:inline">Edit</span>
-    </button>
-    <button
-      onClick={(e) => { e.stopPropagation(); onDelete(address._id); }}
-      disabled={isDeleting}
-      className="ml-auto flex items-center gap-1 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 disabled:opacity-30 cursor-pointer"
-    >
-      {isDeleting
-        ? <RefreshCw size={11} className="animate-spin sm:w-3 sm:h-3" />
-        : <Trash2 size={11} className="sm:w-3 sm:h-3" />
-      }
-      <span className="hidden sm:inline">
-        {isDeleting ? "Deleting..." : "Delete"}
-      </span>
-    </button>
-  </div>
 
-</div>
+    {/* Type */}
+    <div className="flex items-center gap-2 mb-4">
+      <div className="p-2 bg-gray-50 rounded-xl">
+        {ADDRESS_TYPE_ICON[address.addressType] || ADDRESS_TYPE_ICON.other}
+      </div>
+      <span className="font-black uppercase text-[10px] tracking-widest text-gray-400">
+        {address.addressType}
+      </span>
+    </div>
+
+    {/* Name + Phone */}
+    <h4 className="font-black text-gray-900 text-base leading-tight pr-20">
+      {address.fullName}
+    </h4>
+    <p className="text-xs text-gray-400 font-bold mt-0.5 mb-4">{address.phone}</p>
+
+    {/* Address */}
+    <p className="text-sm font-medium text-gray-600 leading-relaxed">
+      {[address.houseNumber, address.area, address.landmark, address.addressLine1, address.addressLine2]
+        .filter(Boolean)
+        .join(", ")}
+      <br />
+      <span className="text-gray-900 font-bold">
+        {address.city}, {address.state} — {address.postalCode}
+      </span>
+    </p>
+
+    {/* Actions */}
+    <div className="mt-5 pt-5 border-t border-gray-100 flex items-center gap-3">
+      {!isDefault && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onSetDefault(address); }}
+          className="text-[10px] font-black uppercase tracking-widest text-[#F7A221] hover:underline cursor-pointer whitespace-nowrap"
+        >
+          Set Default
+        </button>
+      )}
+      <button
+        onClick={(e) => { e.stopPropagation(); onEdit(address); }}
+        className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-black cursor-pointer transition-colors"
+      >
+        <Pencil size={12} />
+        Edit
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); onDelete(address._id); }}
+        disabled={isDeleting}
+        className="ml-auto flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 disabled:opacity-30 cursor-pointer transition-colors"
+      >
+        {isDeleting
+          ? <RefreshCw size={12} className="animate-spin" />
+          : <Trash2 size={12} />
+        }
+        {isDeleting ? "Deleting..." : "Delete"}
+      </button>
+    </div>
+
+  </div>
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
