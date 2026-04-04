@@ -1,5 +1,5 @@
 // Shared_components/CategoryModal.jsx
-// Fixed: drag-reorder, visibility toggle, no emoji icons, ImagePreviewBlock extracted
+// COMPLETE WORKING FILE
 
 import React, {
   useState,
@@ -19,7 +19,7 @@ import {
 } from "../ADMIN_REDUX_MANAGEMENT/categoriesSlice";
 
 // ─────────────────────────────────────────────────────────────
-//  LUCIDE-STYLE SVG ICON COMPONENTS  (inline, no dep needed)
+//  ICONS  (inline SVG — no extra dependency)
 // ─────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 16, className = "", strokeWidth = 2 }) => (
   <svg
@@ -32,43 +32,35 @@ const Icon = ({ d, size = 16, className = "", strokeWidth = 2 }) => (
     strokeLinecap="round"
     strokeLinejoin="round"
     className={className}
+    aria-hidden="true"
   >
-    {Array.isArray(d) ? d.map((p, i) => <path key={i} d={p} />) : <path d={d} />}
+    {Array.isArray(d)
+      ? d.map((p, i) => <path key={i} d={p} />)
+      : <path d={d} />}
   </svg>
 );
 
 const ICONS = {
-  close:   "M18 6L6 18M6 6l12 12",
-  check:   "M20 6L9 17l-5-5",
-  trash:   "M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6",
-  pencil:  "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
-  grip:    ["M9 4h1v1H9zM14 4h1v1h-1zM9 9h1v1H9zM14 9h1v1h-1zM9 14h1v1H9zM14 14h1v1h-1z"],
-  eye:     ["M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z", "M12 9a3 3 0 100 6 3 3 0 000-6z"],
-  eyeOff:  "M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22",
-  image:   ["M21 15l-5-5L5 21", "M3 3h18v18H3zM8.5 8.5a1 1 0 100 2 1 1 0 000-2z"],
-  upload:  ["M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4", "M17 8l-5-5-5 5", "M12 3v12"],
-  replace: ["M1 4v6h6", "M23 20v-6h-6", "M20.49 9A9 9 0 005.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 013.51 15"],
-  plus:    "M12 5v14M5 12h14",
-  save:    ["M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z", "M17 21v-8H7v8M7 3v5h8"],
-  alert:   ["M12 9v4", "M12 17h.01", "M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"],
+  close:     "M18 6L6 18M6 6l12 12",
+  trash:     "M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6",
+  pencil:    "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
+  eye:       ["M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z", "M12 9a3 3 0 100 6 3 3 0 000-6z"],
+  eyeOff:   ["M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94", "M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19", "M14.12 14.12a3 3 0 01-4.24-4.24", "M1 1l22 22"],
+  image:    ["M21 15l-5-5L5 21", "M3 3h18v18H3z", "M8.5 8.5a1 1 0 100 2 1 1 0 000-2z"],
+  replace:  ["M1 4v6h6", "M23 20v-6h-6", "M20.49 9A9 9 0 005.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 013.51 15"],
+  plus:      "M12 5v14M5 12h14",
+  save:     ["M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z", "M17 21v-8H7v8M7 3v5h8"],
+  alert:    ["M12 9v4", "M12 17h.01", "M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"],
   gripLines: ["M4 8h16", "M4 16h16"],
 };
 
 // ─────────────────────────────────────────────────────────────
-//  IMAGE PREVIEW — extracted as a real top-level component
-//  so it never remounts due to parent re-render
+//  IMAGE PREVIEW  (real extracted component — never remounts)
 // ─────────────────────────────────────────────────────────────
-const ImagePreview = memo(({
-  src,
-  isNewFile,
-  onClear,
-  onReplace,
-  onUploadClick,
-}) => {
+const ImagePreview = memo(({ src, isNewFile, onClear, onReplace, onUploadClick }) => {
   const [loaded, setLoaded] = useState(false);
-  const [error, setError]   = useState(false);
+  const [error,  setError]  = useState(false);
 
-  // Reset load state whenever src changes
   useEffect(() => {
     setLoaded(false);
     setError(false);
@@ -90,19 +82,15 @@ const ImagePreview = memo(({
 
   return (
     <div className="relative w-full h-32 rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-      {/* Loading shimmer */}
       {!loaded && !error && (
         <div className="absolute inset-0 bg-gray-100 animate-pulse z-10" />
       )}
-
-      {/* Error state */}
       {error && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-gray-400 z-10">
           <Icon d={ICONS.alert} size={20} />
           <span className="text-xs">Failed to load image</span>
         </div>
       )}
-
       <img
         key={src}
         src={src}
@@ -111,15 +99,11 @@ const ImagePreview = memo(({
         onError={() => { setError(true); setLoaded(false); }}
         className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 ${loaded ? "opacity-100" : "opacity-0"}`}
       />
-
-      {/* "New" badge */}
       {isNewFile && loaded && (
         <span className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full z-20 shadow-sm">
           New
         </span>
       )}
-
-      {/* Remove */}
       <button
         type="button"
         onClick={onClear}
@@ -128,8 +112,6 @@ const ImagePreview = memo(({
       >
         <Icon d={ICONS.close} size={13} className="text-red-500" />
       </button>
-
-      {/* Replace */}
       <button
         type="button"
         onClick={onReplace}
@@ -141,17 +123,24 @@ const ImagePreview = memo(({
     </div>
   );
 });
-
 ImagePreview.displayName = "ImagePreview";
 
 // ─────────────────────────────────────────────────────────────
 //  CATEGORY ROW
+//
+//  NOT wrapped in memo intentionally.
+//  memo + HTML5 drag-and-drop breaks because:
+//    - memo prevents re-renders when the parent reorders the list
+//    - a memoized row can call onDragOver(e, STALE_INDEX) because
+//      its index prop didn't change from its perspective
+//    - category list is short so full re-render cost is negligible
 // ─────────────────────────────────────────────────────────────
-const CategoryRow = memo(({
+const CategoryRow = ({
   cat,
   index,
   isEditing,
   isConfirmDelete,
+  isDraggingOver,
   deleteLoading,
   toggleLoading,
   onSelect,
@@ -163,6 +152,7 @@ const CategoryRow = memo(({
   onDragStart,
   onDragEnd,
   onDragOver,
+  onDrop,
 }) => {
   const isHidden = cat.status === "inactive";
 
@@ -177,10 +167,14 @@ const CategoryRow = memo(({
       onDragStart={(e) => onDragStart(e, index)}
       onDragEnd={onDragEnd}
       onDragOver={(e) => onDragOver(e, index)}
+      onDrop={(e) => onDrop(e, index)}
       className={[
-        "flex items-center gap-2 rounded-xl px-1.5 py-1 transition-all select-none",
-        isHidden   ? "opacity-50 bg-gray-50"          : "hover:bg-gray-50",
-        isEditing  ? "ring-1 ring-blue-300 bg-blue-50" : "",
+        "flex items-center gap-2 rounded-xl px-1.5 py-1 transition-all select-none border",
+        isDraggingOver
+          ? "border-blue-400 bg-blue-50/60 shadow-sm"
+          : "border-transparent",
+        isHidden  ? "opacity-50 bg-gray-50"            : (!isDraggingOver ? "hover:bg-gray-50" : ""),
+        isEditing ? "ring-1 ring-blue-300 bg-blue-50"  : "",
       ].join(" ")}
     >
       {/* Drag handle */}
@@ -290,12 +284,10 @@ const CategoryRow = memo(({
       )}
     </div>
   );
-});
-
-CategoryRow.displayName = "CategoryRow";
+};
 
 // ─────────────────────────────────────────────────────────────
-//  FILE → DATA URI
+//  FILE → BASE64 DATA URI
 // ─────────────────────────────────────────────────────────────
 const fileToDataURI = (file) =>
   new Promise((resolve, reject) => {
@@ -320,17 +312,32 @@ const CategoryModal = ({ onSelect, onClose }) => {
     toggleLoading,
   } = useSelector((state) => state.categories);
 
-  // ── Local ordered list (mirrors Redux + drag state) ──────────
-  const [orderedCategories,  setOrderedCategories]  = useState([]);
-  const [hasReordered,       setHasReordered]       = useState(false);
-  const [draggedIndex,       setDraggedIndex]       = useState(null);
+  // ── Ordered list (visual state for drag) ─────────────────────
+  const [orderedCategories, setOrderedCategories] = useState([]);
+  const [hasReordered,      setHasReordered]      = useState(false);
+  const [dragOverIndex,     setDragOverIndex]      = useState(null);
+
+  // ── THE FIX: track drag source index via ref, not state ───────
+  //  React state updates are async/batched. During rapid dragOver
+  //  events the state read would be stale, causing wrong splice.
+  //  A ref is synchronously current on every read.
+  const dragSourceIndexRef = useRef(null);
+
+  // ── Mirror of orderedCategories as a ref ──────────────────────
+  //  dragOver handler has empty deps (stable ref) so it cannot
+  //  close over the orderedCategories state — it would always see
+  //  the initial empty array. A ref solves this.
+  const orderedCatsRef = useRef([]);
+  useEffect(() => {
+    orderedCatsRef.current = orderedCategories;
+  }, [orderedCategories]);
 
   // ── Form ─────────────────────────────────────────────────────
-  const [editingCat,     setEditingCat]     = useState(null);
-  const [formName,       setFormName]       = useState("");
-  const [formDesc,       setFormDesc]       = useState("");
-  const [formImageFile,  setFormImageFile]  = useState(null);
-  const [formImageSrc,   setFormImageSrc]   = useState("");
+  const [editingCat,    setEditingCat]    = useState(null);
+  const [formName,      setFormName]      = useState("");
+  const [formDesc,      setFormDesc]      = useState("");
+  const [formImageFile, setFormImageFile] = useState(null);
+  const [formImageSrc,  setFormImageSrc]  = useState("");
 
   // ── Delete confirm ───────────────────────────────────────────
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -340,14 +347,13 @@ const CategoryModal = ({ onSelect, onClose }) => {
 
   const isEditMode = editingCat !== null;
 
-  // ── Sync ordered list from Redux ─────────────────────────────
-  // Only re-sync if we're NOT in the middle of a drag operation
-  // to avoid the list jumping while dragging
+  // ── Sync Redux → local list (only when drag is NOT active) ────
   useEffect(() => {
-    if (draggedIndex !== null) return;
+    // Never overwrite the list while the user is dragging
+    if (dragSourceIndexRef.current !== null) return;
     const sorted = [...categories].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     setOrderedCategories(sorted);
-  }, [categories, draggedIndex]);
+  }, [categories]);
 
   // ── Fetch on mount ───────────────────────────────────────────
   useEffect(() => {
@@ -365,10 +371,7 @@ const CategoryModal = ({ onSelect, onClose }) => {
   //  IMAGE HELPERS
   // ─────────────────────────────────────────────────────────────
   const applyPreview = useCallback(async (source) => {
-    if (!source) {
-      setFormImageSrc("");
-      return;
-    }
+    if (!source) { setFormImageSrc(""); return; }
     if (source instanceof File) {
       try {
         const uri = await fileToDataURI(source);
@@ -439,7 +442,7 @@ const CategoryModal = ({ onSelect, onClose }) => {
   }, [isEditMode, editingCat, applyPreview, getExistingImageUrl]);
 
   // ─────────────────────────────────────────────────────────────
-  //  CRUD ACTIONS
+  //  CRUD
   // ─────────────────────────────────────────────────────────────
   const handleCreate = async () => {
     const name = formName.trim();
@@ -482,25 +485,21 @@ const CategoryModal = ({ onSelect, onClose }) => {
     }
   };
 
-  // ── Toggle visibility — optimistic update + server sync ──────
+  // ── Visibility toggle — optimistic + server rollback ──────────
   const handleToggleVisibility = useCallback(async (cat) => {
-    const isCurrentlyHidden = cat.status === "inactive";
-
-    // 1. Optimistic: flip status in local ordered list immediately
+    const wasHidden = cat.status === "inactive";
+    // Optimistic: flip immediately in local list
     setOrderedCategories((prev) =>
       prev.map((c) =>
         c._id === cat._id
-          ? { ...c, status: isCurrentlyHidden ? "active" : "inactive" }
+          ? { ...c, status: wasHidden ? "active" : "inactive" }
           : c
       )
     );
-
-    // 2. Dispatch to server
     const result = await dispatch(
-      toggleCategoryVisibility({ id: cat._id, isHidden: !isCurrentlyHidden })
+      toggleCategoryVisibility({ id: cat._id, isHidden: !wasHidden })
     );
-
-    // 3. If server rejected, roll back + re-fetch ground truth
+    // Roll back on failure
     if (!toggleCategoryVisibility.fulfilled.match(result)) {
       await dispatch(fetchCategories());
     }
@@ -513,35 +512,72 @@ const CategoryModal = ({ onSelect, onClose }) => {
 
   // ─────────────────────────────────────────────────────────────
   //  DRAG & DROP
+  //
+  //  Why refs instead of state for the drag source index?
+  //
+  //  dragOver fires many times per second. If we stored the source
+  //  index in React state, by the time the next dragOver fires the
+  //  state setter from the PREVIOUS dragOver may not have flushed
+  //  yet (React batches updates). Reading stale state means we
+  //  splice from the wrong index, producing scrambled order or
+  //  no-ops. A ref write is synchronous and immediately visible
+  //  on the next read, solving this entirely.
+  //
+  //  Same problem with orderedCategories: a useCallback with []
+  //  deps closes over the initial empty array forever. By keeping
+  //  a ref mirror (orderedCatsRef) we always read the latest array
+  //  without adding categories to the deps (which would recreate
+  //  the callback every render and break things differently).
   // ─────────────────────────────────────────────────────────────
+
   const handleDragStart = useCallback((e, index) => {
-    setDraggedIndex(index);
+    dragSourceIndexRef.current = index;
     e.dataTransfer.effectAllowed = "move";
-    // ghost image opacity via CSS class would be ideal; use opacity hack
-    requestAnimationFrame(() => {
-      if (e.target) e.target.style.opacity = "0.4";
-    });
+    // Required: browser won't fire drop without data set
+    e.dataTransfer.setData("text/plain", String(index));
+    // Style the element being dragged (currentTarget is safe here,
+    // before rAF, unlike e.target which can be a child element)
+    e.currentTarget.style.opacity = "0.4";
   }, []);
 
   const handleDragEnd = useCallback((e) => {
-    setDraggedIndex(null);
-    if (e.target) e.target.style.opacity = "";
+    dragSourceIndexRef.current = null;
+    setDragOverIndex(null);
+    if (e.currentTarget) e.currentTarget.style.opacity = "";
   }, []);
 
-  const handleDragOver = useCallback((e, index) => {
+  // Empty deps is CORRECT here — we intentionally only read refs
+  const handleDragOver = useCallback((e, targetIndex) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-    setDraggedIndex((prev) => {
-      if (prev === null || prev === index) return prev;
-      setOrderedCategories((cats) => {
-        const next = [...cats];
-        const [item] = next.splice(prev, 1);
-        next.splice(index, 0, item);
-        return next;
-      });
-      setHasReordered(true);
-      return index;
-    });
+
+    const sourceIndex = dragSourceIndexRef.current;
+
+    // Update visual highlight regardless
+    setDragOverIndex(targetIndex);
+
+    // Nothing to reorder
+    if (sourceIndex === null || sourceIndex === targetIndex) return;
+
+    // Read the always-current array from the ref
+    const current = [...orderedCatsRef.current];
+    const [moved] = current.splice(sourceIndex, 1);
+    current.splice(targetIndex, 0, moved);
+
+    // Update the source index ref synchronously before the next dragOver
+    dragSourceIndexRef.current = targetIndex;
+
+    // Commit new visual order to React state
+    setOrderedCategories(current);
+    setHasReordered(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleDrop = useCallback((e, _targetIndex) => {
+    e.preventDefault();
+    // Live reorder already happened in dragOver.
+    // Drop just cleans up residual state.
+    dragSourceIndexRef.current = null;
+    setDragOverIndex(null);
   }, []);
 
   const handleSaveOrder = async () => {
@@ -551,7 +587,6 @@ const CategoryModal = ({ onSelect, onClose }) => {
       await dispatch(fetchCategories());
     } else {
       alert("Failed to save order. Please try again.");
-      // Roll back to Redux state
       const sorted = [...categories].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       setOrderedCategories(sorted);
       setHasReordered(false);
@@ -567,11 +602,11 @@ const CategoryModal = ({ onSelect, onClose }) => {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[70]">
       <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl max-h-[90vh] flex flex-col">
 
-        {/* ── Header ── */}
+        {/* ── Header ──────────────────────────────────────────── */}
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
           <div>
             <h3 className="text-base font-semibold text-gray-900">Manage Categories</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Create, edit, reorder, or hide categories</p>
+            <p className="text-xs text-gray-400 mt-0.5">Create, edit, reorder or hide categories</p>
           </div>
           <button
             type="button"
@@ -582,7 +617,7 @@ const CategoryModal = ({ onSelect, onClose }) => {
           </button>
         </div>
 
-        {/* ── Scrollable Body ── */}
+        {/* ── Scrollable body ─────────────────────────────────── */}
         <div className="p-5 space-y-5 overflow-y-auto flex-1 min-h-0">
 
           {/* Error banner */}
@@ -594,7 +629,7 @@ const CategoryModal = ({ onSelect, onClose }) => {
           )}
 
           {/* ══════════════════════════════════════════════════
-              FORM — Create OR Edit
+              CREATE / EDIT FORM
           ══════════════════════════════════════════════════ */}
           <div ref={formTopRef} className="space-y-3">
 
@@ -625,7 +660,7 @@ const CategoryModal = ({ onSelect, onClose }) => {
               )}
             </div>
 
-            {/* Name input */}
+            {/* Name */}
             <input
               type="text"
               value={formName}
@@ -658,7 +693,7 @@ const CategoryModal = ({ onSelect, onClose }) => {
               />
             </div>
 
-            {/* Submit buttons */}
+            {/* Submit */}
             {isEditMode ? (
               <div className="flex gap-2">
                 <button
@@ -667,11 +702,10 @@ const CategoryModal = ({ onSelect, onClose }) => {
                   disabled={updateLoading || !formName.trim()}
                   className="flex-1 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
                 >
-                  {updateLoading ? (
-                    <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving…</>
-                  ) : (
-                    <><Icon d={ICONS.save} size={15} /> Save changes</>
-                  )}
+                  {updateLoading
+                    ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving…</>
+                    : <><Icon d={ICONS.save} size={15} /> Save changes</>
+                  }
                 </button>
                 <button
                   type="button"
@@ -688,16 +722,15 @@ const CategoryModal = ({ onSelect, onClose }) => {
                 disabled={createLoading || !formName.trim()}
                 className="w-full py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
               >
-                {createLoading ? (
-                  <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Creating…</>
-                ) : (
-                  <><Icon d={ICONS.plus} size={15} /> Create &amp; select</>
-                )}
+                {createLoading
+                  ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Creating…</>
+                  : <><Icon d={ICONS.plus} size={15} /> Create &amp; select</>
+                }
               </button>
             )}
           </div>
 
-          {/* ── Divider ── */}
+          {/* ── Divider ─────────────────────────────────────── */}
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-gray-100" />
             <span className="text-[11px] font-medium text-gray-400 tracking-wide uppercase">
@@ -706,11 +739,11 @@ const CategoryModal = ({ onSelect, onClose }) => {
             <div className="flex-1 h-px bg-gray-100" />
           </div>
 
-          {/* ── Toolbar: reorder hint + save order btn ─────── */}
+          {/* ── Toolbar ─────────────────────────────────────── */}
           <div className="flex items-center justify-between">
             <p className="text-[11px] text-gray-400 flex items-center gap-1.5">
               <Icon d={ICONS.gripLines} size={12} className="text-gray-300" />
-              Drag rows to reorder
+              Drag to reorder
               <span className="mx-1 text-gray-200">·</span>
               <Icon d={ICONS.eye} size={12} className="text-gray-300" />
               Toggle visibility
@@ -731,7 +764,9 @@ const CategoryModal = ({ onSelect, onClose }) => {
             )}
           </div>
 
-          {/* ── Categories list ──────────────────────────── */}
+          {/* ══════════════════════════════════════════════════
+              CATEGORY LIST
+          ══════════════════════════════════════════════════ */}
           <div className="space-y-0.5">
             {orderedCategories.length === 0 ? (
               <div className="text-center py-8 text-gray-400">
@@ -747,6 +782,7 @@ const CategoryModal = ({ onSelect, onClose }) => {
                   index={index}
                   isEditing={editingCat?._id === cat._id}
                   isConfirmDelete={confirmDeleteId === cat._id}
+                  isDraggingOver={dragOverIndex === index}
                   deleteLoading={deleteLoading}
                   toggleLoading={toggleLoading}
                   onSelect={handleSelect}
@@ -758,12 +794,13 @@ const CategoryModal = ({ onSelect, onClose }) => {
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                   onDragOver={handleDragOver}
+                  onDrop={handleDrop}
                 />
               ))
             )}
           </div>
 
-          {/* ── Legend ── */}
+          {/* ── Legend ──────────────────────────────────────── */}
           {orderedCategories.length > 0 && (
             <div className="flex items-center justify-center gap-4 text-[11px] text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
               <span className="flex items-center gap-1">
@@ -773,7 +810,7 @@ const CategoryModal = ({ onSelect, onClose }) => {
               <span className="text-gray-200">|</span>
               <span className="flex items-center gap-1">
                 <Icon d={ICONS.eyeOff} size={12} className="text-gray-400" />
-                Hidden (dimmed)
+                Hidden
               </span>
               <span className="text-gray-200">|</span>
               <span className="flex items-center gap-1">
@@ -784,7 +821,7 @@ const CategoryModal = ({ onSelect, onClose }) => {
           )}
         </div>
 
-        {/* ── Footer ── */}
+        {/* ── Footer ──────────────────────────────────────────── */}
         <div className="px-5 py-4 border-t border-gray-100 flex-shrink-0">
           <button
             type="button"
