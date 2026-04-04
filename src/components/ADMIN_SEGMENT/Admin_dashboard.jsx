@@ -1,24 +1,23 @@
-
 // ADMIN_SEGMENT/Admin_dashboard.jsx
 import React, { useState, useEffect, Suspense } from "react";
-import { useSearchParams }                       from "react-router-dom";
-import { useSelector }                           from "react-redux";
-import { TAB_REGISTRY }                          from "./TabRegistry";
-
+import { useSearchParams } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { TAB_REGISTRY } from "./TabRegistry";
+import LOGO from "../../assets/logo2.png";
 const AdminDashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab]       = useState(searchParams.get("tab") || "products");
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "products");
 
-  // Badge counts — read from Redux, no fetching here
   const productsBadge = useSelector((s) => s.adminGetProducts?.products?.length || 0);
-  const archivedBadge = useSelector((s) => s.adminArchived?.products?.length    || 0);
+  const archivedBadge = useSelector((s) => s.adminArchived?.products?.length || 0);
+     const { user } = useSelector((state) => state.auth);
+      //  console.log('🟢 UserDashboard - user:', user);
 
   const BADGE_MAP = {
     products: productsBadge,
     archived: archivedBadge,
   };
 
-  // Sync tab from URL
   useEffect(() => {
     const tabFromUrl = searchParams.get("tab");
     if (tabFromUrl && tabFromUrl !== activeTab) setActiveTab(tabFromUrl);
@@ -29,79 +28,197 @@ const AdminDashboard = () => {
     setSearchParams({ tab });
   };
 
-  // Find active tab component
   const activeTabConfig = TAB_REGISTRY.find((t) => t.id === activeTab);
-  const TabComponent    = activeTabConfig?.component ?? null;
+  const TabComponent = activeTabConfig?.component ?? null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-8">
-
-          {/* Top bar — logo only, StatsCards now lives in ProductsTab */}
-          <div className="flex items-center h-20">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Product Forge</h1>
-                <p className="text-sm text-gray-500">Manage your products</p>
-              </div>
-            </div>
+    <div className="flex min-h-screen bg-gray-50">
+      
+      {/* Sidebar */}
+      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col sticky top-0 h-screen">
+        {/* Logo Section */}
+        <div className="p-6 flex items-center space-x-3">
+          <div className="w-10 h-10  flex items-center justify-center shadow-lg flex-shrink-0">
+            <img src={LOGO} alt="" />
+            {/* <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg> */}
           </div>
+          <div className="overflow-hidden">
+            <h1 className="text-xl font-bold text-gray-900 truncate">{user?.name || "Admin"}</h1>
+            {/* <p className="text-xs text-gray-500">Admin Panel</p> */}
+          </div>
+        </div>
 
-          {/* Tab bar — driven entirely by TAB_REGISTRY */}
-          <div className="flex space-x-6">
-            {TAB_REGISTRY.map((tab) => (
+        {/* Navigation Links */}
+        <nav className="flex-1 px-4 space-y-2 mt-4">
+          {TAB_REGISTRY.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
               <button
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
-                className={`pb-4 px-1 font-medium cursor-pointer text-sm border-b-2 transition-colors ${
-                  activeTab === tab.id
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                className={`w-full flex items-center cursor-pointer justify-between px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  isActive
+                    ? "bg-blue-50 text-blue-600 shadow-sm"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                 }`}
               >
-                <span className="flex items-center space-x-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex items-center space-x-3">
+                  <svg className={`w-5 h-5 ${isActive ? "text-blue-600" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
                   </svg>
                   <span>{tab.label}</span>
-                  {BADGE_MAP[tab.id] != null && (
-                    <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
-                      {BADGE_MAP[tab.id]}
-                    </span>
-                  )}
-                </span>
+                </div>
+                
+                {BADGE_MAP[tab.id] != null && (
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                    isActive ? "bg-blue-200 text-blue-700" : "bg-gray-200 text-gray-600"
+                  }`}>
+                    {BADGE_MAP[tab.id]}
+                  </span>
+                )}
               </button>
-            ))}
-          </div>
+            );
+          })}
+        </nav>
 
+        {/* Optional: Footer info or User Profile placeholder */}
+        <div className="p-4 border-t border-gray-100">
+           <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">System v1.0.4</p>
         </div>
-      </div>
+      </aside>
 
-      {/* Tab content */}
-      <div className="max-w-7xl mx-auto p-8">
-        <Suspense fallback={
-          <div className="flex items-center justify-center h-64">
-            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-        }>
-          {TabComponent && <TabComponent onSwitchTab={handleTabChange} />}
-        </Suspense>
-      </div>
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto">
+        {/* Top Header (Breadcrumb or Tab Title) */}
+        <header className="bg-white h-16 border-b border-gray-200 flex items-center px-8 sticky top-0 z-10">
+          <h2 className="text-lg font-semibold text-gray-800 capitalize">
+            {activeTabConfig?.label || "Dashboard"}
+          </h2>
+        </header>
+
+        <div className="p-8">
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-64">
+              <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          }>
+            {TabComponent && <TabComponent onSwitchTab={handleTabChange} />}
+          </Suspense>
+        </div>
+      </main>
 
     </div>
   );
 };
 
 export default AdminDashboard;
+// code is working but upper code have sidebar rather then horizontal spilit ?
+// // ADMIN_SEGMENT/Admin_dashboard.jsx
+// import React, { useState, useEffect, Suspense } from "react";
+// import { useSearchParams }                       from "react-router-dom";
+// import { useSelector }                           from "react-redux";
+// import { TAB_REGISTRY }                          from "./TabRegistry";
+
+// const AdminDashboard = () => {
+//   const [searchParams, setSearchParams] = useSearchParams();
+//   const [activeTab, setActiveTab]       = useState(searchParams.get("tab") || "products");
+
+//   // Badge counts — read from Redux, no fetching here
+//   const productsBadge = useSelector((s) => s.adminGetProducts?.products?.length || 0);
+//   const archivedBadge = useSelector((s) => s.adminArchived?.products?.length    || 0);
+
+//   const BADGE_MAP = {
+//     products: productsBadge,
+//     archived: archivedBadge,
+//   };
+
+//   // Sync tab from URL
+//   useEffect(() => {
+//     const tabFromUrl = searchParams.get("tab");
+//     if (tabFromUrl && tabFromUrl !== activeTab) setActiveTab(tabFromUrl);
+//   }, [searchParams]);
+
+//   const handleTabChange = (tab) => {
+//     setActiveTab(tab);
+//     setSearchParams({ tab });
+//   };
+
+//   // Find active tab component
+//   const activeTabConfig = TAB_REGISTRY.find((t) => t.id === activeTab);
+//   const TabComponent    = activeTabConfig?.component ?? null;
+
+//   return (
+//     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+
+//       {/* Header */}
+//       <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+//         <div className="max-w-7xl mx-auto px-8">
+
+//           {/* Top bar — logo only, StatsCards now lives in ProductsTab */}
+//           <div className="flex items-center h-20">
+//             <div className="flex items-center space-x-3">
+//               <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+//                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+//                     d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+//                 </svg>
+//               </div>
+//               <div>
+//                 <h1 className="text-2xl font-bold text-gray-900">Product Forge</h1>
+//                 <p className="text-sm text-gray-500">Manage your products</p>
+//               </div>
+//             </div>
+//           </div>
+
+//           {/* Tab bar — driven entirely by TAB_REGISTRY */}
+//           <div className="flex space-x-6">
+//             {TAB_REGISTRY.map((tab) => (
+//               <button
+//                 key={tab.id}
+//                 onClick={() => handleTabChange(tab.id)}
+//                 className={`pb-4 px-1 font-medium cursor-pointer text-sm border-b-2 transition-colors ${
+//                   activeTab === tab.id
+//                     ? "border-blue-500 text-blue-600"
+//                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+//                 }`}
+//               >
+//                 <span className="flex items-center space-x-2">
+//                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
+//                   </svg>
+//                   <span>{tab.label}</span>
+//                   {BADGE_MAP[tab.id] != null && (
+//                     <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+//                       {BADGE_MAP[tab.id]}
+//                     </span>
+//                   )}
+//                 </span>
+//               </button>
+//             ))}
+//           </div>
+
+//         </div>
+//       </div>
+
+//       {/* Tab content */}
+//       <div className="max-w-7xl mx-auto p-8">
+//         <Suspense fallback={
+//           <div className="flex items-center justify-center h-64">
+//             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+//           </div>
+//         }>
+//           {TabComponent && <TabComponent onSwitchTab={handleTabChange} />}
+//         </Suspense>
+//       </div>
+
+//     </div>
+//   );
+// };
+
+// export default AdminDashboard;
 // working code but trying to separarte tabs routes and make it independent 
 // // ADMIN_SEGMENT/Admin_dashboard.jsx
 

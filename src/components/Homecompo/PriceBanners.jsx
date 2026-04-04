@@ -6,6 +6,10 @@ const PriceBanners = () => {
     const [isInView, setIsInView] = useState(false);
     const sectionRef = useRef(null);
 
+    // const { products  } = useSelector((state) => state.userProducts);
+    const products = useSelector((state) => state.userProducts.products);
+    console.log('firstssssss', JSON.stringify(products));
+
     const darkBanners = [
         {
             label: "Under ₹9",
@@ -35,14 +39,14 @@ const PriceBanners = () => {
             gradient: "from-[#1a1a1a] to-[#111111]",
             accentColor: "from-[#f7a221]/20 to-transparent"
         },
-         {
+        {
             label: "Under ₹99",
             tag: "SUPER SAVER",
             icon: <Zap size={20} />,
             gradient: "from-[#1a1a1a] to-[#111111]",
             accentColor: "from-[#f7a221]/20 to-transparent"
         },
-         {
+        {
             label: "Under ₹99",
             tag: "SUPER SAVER",
             icon: <Zap size={20} />,
@@ -71,11 +75,10 @@ const PriceBanners = () => {
     return (
         <section
             ref={sectionRef}
-            className={`container mx-auto px-4 py-10 transition-all duration-700 ease-out ${
-                isInView 
-                    ? 'opacity-100 translate-y-0' 
+            className={`container mx-auto px-4 py-10 transition-all duration-700 ease-out ${isInView
+                    ? 'opacity-100 translate-y-0'
                     : 'opacity-0 translate-y-8'
-            }`}
+                }`}
         >
             <div className="flex items-center justify-between mb-6 md:mb-10">
                 <h3 className="text-xl sm:text-2xl md:text-4xl font-rubik flex items-center gap-3 md:gap-4 text-gray-900  tracking-tight">
@@ -86,16 +89,15 @@ const PriceBanners = () => {
                     View All <ArrowRight size={16} />
                 </button>
             </div>
-            
+
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
                 {darkBanners.map((banner, idx) => (
                     <Link to={`/shopbyprice/${banner.label.toLowerCase().replace(/\s/g, '-')}`}
                         key={idx}
-                        className={`group relative h-36 sm:h-44 md:h-52 lg:h-60 bg-gradient-to-br ${banner.gradient} rounded-2xl md:rounded-[2.5rem] overflow-hidden cursor-pointer border border-white/5 hover:border-[#f7a221]/40 transition-all duration-500 ${
-                            isInView 
-                                ? 'opacity-100 scale-100' 
+                        className={`group relative h-36 sm:h-44 md:h-52 lg:h-60 bg-gradient-to-br ${banner.gradient} rounded-2xl md:rounded-[2.5rem] overflow-hidden cursor-pointer border border-white/5 hover:border-[#f7a221]/40 transition-all duration-500 ${isInView
+                                ? 'opacity-100 scale-100'
                                 : 'opacity-0 scale-95'
-                        }`}
+                            }`}
                         style={{ transitionDelay: `${idx * 100}ms` }}
                     >
                         {/* SHINE EFFECT ON HOVER */}
@@ -112,15 +114,14 @@ const PriceBanners = () => {
                             </div>
 
                             <div className="space-y-1 md:space-y-3">
-                                <h4 style={{fontSize:"35px"}} className="text-xl sm:text-3xl md:text-4xl lg:text-5xl text-white tracking-tighter">
+                                <h4 style={{ fontSize: "35px" }} className="text-xl sm:text-3xl md:text-4xl lg:text-5xl text-white tracking-tighter">
                                     {banner.label}
                                 </h4>
-                                
+
                                 {/* ANIMATED ORANGE UNDERLINE */}
-                                <div className={`h-[2px] bg-gradient-to-r from-[#f7a221] to-transparent rounded-full transition-all duration-1000 delay-300 ${
-                                    isInView ? 'w-full' : 'w-0'
-                                }`} />
-                                 <div className="flex items-center gap-1.5 md:gap-2 text-[8px] md:text-[14px] font-black uppercase tracking-wider text-gray-400 group-hover:text-white transition-colors duration-300">
+                                <div className={`h-[2px] bg-gradient-to-r from-[#f7a221] to-transparent rounded-full transition-all duration-1000 delay-300 ${isInView ? 'w-full' : 'w-0'
+                                    }`} />
+                                <div className="flex items-center gap-1.5 md:gap-2 text-[8px] md:text-[14px] font-black uppercase tracking-wider text-gray-400 group-hover:text-white transition-colors duration-300">
                                     Explore <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                                 </div>
                             </div>
