@@ -160,7 +160,8 @@ const MegaDropdown = ({ isOpen }) => {
     { label: "Stationary", icon: <Book size={18} className="text-red-600" />, path: "/category/stationary" },
     { label: "Baby Items", icon: <Baby size={18} className="text-blue-600" />, path: "/category/baby-items" },
     { label: "Car Accessories", icon: <Car size={18} className="text-[#F7A221]" />, path: "/category/car-accessories" },
-    { label: "Mix Items Daily use", icon: <Box size={18} className="text-red-600" />, path: "/category/daily-use" },
+    // { label: "Mix Items Daily use", icon: <Box size={18} className="text-red-600" />, path: "/category/daily-use" },
+    { label: " Cleaning & Housekeeping Supplies", icon: <Box size={18} className="text-red-600" />, path: "/category/daily-use" },
     { label: "Gifts", icon: <Gift size={18} className="text-blue-600" />, path: "/category/gifts" }
   ];
 
