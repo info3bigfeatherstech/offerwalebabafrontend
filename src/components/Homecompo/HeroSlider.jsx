@@ -72,7 +72,7 @@ const HeroSlider = () => {
                 
                 <h1 
                   data-swiper-parallax="-300"
-                  className="text-4xl md:text-7xl lg:text-8xl font-black mb-6 leading-tight drop-shadow-2xl max-w-5xl"
+                  className="text-4xl md:text-7xl font-semibold lg:text-8xl mb-6 leading-tight drop-shadow-2xl max-w-5xl"
                 >
                   {slide.title}
                 </h1>

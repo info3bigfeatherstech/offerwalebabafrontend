@@ -25,7 +25,7 @@ import coupanIcon from "../../assets/coupon.png";
 import customercareIcon from "../../assets/service.png";
 import discountBannerIcon from "../../assets/discount-voucher.png";
 import WishlistSidebar from './WishlistSidebar';
-import { selectDefaultAddress, fetchAddresses } from '../REDUX_FEATURES/REDUX_SLICES/userAddressSlice';
+import { selectDefaultAddress, fetchAddresses } from '../REDUX_FEATURES/REDUX_SLICES/Useraddressslice';
 import SearchModal from './Search_Modal/SearchModal';
 import MobileBottomNav from './Mobilebottomnav';
 
@@ -217,7 +217,8 @@ const MegaDropdown = ({ isOpen }) => {
     { label: "Stationary", icon: <Book size={18} className="text-red-600" />, path: "/category/stationary" },
     { label: "Baby Items", icon: <Baby size={18} className="text-blue-600" />, path: "/category/baby-items" },
     { label: "Car Accessories", icon: <Car size={18} className="text-[#F7A221]" />, path: "/category/car-accessories" },
-    { label: "Mix Items Daily use", icon: <Box size={18} className="text-red-600" />, path: "/category/mix-items-daily-use" },
+    // { label: "Mix Items Daily use", icon: <Box size={18} className="text-red-600" />, path: "/category/mix-items-daily-use" },
+    { label: "Cleaning & Housekeeping Supplies", icon: <Box size={18} className="text-red-600" />, path: "/category/mix-items-daily-use" },
     { label: "Gifts", icon: <Gift size={18} className="text-blue-600" />, path: "/category/gifts" }
   ];
 
@@ -410,7 +411,7 @@ useEffect(() => {
     { label: "Stationary", path: "/category/stationary" },
     { label: "Baby Items", path: "/category/baby-items" },
     { label: "Car Accessories", path: "/category/car-accessories" },
-    { label: "Mix Items Daily use", path: "/category/mix-items-daily-use" },
+    { label: "Cleaning & Housekeeping Supplies", path: "/category/mix-items-daily-use" },
     { label: "Gifts", path: "/category/gifts" }
   ];
 

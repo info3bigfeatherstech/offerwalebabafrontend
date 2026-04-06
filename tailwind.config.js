@@ -7,6 +7,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
+       satoshi: ['Satoshi', 'sans-serif'],
         display: ["Inter", "system-ui", "sans-serif"],
       },
       colors: {

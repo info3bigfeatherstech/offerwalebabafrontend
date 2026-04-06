@@ -3,6 +3,7 @@ import { SlidersHorizontal, X, ChevronDown } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchProducts } from '../../components/REDUX_FEATURES/REDUX_SLICES/userProductsSlice';
+import ProductCard from '../Product_segment/ProductCard';
 
 const ShopByPrice = () => {
   const { slug } = useParams();
@@ -78,6 +79,7 @@ const ShopByPrice = () => {
   
   useEffect( () => {
     dispatch(fetchProducts({ page: 1, limit: 36 }));
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, [])
 
   return (
@@ -151,22 +153,8 @@ const ShopByPrice = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-200"
-              >
-                <div className="aspect-square bg-gray-100">
-                    <img className='w-full h-full object-cover' src="https://plus.unsplash.com/premium_photo-1774271492622-2caebba85850?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxmZWF0dXJlZC1waG90b3MtZmVlZHwyfHx8ZW58MHx8fHx8" alt="" />
-                </div>
-                <div className="p-3 space-y-2">
-                  <div className="rounded w-3/4">Title</div>
-                  <div className="rounded w-1/2">Description</div>
-                  <div className="rounded w-1/3">Price</div>
-                </div>
-              </div>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <ProductCard data={data} />
           </div>
 
         </div>

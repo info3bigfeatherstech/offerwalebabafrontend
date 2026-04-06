@@ -1,10 +1,6 @@
 import React, { useEffect, useCallback, useState, useRef, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import bannerImage from "../../../assets/premium_photo-1663956066898-282c7609afc9.png";
-import Home from "../../../assets/Home.png";
-import gadgets from "../../../assets/gadgets.png";
-import tour from "../../../assets/tour.png";
 import {
   ArrowLeft,
   AlertCircle,
@@ -145,19 +141,6 @@ const CatProducts = () => {
   const categoryLoadingState = useSelector((s) => s.userCategories.loading.category);
   const categoryErrorState   = useSelector((s) => s.userCategories.error.category);
   // component ke andar — selectors ke neeche
-const images = [
-  { url: Home    },
-  { url: gadgets },
-  { url: tour    },
-];
-
-// slug → image mapping
-const categoryImages = {
-  'home-kitchen':     { url: Home    },
-  'smart-life':       { url: gadgets },
-  'tours-travels':    { url: tour    },
-  // baaki slugs add karo
-};
 
   // ── Derived ────────────────────────────────────────────────────────────────
   // isLoading: true only on the initial load (no products yet)
@@ -183,6 +166,9 @@ const categoryImages = {
       // Intentionally NOT clearing categoryProducts[slug] — cached for back-nav
     };
   }, [slug, dispatch]);
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [])
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handleLoadMore = useCallback(() => {
@@ -202,7 +188,7 @@ const categoryImages = {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-white" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div className="min-h-screen" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
 
       {/* ── STICKY BREADCRUMB ── */}
       <div className="bg-white border-b border-zinc-100 sticky top-0 z-40">
@@ -230,11 +216,13 @@ const categoryImages = {
    <section className="relative h-[40vh] md:h-[50vh] flex items-end overflow-hidden bg-gray-900">
 
   {/* Background — slug se match karo, warna pehla image */}
-  <img
-    src={categoryImages[slug]?.url || images[0].url}
-    alt={categoryName}
-    className="absolute inset-0 w-full h-full object-cover opacity-50"
-  />
+  { currentCategory?.image?.url && (
+    <img
+      src={currentCategory.image.url}
+      alt={categoryName}
+      className="absolute inset-0 w-full h-full object-cover opacity-50"
+    />
+  )}
 
   {/* Dark gradient overlay */}
   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
