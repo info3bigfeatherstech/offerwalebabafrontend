@@ -169,6 +169,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
     if (currentStep === 1) {
       if (!form.fullName.trim()) return "Full Name is required";
       if (form.phone.length !== 10) return "Phone number must be exactly 10 digits";
+      if (!/^\d{6}$/.test(form.postalCode)) return "Postal code must be 6 digits";
     }
     if (currentStep === 2) {
       const req = ["houseNumber", "area", "city", "state", "postalCode"];
@@ -238,6 +239,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
               <>
                 <Field label="Full Name" name="fullName" value={form.fullName} onChange={handleChange} required placeholder="Ravi Kumar" />
                 <Field label="Phone Number" name="phone" value={form.phone} onChange={handleChange} required type="tel" placeholder="10-digit number" />
+                <Field label="PinCode" name="postalCode" value={form.postalCode} onChange={handleChange} required type="number" placeholder="xxxxxxxxx" maxLength={6} />
               </>
             )}
 
