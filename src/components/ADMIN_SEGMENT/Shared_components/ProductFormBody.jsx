@@ -34,8 +34,8 @@ const ProductFormBody = ({
   actionLoading = false,
   actionError = null,
 }) => {
+  
   const isEditMode = !!productSlug;
-
   // ── Gallery drag state ────────────────────────────────────────────────────
   const [draggedIdx, setDraggedIdx] = useState(null);
   const [isDraggingZone, setIsDraggingZone] = useState(false);
@@ -64,6 +64,7 @@ const ProductFormBody = ({
     }
   };
 
+ 
   const handleGalleryUpload = (e) => {
     const files = Array.from(e.target.files);
     const current = [...galleryImages];

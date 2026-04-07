@@ -198,7 +198,7 @@ const BestSellers = () => {
         </div>
         <button
           onClick={() => navigate('/products')}
-          className="hidden sm:block text-[9px] font-black uppercase tracking-widest bg-zinc-900 text-white px-6 py-3 hover:bg-yellow-600 transition-all"
+          className="hidden sm:block text-[9px] font-black uppercase tracking-widest bg-zinc-900 text-white px-6 py-3 hover:bg-zinc-800 transition-all"
         >
           Explore All
         </button>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { IoLogoWhatsapp, IoLogoFacebook, IoLogoInstagram } from "react-icons/io5";
 import { FaTelegram } from "react-icons/fa6";
@@ -8,6 +8,7 @@ import {
   Zap, CheckCircle2, Truck, AlertCircle,
   RefreshCw, ArrowLeft, Loader2, ArrowRight,
   Package, ShieldCheck, RotateCcw,
+  Tag,
 } from "lucide-react";
 import {
   addToWishlist, removeFromWishlist,
@@ -24,6 +25,8 @@ import {
   selectCartItemBySlug, updateCartItem, updateGuestCartItem,
 } from "../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice";
 import { toast } from "react-toastify";
+import Breadcrumb from "./Breadcrumb/Breadcrumb";
+import CatProducts from "./CatPro_segment/CatProducts";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 const Skeleton = () => (
@@ -105,6 +108,8 @@ const ProductUI = () => {
   const { slug } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+    const location = useLocation();
+  console.log("route", location);
 
   const [activeThumb, setActiveThumb] = useState(0);
   const [selectedAttrs, setSelectedAttrs] = useState({});
@@ -318,10 +323,13 @@ const ProductUI = () => {
     </div>
   );
   if (!product) return null;
+  
 
   // ── RENDER ─────────────────────────────────────────────────────────────────
  return (
-    <div className="min-h-screen bg-gray-50">
+  <>
+  <Breadcrumb product={product}/>
+  <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-8 space-y-3 sm:space-y-4">
 
         {/* ═══════════ MAIN PRODUCT CARD ═══════════ */}
@@ -390,7 +398,7 @@ const ProductUI = () => {
               <div className="flex-1 flex flex-col">
                 {/* Image box */}
                 <div className="relative w-full flex items-center justify-center overflow-hidden"
-                  style={{ aspectRatio: "2 / 3", maxHeight: 560 }}>
+                  style={{ aspectRatio: "4/5", maxHeight: 560 }}>
                   {activeImg
                     ? <img
                         src={activeImg}
@@ -440,14 +448,29 @@ const ProductUI = () => {
                 )}
               </div>
             </div>
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col">
                  {/* ── RIGHT: Info panel ── */}
-            <div className="flex flex-col gap-4 p-4 sm:p-6 lg:p-7 lg:overflow-y-auto scrollbar-hide lg:max-h-[560px]">
+            <div className="flex flex-col gap-3 p-4 sm:p-6 lg:p-7 overflow-y-auto scrollbar-hide lg:max-h-[560px]">
 
               {/* Title */}
-              <h1 className="text-lg sm:text-4xl font-bold text-gray-900 leading-snug tracking-tight">
+              <h1 className="text-lg sm:text-3xl font-bold text-gray-900 leading-snug tracking-tight">
                 {title}
               </h1>
+               {/* Share */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-gray-400 font-semibold uppercase tracking-wide">Share</span>
+                {[
+                  { type: "whatsapp",  Icon: IoLogoWhatsapp,  cls: "bg-green-500" },
+                  { type: "facebook",  Icon: IoLogoFacebook,  cls: "bg-blue-600" },
+                  { type: "instagram", Icon: IoLogoInstagram, cls: "bg-pink-500" },
+                  { type: "telegram",  Icon: FaTelegram,      cls: "bg-sky-500" },
+                ].map(({ type, Icon, cls }) => (
+                  <button key={type} onClick={() => share(type)}
+                    className={`w-8 h-8 rounded-full ${cls} text-white flex items-center justify-center hover:scale-110 transition-transform shadow-sm`}>
+                    <Icon size={15} />
+                  </button>
+                ))}
+              </div>
 
               {/* Brand + Rating */}
               <div className="flex flex-col flex-wrap gap-2">
@@ -479,7 +502,7 @@ const ProductUI = () => {
                 )}
               </div>
               <div>
-                <p className="font-medium text-zinc-900 flex items-center gap-1 text-xs"> <span className="font-bold text-zinc-900 text-xs">{formatCount(soldInfo)} bought</span> in past month
+                <p className="font-medium text-zinc-900 flex items-center gap-1 text-sm"> <span className="font-bold text-[crimson] text-sm">{formatCount(soldInfo)} bought</span> in past month
 </p>
               </div>
 
@@ -531,7 +554,7 @@ const ProductUI = () => {
                 </div>
               )}
 
-              {/* Share */}
+              {/* Share
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs text-gray-400 font-semibold uppercase tracking-wide">Share</span>
                 {[
@@ -545,7 +568,36 @@ const ProductUI = () => {
                     <Icon size={15} />
                   </button>
                 ))}
-              </div>
+              </div> */}
+              {/* Offers */}
+<div className="h-px bg-gray-100" />
+
+<div>
+  <p className="text-lg font-bold text-gray-900 mb-3">Offers</p>
+  <div className="flex flex-col divide-y divide-gray-100">
+    {[
+      { label: "Get Flat ₹100 OFF on orders above ₹2000", code: "100 OFB" },
+      { label: "Get Flat ₹150 OFF on orders above ₹3000", code: "150 OFB" },
+      { label: "Get Flat ₹50 OFF on orders above ₹1000",  code: "50 OFB"  },
+    ].map(({ label, code }) => (
+      <div key={code} className="flex items-start justify-between py-3 gap-3">
+        <div className="flex items-start gap-2.5">
+          <Tag size={18} className="text-gray-400 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-gray-800">{label}</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Use code - <span className="font-semibold text-gray-600">{code}</span>
+            </p>
+          </div>
+        </div>
+        <button className="text-sm font-semibold text-red-500 flex-shrink-0 hover:text-red-600 transition-colors">
+          Details
+        </button>
+      </div>
+    ))}
+  </div>
+  <p className="text-[11px] text-gray-400 mt-1">*Coupons can be applied at checkout</p>
+</div>
 
               <div className="h-px bg-gray-100" />
 
@@ -586,8 +638,7 @@ const ProductUI = () => {
                           : <><ShoppingCart size={16} />Add to Cart</>}
                       </button>
                     )}
-                    <button className="flex-1 py-3.5 rounded-2xl text-sm font-bold bg-orange-500 text-white hover:bg-orange-600 transition-all duration-200 active:scale-[.98] flex items-center justify-center gap-2 shadow-lg shadow-orange-100">
-                      <Zap size={16} className="fill-white" />
+                    <button className="flex-1 py-3.5 rounded-2xl text-sm font-bold bg-zinc-800 text-white hover:bg-zinc-700 transition-all duration-200 active:scale-[.98] flex items-center justify-center gap-2 shadow-lg shadow-orange-100">
                       Buy Now
                     </button>
                   </div>
@@ -610,7 +661,7 @@ const ProductUI = () => {
 
 
               {/* ═══════════ DESCRIPTION ═══════════ */}
-      <div className="bg-gray-50 rounded-2xl sm:rounded-3xl overflow-hidden">
+      <div className="bg-gray-50 rounded-2xl mt-10 sm:rounded-3xl overflow-hidden">
   <button
     onClick={() => setOpenDesc((v) => !v)}
     className="w-full flex items-center justify-between px-4 sm:px-6 py-4 hover:bg-gray-50 transition text-left"
@@ -724,13 +775,16 @@ const ProductUI = () => {
         {/* ═══════════ RELATED PRODUCTS ═══════════ */}
         {related?.length > 0 && (
           <div className="pb-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base sm:text-lg font-bold text-gray-900">You May Also Like</h2>
-              <button className="text-xs sm:text-sm text-gray-400 hover:text-orange-500 flex items-center gap-1 transition font-medium">
+            <div className="flex items-center mt-28 justify-between mb-1">
+              <h2 className="text-base sm:text-2xl font-bold text-gray-900">Customers who bought this item also bought</h2>
+              <button className="hidden sm:flex text-xs sm:text-sm text-gray-400 hover:text-orange-500 sm:items-center gap-1 transition font-medium">
                 View all <ArrowRight size={13} />
               </button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className="w-full h-px bg-zinc-400">
+              <div className="w-full sm:w-1/2 h-full bg-[crimson]"></div>
+            </div>
+            <div className="grid grid-cols-2 mt-10 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
               {related.map((p) => <RelatedCard key={p._id || p.slug} product={p} />)}
             </div>
           </div>
@@ -738,6 +792,8 @@ const ProductUI = () => {
 
       </div>
     </div>
+  
+  </>
   );
 };
 

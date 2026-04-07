@@ -133,7 +133,7 @@ export const searchProducts = createAsyncThunk(
 
 export const fetchFeaturedProducts = createAsyncThunk(
   "userProducts/fetchFeaturedProducts",
-  async (limit = 12, { rejectWithValue }) => {
+  async (limit = 10, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.get(`/products/featured?limit=${limit}`);
       if (!response.data.success)

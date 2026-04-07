@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { Heart, Eye, Minus, Plus, Loader2, ShoppingCart } from "lucide-react";
+import { Heart, Eye, Minus, Plus, Loader2, ShoppingCart, Star } from "lucide-react";
 
 import {
   addToWishlist,
@@ -29,6 +29,10 @@ const formatPrice = (amount) => {
   if (amount == null) return "—";
   return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(amount);
 };
+ function formatCount(count) {
+  if (count < 100) return count.toString();
+  return Math.floor(count / 100) * 100 + "+";
+}
 
 const logError = (context, error, info = {}) => {
   console.group(`🔴 [ProductCard] ERROR in ${context}`);
@@ -41,6 +45,8 @@ const logError = (context, error, info = {}) => {
 const ProductCard = ({ product, index }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  console.log(product);
+  
 
   const { isLoggedIn } = useSelector((state) => state.auth);
   const wishlisted = useSelector(selectIsWishlisted(product?.slug));
@@ -267,209 +273,186 @@ const ProductCard = ({ product, index }) => {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div
-      className="group flex flex-col cursor-pointer font-sans"
-      style={{ animationDelay: `${index * 50}ms` }}
-      onClick={handleCardClick}
-    >
-      {/* ── IMAGE ── */}
-      {/* 
-        CHANGED: replaced raw <img> with <LazyImage>
-        - aspect-ratio='1/1' reserves correct space → zero layout shift
-        - blur-up transition on load
-        - IntersectionObserver + loading="lazy" belt-and-suspenders
-        - decoding="async" off main thread
-        - onError handled inside LazyImage, shows "No Image" fallback
-        - wrapperClass carries the rounded-sm + mb-4 that were on the wrapper div
-        - className carries the hover scale transition
-      */}
-      <div className="relative mb-4">
-        <LazyImage
-          src={imgUrl}
-          alt={title}
-          aspectRatio="1/1"
-          objectFit="cover"
-          wrapperClass="rounded-sm"
-          className="transition-transform duration-700 group-hover:scale-105"
-        />
+   <div
+  className="group flex flex-col cursor-pointer p-3 font-['satoshi'] rounded-2xl bg-white border border-zinc-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+  style={{ animationDelay: `${index * 50}ms` }}
+  onClick={handleCardClick}
+>
+  {/* ── IMAGE ── */}
+  <div className="relative w-full aspect-[4/4] bg-zinc-100 rounded-xl overflow-hidden mb-3">
+    
+    <LazyImage
+      src={imgUrl}
+      alt={title}
+      aspectRatio="4/5"
+      objectFit="cover"
+      className="transition-transform duration-700 group-hover:scale-105"
+    />
 
-        {/* Out of stock overlay */}
-        {!inStock && (
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-sm">
-            <span className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1">
-              Out of Stock
-            </span>
-          </div>
-        )}
-
-        {/* Discount badge */}
-        {discountPct && inStock && (
-          <div className="absolute top-3 left-3">
-            <span className="text-[9px] font-black bg-yellow-500 text-white px-2 py-0.5 rounded">
-              {discountPct}%
-            </span>
-          </div>
-        )}
-
-        {/* Wishlist + View buttons */}
-        <div className="absolute top-3 right-3 flex flex-col gap-2 translate-x-12 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
-          <button
-            onClick={handleWishlist}
-            disabled={localLoading.wishlist}
-            className={`w-8 h-8 rounded-full cursor-pointer flex items-center justify-center border transition-colors ${
-              wishlisted
-                ? "bg-red-500 border-red-500 text-white"
-                : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-900 hover:text-white"
-            }`}
-          >
-            {localLoading.wishlist
-              ? <Loader2 size={12} className="animate-spin" />
-              : <Heart size={14} className={wishlisted ? "fill-current" : ""} />
-            }
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (product?.slug) navigate(`/products/${product.slug}`);
-            }}
-            className="w-8 h-8 cursor-pointer bg-white border border-zinc-200 rounded-full flex items-center justify-center text-zinc-600 hover:bg-zinc-900 hover:text-white transition-all"
-          >
-            <Eye size={14} />
-          </button>
-        </div>
+    {/* Out of stock */}
+    {!inStock && (
+      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+        <span className="text-white text-xs font-bold bg-black/60 px-3 py-1 rounded">
+          Out of Stock
+        </span>
       </div>
+    )}
 
-      {/* ── TEXT INFO ── */}
-      <div className="space-y-1">
-        <div className="flex justify-between items-center">
-          <span className="text-[10px] font-bold uppercase text-zinc-400">
-            {typeof product?.category === "object"
-              ? product.category?.name
-              : product?.category || "General"}
-          </span>
-          {discountPct && inStock && (
-            <span className="text-[8px] font-bold text-yellow-600 uppercase">
-              {discountPct}% off
-            </span>
-          )}
-        </div>
-
-        <h3 className="text-[11px] md:text-xs font-lato uppercase tracking-wider text-zinc-900 group-hover:text-yellow-600 transition-colors truncate">
-          {title}
-        </h3>
-
-        <div className="flex items-center gap-2 pt-0.5 pb-2">
-          <span className="text-sm md:text-base font-bold text-zinc-900">
-            ₹{formatPrice(salePrice)}
-          </span>
-          {hasDiscount && (
-            <span className="text-[10px] text-zinc-300 line-through font-bold">
-              ₹{formatPrice(basePrice)}
-            </span>
-          )}
-        </div>
+    {/* Discount */}
+    {discountPct && inStock && (
+      <div className="absolute top-2 left-2">
+        <span className="text-[10px] font-bold bg-red-500 text-white px-2 py-1 rounded-md shadow">
+          {discountPct}% OFF
+        </span>
       </div>
+    )}
 
-      {/* ── CART BUTTON AREA ── */}
-      <div className="mt-auto" onClick={(e) => e.stopPropagation()}>
+    {/* Actions */}
+    <div className="absolute top-2 right-2 flex flex-col gap-2 translate-x-10 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
+      
+      <button
+        onClick={handleWishlist}
+        disabled={localLoading.wishlist}
+        className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-all ${
+          wishlisted
+            ? "bg-red-500 text-white"
+            : "bg-white text-zinc-600 hover:bg-zinc-900 hover:text-white"
+        }`}
+      >
+        {localLoading.wishlist
+          ? <Loader2 size={14} className="animate-spin" />
+          : <Heart size={16} className={wishlisted ? "fill-current" : ""} />
+        }
+      </button>
 
-        {/* Case 1 — Out of stock */}
-        {!inStock && (
-          <button
-            disabled
-            className="w-full py-3 text-[9px] font-black uppercase tracking-[0.2em] bg-zinc-200 text-zinc-400 cursor-not-allowed"
-          >
-            Out of Stock
-          </button>
-        )}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          if (product?.slug) navigate(`/products/${product.slug}`);
+        }}
+        className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md text-zinc-600 hover:bg-zinc-900 hover:text-white transition-all"
+      >
+        <Eye size={16} />
+      </button>
+    </div>
+  </div>
 
-        {/* Case 2 — In stock, NOT in cart */}
-        {inStock && !isInCart && (
-          <button
-            onClick={handleAddToCart}
-            disabled={localLoading.add}
-            className={`w-full py-3 text-[9px] cursor-pointer font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${
-              localLoading.add
-                ? "bg-zinc-400 text-white cursor-wait"
-                : "bg-zinc-900 text-white hover:bg-yellow-600"
-            }`}
-          >
-            {localLoading.add ? (
-              <>
-                <Loader2 size={12} className="animate-spin" />
-                Adding...
-              </>
-            ) : (
-              <>
-              Add to Cart
-              
-              </>
-            )}
-          </button>
-        )}
+  {/* ── TEXT INFO ── */}
+  <div className="flex flex-col gap-1 px-1">
 
-        {/* Case 3 — In cart → qty controls */}
-        {inStock && isInCart && (
-          <>
-            <div className="flex items-center w-full border border-zinc-200 overflow-hidden">
-              {/* Decrement / Remove */}
-              <button
-                onClick={handleDecrement}
-                disabled={isProcessing}
-                className={`flex-shrink-0 cursor-pointer w-10 h-10 flex items-center justify-center transition-all ${
-                  isProcessing
-                    ? "bg-zinc-100 text-zinc-300 cursor-wait"
-                    : "bg-zinc-100 text-zinc-700 hover:bg-red-500 hover:text-white"
-                }`}
-              >
-                {localLoading.remove
-                  ? <Loader2 size={12} className="animate-spin" />
-                  : <Minus size={12} />
-                }
-              </button>
+    {/* Category */}
+    <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-medium">
+      {typeof product?.category === "object"
+        ? product.category?.name
+        : product?.category || "General"}
+    </span>
 
-              {/* Current qty */}
-              <div className="flex-1 text-center text-[11px] font-black text-zinc-900 bg-white py-2 select-none">
-                {localLoading.update
-                  ? <Loader2 size={12} className="animate-spin mx-auto" />
-                  : currentQty
-                }
+    {/* Title */}
+    <div className="w-full flex items-center justify-between gap-4">
+       <h3 className="text-sm font-semibold text-zinc-900 truncate group-hover:text-yellow-600 transition-colors">
+      {title}
+    </h3>
+     <div className="font-semibold text-sm flex items-center"><Star size={14} className="text-yellow-400" fill="#F7C85C"/>4.3</div>
+    </div>
+      <div>
+                <p className="font-medium text-zinc-900 flex items-center gap-1 text-xs"> <span className="font-bold text-[crimson] text-xs">{formatCount(product?.soldInfo?.count)} bought</span> in past month
+</p>
               </div>
 
-              {/* Increment */}
-              <button
-                onClick={handleIncrement}
-                disabled={isAtMaxStock || isProcessing}
-                className={`flex-shrink-0 cursor-pointer w-10 h-10 flex items-center justify-center transition-all ${
-                  isAtMaxStock
-                    ? "bg-zinc-100 text-zinc-300 cursor-not-allowed"
-                    : isProcessing
-                      ? "bg-zinc-100 text-zinc-300 cursor-wait"
-                      : "bg-zinc-900 text-white hover:bg-yellow-600"
-                }`}
-              >
-                {localLoading.add
-                  ? <Loader2 size={12} className="animate-spin" />
-                  : <Plus size={12} />
-                }
-              </button>
-            </div>
-
-            {/* Max stock warning */}
-            {isAtMaxStock && (
-              <p className="text-[8px] text-center text-orange-500 font-bold mt-1 uppercase tracking-wider">
-                Max stock reached
-              </p>
-            )}
-          </>
-        )}
-      </div>
+    {/* Price */}
+    <div className="flex items-center gap-2 mt-1">
+      <span className="text-base font-bold text-zinc-900">
+        ₹{formatPrice(salePrice)}
+      </span>
+      {hasDiscount && (
+        <span className="text-xs text-zinc-500 line-through">
+          ₹{formatPrice(basePrice)}
+        </span>
+      )}
     </div>
+  </div>
+
+  {/* ── CART ── */}
+  <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+
+    {!inStock && (
+      <button
+        disabled
+        className="w-full py-2 text-xs font-bold bg-zinc-200 text-zinc-400 rounded-lg"
+      >
+        Out of Stock
+      </button>
+    )}
+
+    {inStock && !isInCart && (
+      <button
+        onClick={handleAddToCart}
+        disabled={localLoading.add}
+        className={`w-full py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${
+          localLoading.add
+            ? "bg-zinc-400 text-white"
+            : "bg-zinc-900 text-white hover:bg-zinc-800"
+        }`}
+      >
+        {localLoading.add ? (
+          <>
+            <Loader2 size={14} className="animate-spin" />
+            Adding...
+          </>
+        ) : (
+          "ADD TO CART"
+        )}
+      </button>
+    )}
+
+    {inStock && isInCart && (
+      <>
+        <div className="flex items-center w-full border border-zinc-200 rounded-lg overflow-hidden">
+          
+          <button
+            onClick={handleDecrement}
+            disabled={isProcessing}
+            className="w-10 h-10 flex items-center justify-center bg-zinc-100 hover:bg-red-500 hover:text-white transition"
+          >
+            {localLoading.remove
+              ? <Loader2 size={12} className="animate-spin" />
+              : <Minus size={14} />
+            }
+          </button>
+
+          <div className="flex-1 text-center text-sm font-semibold">
+            {localLoading.update
+              ? <Loader2 size={12} className="animate-spin mx-auto" />
+              : currentQty
+            }
+          </div>
+
+          <button
+            onClick={handleIncrement}
+            disabled={isAtMaxStock || isProcessing}
+            className="w-10 h-10 flex items-center justify-center bg-zinc-900 text-white hover:bg-yellow-500 transition"
+          >
+            {localLoading.add
+              ? <Loader2 size={12} className="animate-spin" />
+              : <Plus size={14} />
+            }
+          </button>
+        </div>
+
+        {isAtMaxStock && (
+          <p className="text-[10px] text-center text-orange-500 mt-1 font-medium">
+            Max stock reached
+          </p>
+        )}
+      </>
+    )}
+  </div>
+</div>
   );
 };
 
-export default ProductCard;
 
+export default ProductCard;
 
 // code WORKING BUT UPPER CODE HAVE SOME MORE OPTIMIZATION PLUS NEW THINGS>>>>>>>>>>>>>>>>
 // import React, { useState } from "react";

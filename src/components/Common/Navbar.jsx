@@ -132,7 +132,7 @@ const LocationDisplay = ({ isLoggedIn, onOpenAuth, userAddress }) => {
       if (userAddress.addressLine1) return userAddress.addressLine1.substring(0, 20);
       return "Select Address";
     }
-    return "ADDRESS";
+    return isLoggedIn ? "SELECT ADDRESS" : "ADDRESS";
   };
    let address = getDisplayAddress()
 
@@ -180,10 +180,10 @@ const LocationDisplay = ({ isLoggedIn, onOpenAuth, userAddress }) => {
       className="absolute left-0 w-full text-sm font-semibold text-gray-900 leading-[20px] transition-transform duration-500 ease-in-out"
       style={{
         top: 0,
-        transform: isAnimating && !isLoggedIn ? "translateY(-100%)" : "translateY(0)",
+        transform: isAnimating && !isLoggedIn || isAnimating && ( isLoggedIn && address === "SELECT ADDRESS") ? "translateY(-100%)" : "translateY(0)",
       }}
     >
-      { isLoggedIn ? address : destinations[currentIndex]}
+      { isLoggedIn && !( isLoggedIn && address === "SELECT ADDRESS") ? address : destinations[currentIndex]}
     </span>
 
     {/* NEXT */}
@@ -209,39 +209,40 @@ const MegaDropdown = ({ isOpen }) => {
   if (!isOpen) return null;
 
   const categories = [
-    { label: "Smart Life Gadgets", icon: <Smartphone size={18} className="text-blue-600" />, path: "/category/smart-life-gadgets" },
-    { label: "Home & Kitchen", icon: <ChefHat size={18} className="text-red-600" />, path: "/category/home-and-kitchen" },
-    { label: "Fashion World", icon: <Shirt size={18} className="text-[#F7A221]" />, path: "/category/fashion-world" },
-    { label: "Sports & Fitness", icon: <Dumbbell size={18} className="text-blue-600" />, path: "/category/sports-and-fitness" },
-    { label: "Tours & Travels", icon: <Plane size={18} className="text-[#F7A221]" />, path: "/category/tours-and-travels" },
-    { label: "Stationary", icon: <Book size={18} className="text-red-600" />, path: "/category/stationary" },
-    { label: "Baby Items", icon: <Baby size={18} className="text-blue-600" />, path: "/category/baby-items" },
-    { label: "Car Accessories", icon: <Car size={18} className="text-[#F7A221]" />, path: "/category/car-accessories" },
+    { label: "Smart Life Gadgets", path: "/category/smart-life-gadgets" },
+    { label: "Home & Kitchen", path: "/category/home-and-kitchen" },
+    { label: "Fashion World", path: "/category/fashion-world" },
+    { label: "Sports & Fitness", path: "/category/sports-and-fitness" },
+    { label: "Tours & Travels", path: "/category/tours-and-travels" },
+    { label: "Stationary", path: "/category/stationary" },
+    { label: "Baby Items", path: "/category/baby-items" },
+    { label: "Car Accessories", path: "/category/car-accessories" },
     // { label: "Mix Items Daily use", icon: <Box size={18} className="text-red-600" />, path: "/category/mix-items-daily-use" },
-    { label: "Cleaning & Housekeeping Supplies", icon: <Box size={18} className="text-red-600" />, path: "/category/mix-items-daily-use" },
-    { label: "Gifts", icon: <Gift size={18} className="text-blue-600" />, path: "/category/gifts" }
+    { label: "Cleaning & Housekeeping Supplies", path: "/category/mix-items-daily-use" },
+    { label: "Gifts", path: "/category/gifts" }
   ];
 
   return (
     <div className="absolute top-[100%] left-0 w-full bg-white shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] border-t-2 border-[#F7A221] animate-slideDown z-50 hidden lg:block">
-      <div className="container mx-auto px-4 py-6">
-       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-  {categories.map((category, index) => (
-    <Link
-      key={index}
-      to={category.path}
-      className="flex items-center gap-2 px-2 py-2.5 rounded-xl hover:bg-orange-50 transition-all group border border-transparent hover:border-orange-100"
-    >
-      <div className="p-1.5 bg-white rounded-lg shadow-sm group-hover:scale-110 group-hover:shadow-md group-hover:rotate-3 transition-all duration-300 shrink-0">
-        {category.icon}
-      </div>
-      <span className="font-bold text-black group-hover:text-[#F7A221] transition-colors text-[10px] xl:text-[12px] tracking-tight leading-tight">
-        {category.label}
-      </span>
-    </Link>
-  ))}
+     <div className="container mx-auto px-4 py-4">
+  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+    {categories.map((category, index) => (
+      <Link
+        key={index}
+        to={category.path}
+        className="px-3 py-2 rounded-md 
+                   bg-white text-center
+                   hover:border-black hover:bg-gray-50
+                   active:scale-95
+                   transition-all duration-150"
+      >
+        <span className="text-xs sm:text-sm hover:text-yellow-500 font-semibold text-gray-800 tracking-tight">
+          {category.label}
+        </span>
+      </Link>
+    ))}
+  </div>
 </div>
-      </div>
     </div>
   );
 };
@@ -256,9 +257,6 @@ const NavItemWithDropdown = ({ link }) => {
       onMouseLeave={() => setIsOpen(false)}
     >
       <div className="nav-link flex items-center gap-2 group cursor-pointer">
-        <div className={`transition-all duration-300 ${isOpen ? 'scale-110 rotate-12' : ''}`}>
-          {link.icon}
-        </div>
         <span className="font-bold text-black group-hover:text-black transition-colors">{link.label}</span>
         <ChevronRight size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-90 text-black' : 'text-white/70'}`} />
       </div>
@@ -395,11 +393,6 @@ useEffect(() => {
       path: "/coupons",
       icon: <ImageIcon src={coupanIcon} alt="Coupons" animation="animate-bounce-soft" />
     },
-    {
-      label: "Customer Care",
-      path: "/customer-care",
-      icon: <ImageIcon src={customercareIcon} alt="Customer Care" animation="animate-tilt" />
-    }
   ];
 
   const mobileCategories = [
