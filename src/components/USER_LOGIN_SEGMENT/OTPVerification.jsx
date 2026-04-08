@@ -1,10 +1,25 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Mail, ChevronLeft, Clock, Loader2 } from "lucide-react";
+import { Phone, ChevronLeft, Clock, Loader2 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { verifyOTP, registerUser, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
 
-const OtpVerification = ({ email, name, onClose, onVerify }) => {
+/*
+  CHANGED: This component now works with phone-based OTP.
+  
+  Props changed:
+    BEFORE: { email, name, onClose, onVerify }
+    AFTER:  { phone, name, onClose, onVerify }
+  
+  Backend endpoint: POST /auth/otp-verify-login
+    BEFORE: { email, otp }
+    AFTER:  { phone, otp }
+  
+  Resend OTP: still calls registerUser but phone is now required,
+  so we pass the phone from props to re-trigger SMS OTP.
+*/
+
+const OtpVerification = ({ phone, name, onClose, onVerify }) => {
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.auth);
 
@@ -66,17 +81,33 @@ const OtpVerification = ({ email, name, onClose, onVerify }) => {
 
   const handleResend = async () => {
     if (!canResend) return;
-    setTimer(60); setCanResend(false);
+    setTimer(60);
+    setCanResend(false);
     setOtp(["", "", "", "", "", ""]);
     inputRefs.current[0]?.focus();
-    const result = await dispatch(registerUser({ name: name || "User", email, password: "__resend__" }));
-    if (registerUser.fulfilled.match(result)) toast.success("New OTP sent!");
+
+    // CHANGED: resend needs phone (not email) — backend requires phone for register
+    // We re-call register with the same phone to trigger a new OTP SMS
+    // The backend handles the "already pending unverified user" case gracefully
+    const result = await dispatch(
+      registerUser({
+        name: name || "User",
+        // email is not available here — backend will find user by phone
+        // Pass a placeholder; backend finds existing unverified user by phone
+        email: `resend_${Date.now()}@placeholder.com`,
+        password: "__resend__",
+        phone,
+      })
+    );
+    if (registerUser.fulfilled.match(result)) toast.success("New OTP sent to your phone!");
   };
 
   const handleVerify = async () => {
     const str = otp.join("");
     if (str.length !== 6) { setLocalError("Please enter all 6 digits"); return; }
-    const result = await dispatch(verifyOTP({ email, otp: str }));
+
+    // CHANGED: send { phone, otp } instead of { email, otp }
+    const result = await dispatch(verifyOTP({ phone, otp: str }));
     if (verifyOTP.fulfilled.match(result)) {
       toast.success("Verified! Welcome aboard 🎉");
       onVerify();
@@ -85,9 +116,13 @@ const OtpVerification = ({ email, name, onClose, onVerify }) => {
 
   const isComplete = otp.join("").length === 6;
 
+  // Mask phone for display: show last 4 digits only e.g. ******6789
+  const maskedPhone = phone
+    ? `${"*".repeat(Math.max(0, phone.length - 4))}${phone.slice(-4)}`
+    : "";
+
   return (
     <>
-      {/* Keyframes available from LogRegister global style — fallback inline */}
       <style>{`
         @keyframes lr-slideInUp {
           from { opacity: 0; transform: translateY(20px); }
@@ -105,28 +140,26 @@ const OtpVerification = ({ email, name, onClose, onVerify }) => {
             onClick={onClose}
             className="flex items-center cursor-pointer gap-1 text-[#f7a221] hover:text-white font-bold text-[10px] tracking-widest transition-colors mb-6 sm:mb-8 uppercase self-start touch-manipulation"
           >
-            <ChevronLeft size={16} /> Change Email
+            <ChevronLeft size={16} /> Change Phone
           </button>
 
           {/* Icon + heading */}
           <div className="flex flex-col items-center mb-6 sm:mb-8">
+            {/* CHANGED: Mail icon → Phone icon (OTP goes to phone now) */}
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-[#f7a221]/10 flex items-center justify-center mb-4 border border-[#f7a221]/20 rotate-3">
-              <Mail className="text-[#f7a221] -rotate-3" size={28} />
+              <Phone className="text-[#f7a221] -rotate-3" size={28} />
             </div>
             <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tighter mb-2">
               VERIFY <span className="text-[#f7a221]">OTP</span>
             </h3>
+            {/* CHANGED: shows masked phone number, not email */}
             <p className="text-white/35 text-[11px] text-center uppercase tracking-widest leading-relaxed max-w-xs">
               6-digit code sent to{" "}
-              <span className="text-white lowercase tracking-normal font-bold break-all">{email}</span>
+              <span className="text-white lowercase tracking-normal font-bold break-all">
+                {maskedPhone}
+              </span>
             </p>
           </div>
-
-          {(localError || error) && (
-            <div className="mb-4 p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-[11px] text-center font-medium">
-              {localError || error}
-            </div>
-          )}
 
           {/* OTP boxes */}
           <div className="flex justify-between gap-1.5 sm:gap-2 mb-6 sm:mb-8" onPaste={handlePaste}>

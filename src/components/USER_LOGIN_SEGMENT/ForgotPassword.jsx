@@ -1,53 +1,60 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Mail, Key, ChevronLeft, Loader2, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import { Mail, Phone, Key, ChevronLeft, Loader2, Eye, EyeOff } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import {
-  forgotPassword,
-  resetPassword,
+  forgotPasswordRequestOTP,
+  forgotPasswordVerifyOTP,
+  forgotPasswordReset,
   clearError,
   clearSuccess,
+  clearForgotPasswordState,
 } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
 
 /*
-  RESET PASSWORD FIX
-  ──────────────────
-  The thunk is defined as createAsyncThunk("auth/reset-password", ...)
-  The action creator is named `resetPassword`.
-  resetPassword.fulfilled.match() works correctly as long as the slice
-  has a `extraReducers` case for "auth/reset-password/fulfilled".
+  CHANGED: Forgot password is now a true 3-step flow with backend calls at each step.
 
-  If your slice uses builder.addCase(resetPassword.fulfilled, ...) it
-  will work. If it uses the string "auth/resetPassword/fulfilled" it
-  will NOT match — check your slice and make sure the type string
-  matches "auth/reset-password/fulfilled".
+  OLD flow:
+    Step 1 → POST /auth/forgot-password { email }
+    Step 2 → local state only (no backend call to verify OTP)
+    Step 3 → POST /auth/reset-password { email, otp, newPassword }
 
-  ANIMATION FIX
-  ─────────────
-  Each step gets a unique `key` so React remounts it → lr-slide-right
-  CSS animation fires fresh on every step transition.
-  The @keyframes are defined in LogRegister and available globally.
+  NEW flow:
+    Step 1 → POST /auth/forgot-password/request-otp { identifier }
+             identifier = email OR phone number
+    Step 2 → POST /auth/forgot-password/verify-otp { identifier, otp }
+             REAL backend verification — invalid OTP caught here
+    Step 3 → POST /auth/forgot-password/reset { identifier, otp, newPassword }
+
+  The `identifier` entered in Step 1 is stored in Redux (forgotPasswordIdentifier)
+  and reused automatically in Steps 2 and 3 — user doesn't re-type it.
+
+  The `otp` entered in Step 2 is kept in local state and passed to Step 3.
 */
 
-const STEPS = ["email", "otp", "password"];
+const STEPS = ["identifier", "otp", "password"];
 
 const ForgotPassword = ({ onBack, onLoginClick }) => {
   const dispatch = useDispatch();
-  const { loading, error, successMessage } = useSelector((state) => state.auth);
+  const { loading, error, successMessage, forgotPasswordIdentifier } = useSelector(
+    (state) => state.auth
+  );
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [otpDigits, setOtpDigits] = useState(["", "", "", "", "", ""]);
+  const [verifiedOtp, setVerifiedOtp] = useState(""); // stored after step 2 succeeds
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [localError, setLocalError] = useState("");
-  const [step, setStep] = useState("email");
+  const [step, setStep] = useState("identifier");
   const otpRefs = useRef([]);
 
   useEffect(() => {
     dispatch(clearError());
     dispatch(clearSuccess());
+    // Don't wipe forgotPasswordIdentifier here — may be resuming a flow
   }, [dispatch]);
 
   useEffect(() => {
@@ -71,12 +78,18 @@ const ForgotPassword = ({ onBack, onLoginClick }) => {
     }
   }, [localError]);
 
-  // Auto-focus first OTP box when step changes to otp
   useEffect(() => {
     if (step === "otp") {
       setTimeout(() => otpRefs.current[0]?.focus(), 150);
     }
   }, [step]);
+
+  // Clean up Redux forgot password state when component unmounts
+  useEffect(() => {
+    return () => {
+      dispatch(clearForgotPasswordState());
+    };
+  }, [dispatch]);
 
   // ── OTP box handlers ──────────────────────────────────────────
   const handleOtpChange = (idx, val) => {
@@ -116,41 +129,77 @@ const ForgotPassword = ({ onBack, onLoginClick }) => {
   const otpString = otpDigits.join("");
   // ─────────────────────────────────────────────────────────────
 
-  const handleSendOTP = async (e) => {
+  // Determine display label for the identifier (email vs phone)
+  const isEmailIdentifier = identifier.includes("@");
+  const identifierLabel = isEmailIdentifier ? "email" : "phone";
+
+  // ── STEP 1: Request OTP ───────────────────────────────────────
+  const handleRequestOTP = async (e) => {
     e.preventDefault();
-    const result = await dispatch(forgotPassword({ email }));
-    if (forgotPassword.fulfilled.match(result)) {
-      toast.success("OTP sent! Check your inbox.");
+    const trimmed = identifier.trim();
+    if (!trimmed) { setLocalError("Please enter your email or phone number"); return; }
+
+    const result = await dispatch(forgotPasswordRequestOTP({ identifier: trimmed }));
+
+    if (forgotPasswordRequestOTP.fulfilled.match(result)) {
+      // identifier is now stored in Redux as forgotPasswordIdentifier
       setStep("otp");
     }
+    // Errors shown via toast through the error useEffect
   };
 
-  const handleVerifyOTP = (e) => {
+  // ── STEP 2: Verify OTP with backend ──────────────────────────
+  const handleVerifyOTP = async (e) => {
     e.preventDefault();
     if (otpString.length !== 6) { setLocalError("Enter all 6 digits"); return; }
-    setStep("password");
+
+    // Use identifier from Redux (set in step 1) — single source of truth
+    const activeIdentifier = forgotPasswordIdentifier || identifier.trim();
+
+    // CHANGED: Now makes a real backend call to verify OTP
+    // Old code just did setStep("password") with no server check
+    const result = await dispatch(
+      forgotPasswordVerifyOTP({ identifier: activeIdentifier, otp: otpString })
+    );
+
+    if (forgotPasswordVerifyOTP.fulfilled.match(result)) {
+      // Store OTP locally — needed for step 3 reset call
+      setVerifiedOtp(otpString);
+      setStep("password");
+    }
+    // Invalid OTP / expired → backend returns 400, error shown via toast
   };
 
+  // ── STEP 3: Reset Password ────────────────────────────────────
   const handleResetPassword = async (e) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) { setLocalError("Passwords do not match"); return; }
     if (newPassword.length < 6) { setLocalError("Min 6 characters required"); return; }
 
-    /*
-      We dispatch resetPassword and check the result.
-      resetPassword thunk type = "auth/reset-password"
-      fulfilled action type    = "auth/reset-password/fulfilled"
-    */
-    const result = await dispatch(resetPassword({ email, otp: otpString, newPassword }));
+    const activeIdentifier = forgotPasswordIdentifier || identifier.trim();
 
-    if (resetPassword.fulfilled.match(result)) {
+    const result = await dispatch(
+      forgotPasswordReset({
+        identifier: activeIdentifier,
+        otp: verifiedOtp,
+        newPassword,
+      })
+    );
+
+    if (forgotPasswordReset.fulfilled.match(result)) {
       toast.success("Password reset! You can now login.");
       setTimeout(() => onLoginClick(), 1800);
     }
-    // Errors are handled by the error useEffect above
   };
 
   const stepIndex = STEPS.indexOf(step);
+
+  const handleGoBackToIdentifier = () => {
+    setOtpDigits(["", "", "", "", "", ""]);
+    setVerifiedOtp("");
+    dispatch(clearForgotPasswordState());
+    setStep("identifier");
+  };
 
   return (
     <div className="w-full">
@@ -175,9 +224,7 @@ const ForgotPassword = ({ onBack, onLoginClick }) => {
             key={s}
             className="flex-1 h-1 rounded-full transition-all duration-500"
             style={{
-              background: stepIndex >= i
-                ? "#f7a221"
-                : "rgba(255,255,255,0.08)",
+              background: stepIndex >= i ? "#f7a221" : "rgba(255,255,255,0.08)",
               boxShadow: stepIndex >= i ? "0 0 8px rgba(247,162,33,0.4)" : "none",
             }}
           />
@@ -188,26 +235,43 @@ const ForgotPassword = ({ onBack, onLoginClick }) => {
       <p className="text-center text-[10px] font-black tracking-[0.25em] text-white/30 uppercase mb-6">
         Step {stepIndex + 1} of 3 —{" "}
         <span className="text-[#f7a221]">
-          {step === "email" ? "Enter Email" : step === "otp" ? "Verify OTP" : "New Password"}
+          {step === "identifier"
+            ? "Enter Email or Phone"
+            : step === "otp"
+            ? "Verify OTP"
+            : "New Password"}
         </span>
       </p>
 
-      {/* ── Step: Email ── */}
-      {step === "email" && (
-        <form key="fp-email" onSubmit={handleSendOTP} className="space-y-4 lr-slide-right">
+      {/* ── Step 1: Enter identifier (email OR phone) ── */}
+      {step === "identifier" && (
+        <form key="fp-identifier" onSubmit={handleRequestOTP} className="space-y-4 lr-slide-right">
           <div className="relative">
-            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+            {/* Show email or phone icon based on what user types */}
+            {isEmailIdentifier ? (
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+            ) : (
+              <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+            )}
+            {/*
+              CHANGED: was type="email", now type="text"
+              Because backend accepts EITHER email or phone number as identifier.
+              Backend determines which it received server-side.
+            */}
             <input
-              type="email"
-              placeholder="Your email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              placeholder="Email address or Phone number"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               autoComplete="email"
               className="w-full bg-white/[0.04] border border-white/10 rounded-2xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all text-sm"
               style={{ fontSize: "16px" }}
               required
             />
           </div>
+          <p className="text-white/25 text-[10px] tracking-wide pl-1">
+            We'll send a reset OTP to your {identifier.includes("@") ? "email inbox" : "phone via SMS"}
+          </p>
           <button
             type="submit"
             disabled={loading}
@@ -218,14 +282,16 @@ const ForgotPassword = ({ onBack, onLoginClick }) => {
         </form>
       )}
 
-      {/* ── Step: OTP (6 boxes, same as OTPVerification) ── */}
+      {/* ── Step 2: Enter and VERIFY OTP (real backend call) ── */}
       {step === "otp" && (
         <form key="fp-otp" onSubmit={handleVerifyOTP} className="lr-slide-right">
           <p className="text-center text-white/40 text-[11px] mb-5">
-            Sent to <span className="text-white font-bold break-all">{email}</span>
+            OTP sent to{" "}
+            <span className="text-white font-bold break-all">
+              {forgotPasswordIdentifier || identifier}
+            </span>
           </p>
 
-          {/* 6-digit boxes */}
           <div className="flex justify-between gap-1.5 sm:gap-2 mb-5" onPaste={handleOtpPaste}>
             {otpDigits.map((digit, idx) => (
               <input
@@ -247,22 +313,23 @@ const ForgotPassword = ({ onBack, onLoginClick }) => {
 
           <button
             type="submit"
-            disabled={otpString.length !== 6}
-            className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-40 text-black font-black py-4 rounded-2xl transition-all text-sm uppercase shadow-[0_8px_20px_rgba(247,162,33,0.25)] cursor-pointer touch-manipulation"
+            disabled={otpString.length !== 6 || loading}
+            className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-40 text-black font-black py-4 rounded-2xl transition-all flex items-center justify-center gap-2 text-sm uppercase shadow-[0_8px_20px_rgba(247,162,33,0.25)] cursor-pointer touch-manipulation"
           >
-            VERIFY OTP
+            {loading ? <Loader2 className="animate-spin" size={18} /> : "VERIFY OTP"}
           </button>
+
           <button
             type="button"
-            onClick={() => { setOtpDigits(["","","","","",""]); setStep("email"); }}
+            onClick={handleGoBackToIdentifier}
             className="w-full text-white/30 hover:text-white text-[10px] font-black tracking-widest uppercase transition-colors mt-3 py-2 touch-manipulation cursor-pointer"
           >
-            Change email
+            Change {identifierLabel}
           </button>
         </form>
       )}
 
-      {/* ── Step: New Password ── */}
+      {/* ── Step 3: Set New Password ── */}
       {step === "password" && (
         <form key="fp-password" onSubmit={handleResetPassword} className="space-y-3.5 lr-slide-right">
           <div className="relative">
@@ -311,7 +378,6 @@ const ForgotPassword = ({ onBack, onLoginClick }) => {
             </button>
           </div>
 
-          {/* Password match indicator */}
           {confirmPassword.length > 0 && (
             <p className={`text-[10px] font-bold tracking-wide pl-1 ${newPassword === confirmPassword ? "text-green-400" : "text-red-400"}`}>
               {newPassword === confirmPassword ? "✓ Passwords match" : "✗ Passwords do not match"}
@@ -328,7 +394,6 @@ const ForgotPassword = ({ onBack, onLoginClick }) => {
         </form>
       )}
 
-      {/* Bottom link */}
       <div className="mt-7 text-center border-t border-white/5 pt-5">
         <span className="text-white/25 text-[11px] font-bold tracking-widest uppercase">Remembered it? </span>
         <button

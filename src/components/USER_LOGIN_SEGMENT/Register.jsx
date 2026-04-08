@@ -1,30 +1,20 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Phone, Mail, User, ArrowRight, Lock, ChevronLeft } from "lucide-react";
+import { Phone, Mail, User, Lock } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { registerUser, googleLogin, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
+import { registerUser, googleLogin } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
 import { GoogleIcon } from "./Login";
-
-/*
-  SUB-VIEW SLIDE ANIMATION
-  ─────────────────────────
-  Each sub-view (default → email form → phone form) gets a unique `key`.
-  When the key changes React unmounts the old element and mounts the new
-  one, triggering the CSS animation class fresh every time.
-  No Tailwind plugin needed — we rely on the @keyframes injected in LogRegister.
-*/
 
 const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
   const dispatch = useDispatch();
-  const { loading, error, pendingEmail } = useSelector((state) => state.auth);
+  const { loading, error, pendingPhone } = useSelector((state) => state.auth);
+  // CHANGED: pendingEmail → pendingPhone (OTP is now sent to phone)
   const googleBtnRef = useRef(null);
 
-  // "default" | "email" | "phone"
-  const [view, setView] = useState("default");
-
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  // CHANGED: phone is now REQUIRED by backend (10-digit validation server-side)
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
 
   useEffect(() => {
@@ -57,7 +47,8 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
         },
       });
       window.google.accounts.id.renderButton(googleBtnRef.current, {
-        theme: "outline", size: "large",
+        theme: "outline",
+        size: "large",
       });
     };
     if (!window.google) {
@@ -66,49 +57,47 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
       s.async = true;
       s.onload = init;
       document.body.appendChild(s);
-    } else { init(); }
+    } else {
+      init();
+    }
   }, [dispatch, onRegisterSuccess]);
 
-  const handleEmailSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Client-side phone validation to match backend's /^[0-9]{10}$/ rule
+    // Give a clear error before even hitting the server
+    const cleanPhone = phone.trim();
+    if (!/^[0-9]{10}$/.test(cleanPhone)) {
+      toast.error("Phone number must be exactly 10 digits");
+      return;
+    }
+
     try {
       const result = await dispatch(
-        registerUser({ name, email, password, phone: phone || undefined })
+        registerUser({ name, email, password, phone: cleanPhone })
       ).unwrap();
+
       if (result) {
-        toast.success("OTP Dispatched!");
-        onShowOtp(pendingEmail || email, name);
+        toast.success("OTP sent to your phone!");
+        // CHANGED: pass phone (not email) to OTP modal
+        // Backend sends OTP to phone, so OtpVerification needs phone
+        // pendingPhone from Redux is the source of truth; fall back to local state
+        onShowOtp(pendingPhone || cleanPhone, name);
       }
-    } catch (_) {}
+    } catch (_) {
+      // Error handled by the useEffect above via Redux state
+    }
   };
 
-  const goBack = () => {
-    setView("default");
-    dispatch(clearError());
-  };
-
-  const goEmail = () => setView("email");
-  const goPhone = () => setView("phone");
-
-  // Header is always the same — only the body animates
   return (
     <div className="w-full">
       <div ref={googleBtnRef} style={{ display: "none" }} />
 
-      {/* Back button — only when in sub-view */}
-      {view !== "default" && (
-        <button
-          onClick={goBack}
-          className="flex items-center gap-1 text-[#f7a221] hover:text-white font-bold text-[11px] tracking-widest transition-colors mb-4 cursor-pointer touch-manipulation lr-slide-left"
-        >
-          <ChevronLeft size={16} /> BACK
-        </button>
-      )}
-
-      <h2 className="text-3xl sm:text-4xl text-center font-black text-white mb-1 tracking-tighter">
+      <h2 className="text-3xl sm:text-4xl text-center font- text-white mb-1 tracking-tighter">
         JOIN THE <span className="text-[#f7a221]">CLUB</span>
       </h2>
-      <p className="text-white/40 text-center text-[10px] tracking-widest uppercase mb-5">
+      <p className="text-gray-200 text-center text-[10px] tracking-widest uppercase mb-5">
         Exclusive deals await
       </p>
 
@@ -118,63 +107,25 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
         </div>
       )}
 
-      {/* ── Default view — slide in from left when returning ── */}
-      {view === "default" && (
-        <div key="reg-default" className="lr-slide-up">
-          <button
-            onClick={handleGoogleClick}
-            className="w-full bg-white hover:bg-gray-50 active:bg-gray-100 text-black cursor-pointer font-bold py-3.5 px-4 rounded-2xl transition-all flex items-center justify-center gap-3 mb-3 shadow-md active:scale-[0.98] touch-manipulation select-none"
-          >
-            <GoogleIcon />
-            <span className="text-sm">Sign up with Google</span>
-          </button>
-
-          <div className="relative my-5">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/5" />
-            </div>
-            <div className="relative flex justify-center text-[9px] uppercase tracking-[0.3em] font-bold">
-              <span className="px-4 bg-[#0d0d0d] text-white/25">OR REGISTER WITH</span>
-            </div>
-          </div>
-
-          <button
-            onClick={goEmail}
-            className="w-full bg-white/5 hover:bg-white/10 active:bg-white/15 border border-white/10 text-white cursor-pointer font-medium py-4 px-4 rounded-2xl flex items-center gap-3 mb-3 text-sm transition-all group active:scale-[0.98] touch-manipulation select-none"
-          >
-            <Mail size={17} className="text-[#f7a221] shrink-0" />
-            <span>Email Address</span>
-            <ArrowRight size={16} className="ml-auto text-white/20 group-hover:translate-x-1 group-hover:text-[#f7a221] transition-all" />
-          </button>
-
-          <button
-            onClick={goPhone}
-            className="w-full bg-white/5 hover:bg-white/10 active:bg-white/15 border border-white/10 text-white cursor-pointer font-medium py-4 px-4 rounded-2xl flex items-center gap-3 text-sm transition-all group active:scale-[0.98] touch-manipulation select-none"
-          >
-            <Phone size={17} className="text-[#f7a221] shrink-0" />
-            <span>Phone Number</span>
-            <ArrowRight size={16} className="ml-auto text-white/20 group-hover:translate-x-1 group-hover:text-[#f7a221] transition-all" />
-          </button>
-
-          <p className="text-center text-white/25 text-[11px] mt-5 tracking-wide">
-            Already a member?{" "}
-            <button
-              onClick={onLoginClick}
-              className="text-[#f7a221] font-bold hover:underline cursor-pointer touch-manipulation"
-            >
-              Login here
-            </button>
-          </p>
-        </div>
-      )}
-
-      {/* ── Email form — slides in from right ── */}
-      {view === "email" && (
-        <form
-          key="reg-email"
-          onSubmit={handleEmailSubmit}
-          className="space-y-3.5 lr-slide-right"
+      <div className="lr-slide-up">
+        <button
+          onClick={handleGoogleClick}
+          className="w-full bg-white hover:bg-gray-50 active:bg-gray-100 text-black cursor-pointer font-bold py-3.5 px-4 rounded-2xl transition-all flex items-center justify-center gap-3 mb-3 shadow-md active:scale-[0.98] touch-manipulation select-none"
         >
+          <GoogleIcon />
+          <span className="text-sm">Sign up with Google</span>
+        </button>
+
+        <div className="relative my-5">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-white/25" />
+          </div>
+          <div className="relative flex justify-center text-[9px] uppercase tracking-[0.3em] font-">
+            <span className="px-4 bg-[#0d0d0d] text-gray-200">OR REGISTER WITH DETAILS</span>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           <div className="relative">
             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
             <input
@@ -188,6 +139,7 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
               required
             />
           </div>
+
           <div className="relative">
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
             <input
@@ -201,6 +153,32 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
               required
             />
           </div>
+
+          {/*
+            CHANGED: phone is now REQUIRED (was optional before).
+            Backend validates: /^[0-9]{10}$/ — exactly 10 digits, no spaces or dashes.
+            OTP will be sent to this phone number via SMS.
+          */}
+          <div className="relative">
+            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+            <input
+              type="tel"
+              placeholder="Phone Number (10 digits)"
+              value={phone}
+              onChange={(e) => {
+                // Only allow digits, max 10
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                setPhone(digits);
+              }}
+              autoComplete="tel"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+              style={{ fontSize: "16px" }}
+              required
+              minLength={10}
+              maxLength={10}
+            />
+          </div>
+
           <div className="relative">
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
             <input
@@ -215,62 +193,305 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
               minLength="6"
             />
           </div>
+
           <button
             type="submit"
             disabled={loading}
             className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-50 text-black font-black py-4 rounded-xl cursor-pointer transition-all shadow-[0_8px_20px_rgba(247,162,33,0.25)] text-sm uppercase touch-manipulation select-none"
           >
-            {loading ? "SENDING OTP..." : "GET STARTED"}
+            {loading ? "SENDING OTP..." : "REGISTER"}
           </button>
         </form>
-      )}
 
-      {/* ── Phone form — slides in from right ── */}
-      {view === "phone" && (
-        <form
-          key="reg-phone"
-          onSubmit={(e) => { e.preventDefault(); toast.info("Phone registration coming soon!"); }}
-          className="space-y-3.5 lr-slide-right"
-        >
-          <div className="relative">
-            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
-            <input
-              type="text"
-              placeholder="Full Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoComplete="name"
-              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
-              style={{ fontSize: "16px" }}
-              required
-            />
-          </div>
-          <div className="relative">
-            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
-            <input
-              type="tel"
-              placeholder="Phone Number"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              autoComplete="tel"
-              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
-              style={{ fontSize: "16px" }}
-              required
-            />
-          </div>
+        <p className="text-center text-gray-200 text-[11px] mt-5 tracking-wide">
+          Already a member?{" "}
           <button
-            type="submit"
-            className="w-full cursor-pointer bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] text-black font-black py-4 rounded-xl transition-all shadow-[0_8px_20px_rgba(247,162,33,0.25)] text-sm uppercase touch-manipulation"
+            onClick={onLoginClick}
+            className="text-[#f7a221] text-[15px] font- hover:underline cursor-pointer touch-manipulation"
           >
-            SEND OTP
+            Login here
           </button>
-        </form>
-      )}
+        </p>
+      </div>
     </div>
   );
 };
 
 export default Register;
+// need to change the ui name email phone pass 
+// import React, { useState, useEffect, useRef } from "react";
+// import { Phone, Mail, User, ArrowRight, Lock, ChevronLeft } from "lucide-react";
+// import { useDispatch, useSelector } from "react-redux";
+// import { toast } from "react-toastify";
+// import { registerUser, googleLogin, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
+// import { GoogleIcon } from "./Login";
+
+// /*
+//   SUB-VIEW SLIDE ANIMATION
+//   ─────────────────────────
+//   Each sub-view (default → email form → phone form) gets a unique `key`.
+//   When the key changes React unmounts the old element and mounts the new
+//   one, triggering the CSS animation class fresh every time.
+//   No Tailwind plugin needed — we rely on the @keyframes injected in LogRegister.
+// */
+
+// const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
+//   const dispatch = useDispatch();
+//   const { loading, error, pendingEmail } = useSelector((state) => state.auth);
+//   const googleBtnRef = useRef(null);
+
+//   // "default" | "email" | "phone"
+//   const [view, setView] = useState("default");
+
+//   const [name, setName] = useState("");
+//   const [phone, setPhone] = useState("");
+//   const [email, setEmail] = useState("");
+//   const [password, setPassword] = useState("");
+
+//   useEffect(() => {
+//     if (error) toast.error(error);
+//   }, [error]);
+
+//   const handleGoogleClick = () => {
+//     if (googleBtnRef.current) {
+//       const el = googleBtnRef.current.querySelector('div[role="button"]');
+//       if (el) el.click();
+//       else {
+//         const iframe = googleBtnRef.current.querySelector("iframe");
+//         if (iframe) iframe.click();
+//       }
+//     }
+//   };
+
+//   useEffect(() => {
+//     const init = () => {
+//       if (!window.google) return;
+//       window.google.accounts.id.initialize({
+//         client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "demo-client-id",
+//         use_fedcm_for_prompt: true,
+//         callback: async (response) => {
+//           const result = await dispatch(googleLogin({ idToken: response.credential }));
+//           if (googleLogin.fulfilled.match(result)) {
+//             toast.success("Welcome to the Club!");
+//             onRegisterSuccess();
+//           }
+//         },
+//       });
+//       window.google.accounts.id.renderButton(googleBtnRef.current, {
+//         theme: "outline", size: "large",
+//       });
+//     };
+//     if (!window.google) {
+//       const s = document.createElement("script");
+//       s.src = "https://accounts.google.com/gsi/client";
+//       s.async = true;
+//       s.onload = init;
+//       document.body.appendChild(s);
+//     } else { init(); }
+//   }, [dispatch, onRegisterSuccess]);
+
+//   const handleEmailSubmit = async (e) => {
+//     e.preventDefault();
+//     try {
+//       const result = await dispatch(
+//         registerUser({ name, email, password, phone: phone || undefined })
+//       ).unwrap();
+//       if (result) {
+//         toast.success("OTP Dispatched!");
+//         onShowOtp(pendingEmail || email, name);
+//       }
+//     } catch (_) {}
+//   };
+
+//   const goBack = () => {
+//     setView("default");
+//     dispatch(clearError());
+//   };
+
+//   const goEmail = () => setView("email");
+//   const goPhone = () => setView("phone");
+
+//   // Header is always the same — only the body animates
+//   return (
+//     <div className="w-full">
+//       <div ref={googleBtnRef} style={{ display: "none" }} />
+
+//       {/* Back button — only when in sub-view */}
+//       {view !== "default" && (
+//         <button
+//           onClick={goBack}
+//           className="flex items-center gap-1 text-[#f7a221] hover:text-white font-bold text-[11px] tracking-widest transition-colors mb-4 cursor-pointer touch-manipulation lr-slide-left"
+//         >
+//           <ChevronLeft size={16} /> BACK
+//         </button>
+//       )}
+
+//       <h2 className="text-3xl sm:text-4xl text-center font-black text-white mb-1 tracking-tighter">
+//         JOIN THE <span className="text-[#f7a221]">CLUB</span>
+//       </h2>
+//       <p className="text-white/40 text-center text-[10px] tracking-widest uppercase mb-5">
+//         Exclusive deals await
+//       </p>
+
+//       {error && (
+//         <div className="mb-4 p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-[11px] text-center font-medium">
+//           {error}
+//         </div>
+//       )}
+
+//       {/* ── Default view — slide in from left when returning ── */}
+//       {view === "default" && (
+//         <div key="reg-default" className="lr-slide-up">
+//           <button
+//             onClick={handleGoogleClick}
+//             className="w-full bg-white hover:bg-gray-50 active:bg-gray-100 text-black cursor-pointer font-bold py-3.5 px-4 rounded-2xl transition-all flex items-center justify-center gap-3 mb-3 shadow-md active:scale-[0.98] touch-manipulation select-none"
+//           >
+//             <GoogleIcon />
+//             <span className="text-sm">Sign up with Google</span>
+//           </button>
+
+//           <div className="relative my-5">
+//             <div className="absolute inset-0 flex items-center">
+//               <div className="w-full border-t border-white/5" />
+//             </div>
+//             <div className="relative flex justify-center text-[9px] uppercase tracking-[0.3em] font-bold">
+//               <span className="px-4 bg-[#0d0d0d] text-white/25">OR REGISTER WITH</span>
+//             </div>
+//           </div>
+
+//           <button
+//             onClick={goEmail}
+//             className="w-full bg-white/5 hover:bg-white/10 active:bg-white/15 border border-white/10 text-white cursor-pointer font-medium py-4 px-4 rounded-2xl flex items-center gap-3 mb-3 text-sm transition-all group active:scale-[0.98] touch-manipulation select-none"
+//           >
+//             <Mail size={17} className="text-[#f7a221] shrink-0" />
+//             <span>Email Address</span>
+//             <ArrowRight size={16} className="ml-auto text-white/20 group-hover:translate-x-1 group-hover:text-[#f7a221] transition-all" />
+//           </button>
+
+//           <button
+//             onClick={goPhone}
+//             className="w-full bg-white/5 hover:bg-white/10 active:bg-white/15 border border-white/10 text-white cursor-pointer font-medium py-4 px-4 rounded-2xl flex items-center gap-3 text-sm transition-all group active:scale-[0.98] touch-manipulation select-none"
+//           >
+//             <Phone size={17} className="text-[#f7a221] shrink-0" />
+//             <span>Phone Number</span>
+//             <ArrowRight size={16} className="ml-auto text-white/20 group-hover:translate-x-1 group-hover:text-[#f7a221] transition-all" />
+//           </button>
+
+//           <p className="text-center text-white/25 text-[11px] mt-5 tracking-wide">
+//             Already a member?{" "}
+//             <button
+//               onClick={onLoginClick}
+//               className="text-[#f7a221] font-bold hover:underline cursor-pointer touch-manipulation"
+//             >
+//               Login here
+//             </button>
+//           </p>
+//         </div>
+//       )}
+
+//       {/* ── Email form — slides in from right ── */}
+//       {view === "email" && (
+//         <form
+//           key="reg-email"
+//           onSubmit={handleEmailSubmit}
+//           className="space-y-3.5 lr-slide-right"
+//         >
+//           <div className="relative">
+//             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+//             <input
+//               type="text"
+//               placeholder="Full Name"
+//               value={name}
+//               onChange={(e) => setName(e.target.value)}
+//               autoComplete="name"
+//               className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+//               style={{ fontSize: "16px" }}
+//               required
+//             />
+//           </div>
+//           <div className="relative">
+//             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+//             <input
+//               type="email"
+//               placeholder="Email Address"
+//               value={email}
+//               onChange={(e) => setEmail(e.target.value)}
+//               autoComplete="email"
+//               className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+//               style={{ fontSize: "16px" }}
+//               required
+//             />
+//           </div>
+//           <div className="relative">
+//             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+//             <input
+//               type="password"
+//               placeholder="Password (min 6 chars)"
+//               value={password}
+//               onChange={(e) => setPassword(e.target.value)}
+//               autoComplete="new-password"
+//               className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+//               style={{ fontSize: "16px" }}
+//               required
+//               minLength="6"
+//             />
+//           </div>
+//           <button
+//             type="submit"
+//             disabled={loading}
+//             className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-50 text-black font-black py-4 rounded-xl cursor-pointer transition-all shadow-[0_8px_20px_rgba(247,162,33,0.25)] text-sm uppercase touch-manipulation select-none"
+//           >
+//             {loading ? "SENDING OTP..." : "GET STARTED"}
+//           </button>
+//         </form>
+//       )}
+
+//       {/* ── Phone form — slides in from right ── */}
+//       {view === "phone" && (
+//         <form
+//           key="reg-phone"
+//           onSubmit={(e) => { e.preventDefault(); toast.info("Phone registration coming soon!"); }}
+//           className="space-y-3.5 lr-slide-right"
+//         >
+//           <div className="relative">
+//             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+//             <input
+//               type="text"
+//               placeholder="Full Name"
+//               value={name}
+//               onChange={(e) => setName(e.target.value)}
+//               autoComplete="name"
+//               className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+//               style={{ fontSize: "16px" }}
+//               required
+//             />
+//           </div>
+//           <div className="relative">
+//             <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+//             <input
+//               type="tel"
+//               placeholder="Phone Number"
+//               value={phone}
+//               onChange={(e) => setPhone(e.target.value)}
+//               autoComplete="tel"
+//               className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+//               style={{ fontSize: "16px" }}
+//               required
+//             />
+//           </div>
+//           <button
+//             type="submit"
+//             className="w-full cursor-pointer bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] text-black font-black py-4 rounded-xl transition-all shadow-[0_8px_20px_rgba(247,162,33,0.25)] text-sm uppercase touch-manipulation"
+//           >
+//             SEND OTP
+//           </button>
+//         </form>
+//       )}
+//     </div>
+//   );
+// };
+
+// export default Register;
 
 // import React, { useState, useEffect, useRef } from "react";
 // import { Phone, Mail, User, ArrowRight, Lock, ChevronLeft } from "lucide-react";

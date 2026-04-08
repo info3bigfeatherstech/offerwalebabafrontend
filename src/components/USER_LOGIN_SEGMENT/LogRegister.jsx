@@ -8,17 +8,16 @@ import { useDispatch } from "react-redux";
 import { clearError, clearSuccess } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
 
 /*
-  WHY ANIMATIONS FLICKERED BEFORE
-  ─────────────────────────────────
-  Tailwind's `animate-in slide-in-from-*` uses @keyframes that only fire
-  when an element MOUNTS. Because both Login & Register panels are always
-  in the DOM (inside the translateX slider), they never remount on tab
-  switch — so the animation never re-fires, producing a flicker/jump.
+  CHANGED: OTP flow is now phone-based.
 
-  FIX: Global @keyframes injected via <style> tag.
-  Sub-views (email form, phone form, forgot-password) get a React `key`
-  prop that changes on each view transition → React unmounts+remounts the
-  element → CSS animation fires fresh every time.
+  handleShowOtp previously received (email, name):
+    onShowOtp={handleShowOtp} called with (pendingEmail || email, name)
+
+  Now receives (phone, name):
+    onShowOtp={handleShowOtp} called with (pendingPhone || phone, name)
+
+  OtpVerification receives `phone` prop instead of `email` prop.
+  The component sends { phone, otp } to backend to verify.
 */
 
 const INTERACTIVE_TAGS = ["INPUT", "TEXTAREA", "BUTTON", "SELECT", "A", "LABEL"];
@@ -37,7 +36,9 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
   const [activeTab, setActiveTab] = useState("login");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showOtpModal, setShowOtpModal] = useState(false);
-  const [otpEmail, setOtpEmail] = useState("");
+
+  // CHANGED: otpEmail → otpPhone (OTP is now phone-based)
+  const [otpPhone, setOtpPhone] = useState("");
   const [otpName, setOtpName] = useState("");
 
   // ── Swipe tracking ───────────────────────────────────────────
@@ -46,9 +47,7 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
   const swipeEnabled = useRef(false);
 
   const handleTouchStart = useCallback((e) => {
-    // Ignore if forgot-password is open (no swipe there)
     if (showForgotPassword) { swipeEnabled.current = false; return; }
-    // Ignore if user touched an interactive element
     if (isInteractive(e.target)) { swipeEnabled.current = false; return; }
     swipeEnabled.current = true;
     touchStartX.current = e.touches[0].clientX;
@@ -59,7 +58,6 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
     if (!swipeEnabled.current || touchStartX.current === null) return;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = e.changedTouches[0].clientY - touchStartY.current;
-    // Require 50px+ and horizontal dominance
     if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       if (dx < 0 && activeTab === "login") handleTabChange("register");
       if (dx > 0 && activeTab === "register") handleTabChange("login");
@@ -96,15 +94,17 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
     setShowForgotPassword(false);
   };
 
-  const handleShowOtp = (email, name) => {
-    setOtpEmail(email);
+  // CHANGED: now receives (phone, name) — not (email, name)
+  // Register.jsx calls onShowOtp(pendingPhone || cleanPhone, name)
+  const handleShowOtp = (phone, name) => {
+    setOtpPhone(phone);
     setOtpName(name);
     setShowOtpModal(true);
   };
 
   const handleOtpClose = () => {
     setShowOtpModal(false);
-    setOtpEmail("");
+    setOtpPhone("");
     setOtpName("");
   };
 
@@ -232,7 +232,6 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
                 </div>
               </>
             ) : (
-              /* ForgotPassword — key forces remount → animation fires fresh */
               <div key="forgot-view" className="p-5 sm:p-8 lr-slide-right">
                 <ForgotPassword
                   onBack={handleBackFromForgot}
@@ -247,10 +246,10 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
         </div>
       </div>
 
-      {/* OTP at root — always above the slider */}
+      {/* OTP modal — rendered at root level, always above slider */}
       {showOtpModal && (
         <OtpVerification
-          email={otpEmail}
+          phone={otpPhone}   // CHANGED: was email={otpEmail}
           name={otpName}
           onClose={handleOtpClose}
           onVerify={handleOtpVerify}

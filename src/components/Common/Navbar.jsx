@@ -209,6 +209,7 @@ const MegaDropdown = ({ isOpen }) => {
   if (!isOpen) return null;
 
   const categories = [
+<<<<<<< HEAD
     { label: "Smart Life Gadgets", path: "/category/smart-life-gadgets" },
     { label: "Home & Kitchen", path: "/category/home-and-kitchen" },
     { label: "Fashion World", path: "/category/fashion-world" },
@@ -220,6 +221,19 @@ const MegaDropdown = ({ isOpen }) => {
     // { label: "Mix Items Daily use", icon: <Box size={18} className="text-red-600" />, path: "/category/mix-items-daily-use" },
     { label: "Cleaning & Housekeeping Supplies", path: "/category/mix-items-daily-use" },
     { label: "Gifts", path: "/category/gifts" }
+=======
+    { label: "Smart Life Gadgets", icon: <Smartphone size={18} className="text-blue-600" />, path: "/category/smart-life" },
+    { label: "Home & Kitchen", icon: <ChefHat size={18} className="text-red-600" />, path: "/category/home-kitchen" },
+    { label: "Fashion World", icon: <Shirt size={18} className="text-[#F7A221]" />, path: "/category/fashion" },
+    { label: "Sports & Fitness", icon: <Dumbbell size={18} className="text-blue-600" />, path: "/category/sports-fitness" },
+    { label: "Tours & Travels", icon: <Plane size={18} className="text-[#F7A221]" />, path: "/category/travel" },
+    { label: "Stationary", icon: <Book size={18} className="text-red-600" />, path: "/category/stationary" },
+    { label: "Baby Items", icon: <Baby size={18} className="text-blue-600" />, path: "/category/baby-items" },
+    { label: "Car Accessories", icon: <Car size={18} className="text-[#F7A221]" />, path: "/category/car-accessories" },
+    // { label: "Mix Items Daily use", icon: <Box size={18} className="text-red-600" />, path: "/category/daily-use" },
+    { label: " Cleaning & Housekeeping Supplies", icon: <Box size={18} className="text-red-600" />, path: "/category/daily-use" },
+    { label: "Gifts", icon: <Gift size={18} className="text-blue-600" />, path: "/category/gifts" }
+>>>>>>> 9cd4ec0755b22d2b9e5005ad42230068cf8c997c
   ];
 
   return (
