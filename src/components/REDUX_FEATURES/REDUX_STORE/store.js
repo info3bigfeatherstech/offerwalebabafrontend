@@ -7,6 +7,8 @@ import adminEditProductReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/
 import categoriesReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/categoriesSlice";
 import adminBulkUploadReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/bulkUploadSlice";
 import { userAnalyticsApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/userAnalyticsApi";
+import { adminAuthApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminAuthApi";
+import { seoAnalyticsApi, seoUiReducer } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminSeoAnalytics";
 
 // USER REDUCER 
 import userProductsReducer from "../REDUX_SLICES/userProductsSlice";
@@ -25,7 +27,10 @@ const store = configureStore({
     adminArchived: adminArchivedReducer,
     categories: categoriesReducer,
     adminBulkUpload: adminBulkUploadReducer,
+    [adminAuthApi.reducerPath]: adminAuthApi.reducer,
     [userAnalyticsApi.reducerPath]: userAnalyticsApi.reducer,
+   [seoAnalyticsApi.reducerPath]: seoAnalyticsApi.reducer,
+    seoUi: seoUiReducer,
 
 
 
@@ -39,7 +44,7 @@ const store = configureStore({
 
   },
   middleware: (getDefaultMiddleware) =>
-   getDefaultMiddleware().concat(searchApi.middleware,userAnalyticsApi.middleware),
+   getDefaultMiddleware().concat(searchApi.middleware,userAnalyticsApi.middleware,adminAuthApi.middleware,seoAnalyticsApi.middleware),
   devTools: import.meta.env.MODE !== "production", // Redux DevTools only in dev
 });
 

@@ -14,7 +14,7 @@ export const ROLES = {
 };
 
 export const ROLE_PERMISSIONS = {
-  [ROLES.ADMIN]:             ["products", "analytics", "archived", "customers","demo", "orders"],
+  [ROLES.ADMIN]:             ["products", "analytics", "archived", "seoanalysis","customers","staff","demo", "orders","support"],
   [ROLES.LISTING_MANAGER]:   ["products", "archived"],
   [ROLES.ORDER_MANAGER]:     ["orders"],
   [ROLES.MARKETING_MANAGER]: ["analytics"],

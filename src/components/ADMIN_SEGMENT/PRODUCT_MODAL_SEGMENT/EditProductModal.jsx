@@ -27,7 +27,12 @@ const getDiscountPercentage = (base, sale) => {
 const normaliseVariants = (variants = []) =>
   variants.map((v, vIdx) => ({
     ...v,
-    price:  { base: v.price?.base ?? "", sale: v.price?.sale ?? "" },
+    price:  { 
+      base: v.price?.base ?? "", 
+      sale: v.price?.sale ?? "",
+      wholesaleBase: v.price?.wholesaleBase ?? "",
+      wholesaleSale: v.price?.wholesaleSale ?? ""
+    },
     images: (v.images || [])
       .slice()
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
@@ -37,30 +42,46 @@ const normaliseVariants = (variants = []) =>
         isMain: iIdx === 0,
       })),
     isActive: v.isActive !== false,
+    wholesale: v.wholesale || false,
+    wholesaleBase: v.price?.wholesaleBase || "",
+    wholesaleSale: v.price?.wholesaleSale || "",
+    minimumOrderQuantity: v.minimumOrderQuantity || 1,
   }));
 
-const toFormData = (product) => ({
-  name:        product.name        || "",
-  title:       product.title       || "",
-  description: product.description || "",
-  brand:       product.brand       || "Generic",
-  category:
-    typeof product.category === "object" && product.category !== null
-      ? product.category._id
-      : product.category || "",
-  shipping:   product.shipping || { weight: 0, dimensions: { length: "", width: "", height: "" } },
-  soldInfo:   product.soldInfo || { enabled: false, count: 0 },
-  fomo:       product.fomo    || { enabled: false, type: "viewing_now", viewingNow: 0, productLeft: 0, customMessage: "" },
-  images:     (product.images || []).map((img, i) => ({
-    ...img,
-    id:     img._id || img.publicId || img.url || `main-img-${i}`,
-    isMain: img.isMain || i === 0,
-  })),
-  attributes: product.attributes || [],
-  variants:   normaliseVariants(product.variants || []),
-  isFeatured: product.isFeatured || false,
-  status:     product.status     || "draft",
-});
+const toFormData = (product) => {
+  const mainVariant = product.variants?.[0] || {};
+  return {
+    name:        product.name        || "",
+    title:       product.title       || "",
+    description: product.description || "",
+    brand:       product.brand       || "Generic",
+    category:
+      typeof product.category === "object" && product.category !== null
+        ? product.category._id
+        : product.category || "",
+         hsnCode: product.hsnCode || "",
+    taxRate: product.taxRate || "",
+    isFragile: product.isFragile || false,
+    shipping:   {
+      ...(product.shipping || { weight: 0, dimensions: { length: "", width: "", height: "" } }),
+    },
+    soldInfo:   product.soldInfo || { enabled: false, count: 0 },
+    fomo:       product.fomo    || { enabled: false, type: "viewing_now", viewingNow: 0, productLeft: 0, customMessage: "" },
+    images:     (product.images || []).map((img, i) => ({
+      ...img,
+      id:     img._id || img.publicId || img.url || `main-img-${i}`,
+      isMain: img.isMain || i === 0,
+    })),
+    attributes: product.attributes || [],
+    variants:   normaliseVariants(product.variants || []),
+    isFeatured: product.isFeatured || false,
+    status:     product.status     || "draft",
+    wholesale: mainVariant.wholesale || false,
+    wholesaleBase: mainVariant.price?.wholesaleBase || "",
+    wholesaleSale: mainVariant.price?.wholesaleSale || "",
+    minimumOrderQuantity: mainVariant.minimumOrderQuantity || 1,
+  };
+};
 
 // brands + setBrands come from ProductsTab
 const EditProductModal = ({ product, onClose, brands, setBrands }) => {
@@ -99,7 +120,12 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
       attributes: v.attributes?.length > 0
         ? v.attributes.map((a) => ({ key: a.key || "", value: a.value || "" }))
         : [{ key: "", value: "" }],
-      price:     { base: v.price?.base ?? "", sale: v.price?.sale ?? "" },
+      price:     { 
+        base: v.price?.base ?? "", 
+        sale: v.price?.sale ?? "",
+        wholesaleBase: v.price?.wholesaleBase ?? "",
+        wholesaleSale: v.price?.wholesaleSale ?? ""
+      },
       inventory: {
         quantity:          v.inventory?.quantity          ?? 0,
         lowStockThreshold: v.inventory?.lowStockThreshold ?? 5,
@@ -107,6 +133,10 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
       },
       images:   v.images || [],
       isActive: v.isActive !== false,
+      wholesale: v.wholesale || false,
+      wholesaleBase: v.price?.wholesaleBase || "",
+      wholesaleSale: v.price?.wholesaleSale || "",
+      minimumOrderQuantity: v.minimumOrderQuantity || 1,
     });
     setEditingVariantIndex(index);
     setVariantSaveError(null);
@@ -117,14 +147,31 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
 
   const handleVariantSave = async (variantToSave) => {
     setVariantSaveError(null);
+    
+    // Build price object with wholesale fields
+    const pricePayload = {
+      base: parseFloat(variantToSave.price.base) || 0,
+      sale: variantToSave.price.sale ? parseFloat(variantToSave.price.sale) : null
+    };
+    
+    if (variantToSave.wholesale) {
+      pricePayload.wholesaleBase = parseFloat(variantToSave.wholesaleBase) || 0;
+      pricePayload.wholesaleSale = variantToSave.wholesaleSale ? parseFloat(variantToSave.wholesaleSale) : null;
+    }
+    
     if (editingVariantIndex !== null) {
       const existingBarcode = formData.variants[editingVariantIndex].barcode;
       try {
         const result = await dispatch(updateVariantByBarcode({
-          slug: product.slug, barcode: existingBarcode,
-          price: variantToSave.price, inventory: variantToSave.inventory,
-          attributes: variantToSave.attributes, images: variantToSave.images,
+          slug: product.slug, 
+          barcode: existingBarcode,
+          price: pricePayload, 
+          inventory: variantToSave.inventory,
+          attributes: variantToSave.attributes, 
+          images: variantToSave.images,
           isActive: variantToSave.isActive,
+          wholesale: variantToSave.wholesale,
+          minimumOrderQuantity: variantToSave.minimumOrderQuantity,
         })).unwrap();
         if (result?.product?.variants) setFormData((prev) => ({ ...prev, variants: normaliseVariants(result.product.variants) }));
         closeVariantModal();
@@ -133,7 +180,13 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
       }
     } else {
       try {
-        const result = await dispatch(addVariantToProduct({ slug: product.slug, variantData: variantToSave })).unwrap();
+        const result = await dispatch(addVariantToProduct({ 
+          slug: product.slug, 
+          variantData: {
+            ...variantToSave,
+            price: pricePayload
+          }
+        })).unwrap();
         if (result?.product?.variants) setFormData((prev) => ({ ...prev, variants: normaliseVariants(result.product.variants) }));
         closeVariantModal();
       } catch (err) {
@@ -185,17 +238,39 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
     if (!formData.name.trim())  { alert("Product name is required");  return; }
     if (!formData.title.trim()) { alert("Product title is required"); return; }
     if (!formData.category)     { alert("Please select a category");  return; }
+    
+    // Validate shipping fields
+   if (!formData.hsnCode?.trim()) {
+  alert("HSN Code is required"); return;
+}
+if (!formData.taxRate && formData.taxRate !== 0) {
+  alert("Tax Rate is required"); return;
+}
+    
     const mainVariant = formData.variants?.[0];
     if (mainVariant?.barcode != null) {
       const base = parseFloat(mainVariant.price?.base);
       if (!base || base <= 0) { alert("Main variant base price is required and must be greater than 0"); return; }
       const sale = mainVariant.price?.sale !== "" && mainVariant.price?.sale != null ? parseFloat(mainVariant.price.sale) : null;
       if (sale !== null && sale >= base) { alert("Main variant sale price must be less than base price"); return; }
+      
+      // Build price object with wholesale fields
+      const pricePayload = { base, sale };
+      if (mainVariant.wholesale) {
+        pricePayload.wholesaleBase = parseFloat(mainVariant.wholesaleBase) || 0;
+        pricePayload.wholesaleSale = mainVariant.wholesaleSale ? parseFloat(mainVariant.wholesaleSale) : null;
+      }
+      
       try {
         const result = await dispatch(updateVariantByBarcode({
-          slug: product.slug, barcode: mainVariant.barcode,
-          price: { base, sale }, inventory: mainVariant.inventory,
-          isActive: mainVariant.isActive, images: mainVariant.images,
+          slug: product.slug, 
+          barcode: mainVariant.barcode,
+          price: pricePayload, 
+          inventory: mainVariant.inventory,
+          isActive: mainVariant.isActive, 
+          images: mainVariant.images,
+          wholesale: mainVariant.wholesale,
+          minimumOrderQuantity: mainVariant.minimumOrderQuantity,
         })).unwrap();
         if (result?.product?.variants) setFormData((prev) => ({ ...prev, variants: normaliseVariants(result.product.variants) }));
       } catch (err) {
@@ -315,6 +390,326 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
 };
 
 export default EditProductModal;
+
+// code is working but upper code have new fields 
+
+// // PRODUCT_MODAL_SEGMENT/EditProductModal.jsx
+// import React, { useState, useEffect }from "react";
+// import { useDispatch, useSelector } from "react-redux";
+// import ProductFormBody from "../Shared_components/ProductFormBody";
+// import VariantModal, { defaultVariant }from "../Shared_components/VariantModal";
+// import CategoryModal from "../Shared_components/CategoryModal";
+// import BrandModal from "../Shared_components/BrandModal";
+// import AttributeModal from "../Shared_components/AttributeModal";
+// import CustomMessageModal from "../Shared_components/CustomMessageModal";
+// import {
+//   updateProduct, addVariantToProduct, updateVariantByBarcode,
+//   deleteVariantFromProduct, resetUpdateSuccess, resetVariantError,
+// } from "../ADMIN_REDUX_MANAGEMENT/adminEditProductSlice";
+
+// // ── Formatters ────────────────────────────────────────────────────────────────
+// const formatIndianRupee = (amount) =>
+//   new Intl.NumberFormat("en-IN", {
+//     style: "currency", currency: "INR",
+//     minimumFractionDigits: 0, maximumFractionDigits: 0,
+//   }).format(amount);
+
+// const getDiscountPercentage = (base, sale) => {
+//   if (!base || !sale || Number(sale) >= Number(base)) return 0;
+//   return Math.round(((Number(base) - Number(sale)) / Number(base)) * 100);
+// };
+
+// const normaliseVariants = (variants = []) =>
+//   variants.map((v, vIdx) => ({
+//     ...v,
+//     price:  { base: v.price?.base ?? "", sale: v.price?.sale ?? "" },
+//     images: (v.images || [])
+//       .slice()
+//       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+//       .map((img, iIdx) => ({
+//         ...img,
+//         id:     img._id || img.publicId || img.url || `var-${vIdx}-img-${iIdx}`,
+//         isMain: iIdx === 0,
+//       })),
+//     isActive: v.isActive !== false,
+//   }));
+
+// const toFormData = (product) => ({
+//   name:        product.name        || "",
+//   title:       product.title       || "",
+//   description: product.description || "",
+//   brand:       product.brand       || "Generic",
+//   category:
+//     typeof product.category === "object" && product.category !== null
+//       ? product.category._id
+//       : product.category || "",
+//   shipping:   product.shipping || { weight: 0, dimensions: { length: "", width: "", height: "" } },
+//   soldInfo:   product.soldInfo || { enabled: false, count: 0 },
+//   fomo:       product.fomo    || { enabled: false, type: "viewing_now", viewingNow: 0, productLeft: 0, customMessage: "" },
+//   images:     (product.images || []).map((img, i) => ({
+//     ...img,
+//     id:     img._id || img.publicId || img.url || `main-img-${i}`,
+//     isMain: img.isMain || i === 0,
+//   })),
+//   attributes: product.attributes || [],
+//   variants:   normaliseVariants(product.variants || []),
+//   isFeatured: product.isFeatured || false,
+//   status:     product.status     || "draft",
+// });
+
+// // brands + setBrands come from ProductsTab
+// const EditProductModal = ({ product, onClose, brands, setBrands }) => {
+//   const dispatch = useDispatch();
+
+//   const {
+//     updateLoading, updateError, updateSuccess,
+//     actionLoading, actionError,
+//     variantLoading, variantError,
+//   } = useSelector((s) => s.adminEditProduct);
+//   const { categories } = useSelector((s) => s.categories);
+
+//   const [formData,            setFormData]            = useState(() => toFormData(product));
+//   const [variantForm,         setVariantForm]         = useState(defaultVariant);
+//   const [editingVariantIndex, setEditingVariantIndex] = useState(null);
+//   const [variantSaveError,    setVariantSaveError]    = useState(null);
+//   const [submitError,         setSubmitError]         = useState(null);
+
+//   const [showCategoryModal,      setShowCategoryModal]      = useState(false);
+//   const [showBrandModal,         setShowBrandModal]         = useState(false);
+//   const [showAttributeModal,     setShowAttributeModal]     = useState(false);
+//   const [showCustomMessageModal, setShowCustomMessageModal] = useState(false);
+//   const [showVariantModal,       setShowVariantModal]       = useState(false);
+
+//   useEffect(() => { setFormData(toFormData(product)); }, [product._id]);
+//   useEffect(() => { if (updateSuccess) { dispatch(resetUpdateSuccess()); onClose(); } }, [updateSuccess]);
+//   useEffect(() => { if (!showVariantModal) { setVariantSaveError(null); dispatch(resetVariantError()); } }, [showVariantModal]);
+
+//   const openAddVariant = () => { setVariantForm(defaultVariant); setEditingVariantIndex(null); setVariantSaveError(null); setShowVariantModal(true); };
+
+//   const openEditVariant = (index) => {
+//     const v = formData.variants[index];
+//     if (!v) return;
+//     setVariantForm({
+//       barcode:    v.barcode != null ? String(v.barcode) : "",
+//       attributes: v.attributes?.length > 0
+//         ? v.attributes.map((a) => ({ key: a.key || "", value: a.value || "" }))
+//         : [{ key: "", value: "" }],
+//       price:     { base: v.price?.base ?? "", sale: v.price?.sale ?? "" },
+//       inventory: {
+//         quantity:          v.inventory?.quantity          ?? 0,
+//         lowStockThreshold: v.inventory?.lowStockThreshold ?? 5,
+//         trackInventory:    v.inventory?.trackInventory    !== false,
+//       },
+//       images:   v.images || [],
+//       isActive: v.isActive !== false,
+//     });
+//     setEditingVariantIndex(index);
+//     setVariantSaveError(null);
+//     setShowVariantModal(true);
+//   };
+
+//   const closeVariantModal = () => { setShowVariantModal(false); setVariantForm(defaultVariant); setEditingVariantIndex(null); setVariantSaveError(null); };
+
+//   const handleVariantSave = async (variantToSave) => {
+//     setVariantSaveError(null);
+//     if (editingVariantIndex !== null) {
+//       const existingBarcode = formData.variants[editingVariantIndex].barcode;
+//       try {
+//         const result = await dispatch(updateVariantByBarcode({
+//           slug: product.slug, barcode: existingBarcode,
+//           price: variantToSave.price, inventory: variantToSave.inventory,
+//           attributes: variantToSave.attributes, images: variantToSave.images,
+//           isActive: variantToSave.isActive,
+//         })).unwrap();
+//         if (result?.product?.variants) setFormData((prev) => ({ ...prev, variants: normaliseVariants(result.product.variants) }));
+//         closeVariantModal();
+//       } catch (err) {
+//         setVariantSaveError(typeof err === "string" ? err : err?.message || "Failed to save variant");
+//       }
+//     } else {
+//       try {
+//         const result = await dispatch(addVariantToProduct({ slug: product.slug, variantData: variantToSave })).unwrap();
+//         if (result?.product?.variants) setFormData((prev) => ({ ...prev, variants: normaliseVariants(result.product.variants) }));
+//         closeVariantModal();
+//       } catch (err) {
+//         setVariantSaveError(typeof err === "string" ? err : err?.message || "Failed to add variant");
+//       }
+//     }
+//   };
+
+//   const toggleVariantActive = async (index) => {
+//     const variant = formData.variants[index];
+//     if (!variant) return;
+//     const newActive = !variant.isActive;
+//     const prevVariants = formData.variants;
+//     setFormData((p) => ({ ...p, variants: p.variants.map((v, i) => i === index ? { ...v, isActive: newActive } : v) }));
+//     try {
+//       const result = await dispatch(updateVariantByBarcode({ slug: product.slug, barcode: variant.barcode, isActive: newActive })).unwrap();
+//       if (result?.product?.variants) setFormData((p) => ({ ...p, variants: normaliseVariants(result.product.variants) }));
+//     } catch (err) {
+//       setFormData((p) => ({ ...p, variants: prevVariants }));
+//       alert(`Toggle failed: ${typeof err === "string" ? err : err?.message || "Unknown error"}`);
+//     }
+//   };
+
+//   const handleDeleteVariant = (index) => {
+//     if (index === 0) { alert("Cannot delete the main variant. It is the product itself."); return; }
+//     const variant = formData.variants[index];
+//     if (!variant?.barcode && variant?.barcode !== 0) { alert("Cannot delete — variant has no barcode"); return; }
+//     if (!window.confirm(`Delete variant (barcode: ${variant.barcode})? This cannot be undone.`)) return;
+//     const prevVariants = formData.variants;
+//     setFormData((p) => ({ ...p, variants: p.variants.filter((_, i) => i !== index) }));
+//     dispatch(deleteVariantFromProduct({ slug: product.slug, barcode: variant.barcode }))
+//       .unwrap()
+//       .then(({ product: updated }) => {
+//         if (updated?.variants) setFormData((p) => ({ ...p, variants: normaliseVariants(updated.variants) }));
+//       })
+//       .catch((err) => {
+//         setFormData((p) => ({ ...p, variants: prevVariants }));
+//         alert(`Delete failed: ${typeof err === "string" ? err : err?.message || "Unknown error"}`);
+//       });
+//   };
+
+//   const handleAddAttribute      = (a)   => setFormData((p) => ({ ...p, attributes: [...p.attributes, { ...a, id: Date.now() }] }));
+//   const removeAttribute         = (id)  => setFormData((p) => ({ ...p, attributes: p.attributes.filter((a) => a.id !== id) }));
+//   const handleCustomMessageSave = (msg) => setFormData((p) => ({ ...p, fomo: { ...p.fomo, customMessage: msg } }));
+
+//   const handleSubmit = async (e) => {
+//     e.preventDefault();
+//     setSubmitError(null);
+//     if (!formData.name.trim())  { alert("Product name is required");  return; }
+//     if (!formData.title.trim()) { alert("Product title is required"); return; }
+//     if (!formData.category)     { alert("Please select a category");  return; }
+//     const mainVariant = formData.variants?.[0];
+//     if (mainVariant?.barcode != null) {
+//       const base = parseFloat(mainVariant.price?.base);
+//       if (!base || base <= 0) { alert("Main variant base price is required and must be greater than 0"); return; }
+//       const sale = mainVariant.price?.sale !== "" && mainVariant.price?.sale != null ? parseFloat(mainVariant.price.sale) : null;
+//       if (sale !== null && sale >= base) { alert("Main variant sale price must be less than base price"); return; }
+//       try {
+//         const result = await dispatch(updateVariantByBarcode({
+//           slug: product.slug, barcode: mainVariant.barcode,
+//           price: { base, sale }, inventory: mainVariant.inventory,
+//           isActive: mainVariant.isActive, images: mainVariant.images,
+//         })).unwrap();
+//         if (result?.product?.variants) setFormData((prev) => ({ ...prev, variants: normaliseVariants(result.product.variants) }));
+//       } catch (err) {
+//         setSubmitError(`Main variant save failed: ${typeof err === "string" ? err : err?.message || "Unknown error"}`);
+//         return;
+//       }
+//     }
+//     dispatch(updateProduct({ slug: product.slug, formData }));
+//   };
+
+//   const isAnySaving = updateLoading || variantLoading || actionLoading;
+
+//   return (
+//     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 z-50 overflow-y-auto">
+//       <div className="bg-white rounded-2xl max-w-6xl w-full my-8 shadow-2xl">
+//         <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
+//           <div>
+//             <h2 className="text-2xl font-bold text-gray-900">Edit Product</h2>
+//             <p className="text-sm text-gray-500 mt-1">
+//               <span className="font-medium text-gray-700">{product.name}</span>
+//               <span className="ml-2 text-xs text-indigo-400 font-mono">{product.slug}</span>
+//             </p>
+//           </div>
+//           <button type="button" onClick={onClose} disabled={isAnySaving}
+//             className="p-2 hover:bg-gray-100 rounded-xl disabled:opacity-50 transition-colors">
+//             <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+//             </svg>
+//           </button>
+//         </div>
+
+//         {(updateError || submitError) && (
+//           <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+//             <p className="text-red-700 text-sm font-medium">❌ {submitError || updateError}</p>
+//           </div>
+//         )}
+//         {actionError && (
+//           <div className="mx-6 mt-2 p-3 bg-red-50 border border-red-200 rounded-xl">
+//             <p className="text-red-700 text-sm font-medium">❌ {actionError}</p>
+//           </div>
+//         )}
+//         {isAnySaving && (
+//           <div className="mx-6 mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center gap-2">
+//             <span className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+//             <p className="text-indigo-700 text-sm font-medium">Saving…</p>
+//           </div>
+//         )}
+
+//         <form onSubmit={handleSubmit} className="p-6">
+//           <ProductFormBody
+//             formData={formData}
+//             setFormData={setFormData}
+//             categories={categories}
+//             brands={brands}
+//             onOpenCategoryModal={() => setShowCategoryModal(true)}
+//             onOpenBrandModal={() => setShowBrandModal(true)}
+//             onOpenAttributeModal={() => setShowAttributeModal(true)}
+//             onOpenCustomMessage={() => setShowCustomMessageModal(true)}
+//             onOpenAddVariant={openAddVariant}
+//             onOpenEditVariant={openEditVariant}
+//             onRemoveAttribute={removeAttribute}
+//             onDeleteVariant={handleDeleteVariant}
+//             onToggleVariantActive={toggleVariantActive}
+//             formatIndianRupee={formatIndianRupee}
+//             getDiscountPercentage={getDiscountPercentage}
+//             productSlug={product.slug}
+//             actionLoading={variantLoading || actionLoading}
+//             actionError={variantError || actionError}
+//           />
+//           <div className="flex gap-3 mt-6">
+//             <button type="button" onClick={onClose} disabled={isAnySaving}
+//               className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 disabled:opacity-60 transition-colors">
+//               Cancel
+//             </button>
+//             <button type="submit" disabled={isAnySaving}
+//               className="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-60 flex items-center justify-center gap-2 transition-all">
+//               {isAnySaving
+//                 ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving…</>
+//                 : "💾 Save Changes"}
+//             </button>
+//           </div>
+//         </form>
+//       </div>
+
+//       {showCategoryModal && (
+//         <CategoryModal
+//           onSelect={(catId) => setFormData((p) => ({ ...p, category: catId }))}
+//           onClose={() => setShowCategoryModal(false)} />
+//       )}
+//       {showBrandModal && (
+//         <BrandModal brands={brands} setBrands={setBrands}
+//           onSelect={(brand) => setFormData((p) => ({ ...p, brand }))}
+//           onClose={() => setShowBrandModal(false)} />
+//       )}
+//       {showAttributeModal && (
+//         <AttributeModal onAdd={handleAddAttribute} onClose={() => setShowAttributeModal(false)} />
+//       )}
+//       {showCustomMessageModal && (
+//         <CustomMessageModal
+//           currentMessage={formData.fomo.customMessage}
+//           onSave={handleCustomMessageSave}
+//           onClose={() => setShowCustomMessageModal(false)} />
+//       )}
+//       {showVariantModal && (
+//         <VariantModal
+//           variantForm={variantForm}
+//           setVariantForm={setVariantForm}
+//           editingVariantIndex={editingVariantIndex}
+//           onSave={handleVariantSave}
+//           onClose={closeVariantModal}
+//           getDiscountPercentage={getDiscountPercentage}
+//           isSaving={variantLoading || updateLoading}
+//           saveError={variantSaveError || variantError} />
+//       )}
+//     </div>
+//   );
+// };
+
+// export default EditProductModal;
 // trying to make it independent
 // // PRODUCT_MODAL_SEGMENT/EditProductModal.jsx
 // //

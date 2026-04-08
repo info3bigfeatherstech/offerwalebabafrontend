@@ -1,0 +1,59 @@
+{
+  "overview": {
+    "data": {
+      "totalUsers": 28456,
+      "newUsers": 8923,
+      "averageSessionDuration": 185,
+      "bounceRate": 42.5
+    }
+  },
+  "traffic": {
+    "data": [
+      { "date": "2026-03-01", "activeUsers": 1245, "sessions": 1890, "newUsers": 890 },
+      { "date": "2026-03-02", "activeUsers": 1356, "sessions": 2050, "newUsers": 945 },
+      { "date": "2026-03-03", "activeUsers": 1489, "sessions": 2210, "newUsers": 1023 },
+      { "date": "2026-03-04", "activeUsers": 1320, "sessions": 1980, "newUsers": 912 },
+      { "date": "2026-03-05", "activeUsers": 1567, "sessions": 2340, "newUsers": 1089 },
+      { "date": "2026-03-06", "activeUsers": 1723, "sessions": 2560, "newUsers": 1234 },
+      { "date": "2026-03-07", "activeUsers": 1890, "sessions": 2780, "newUsers": 1456 },
+      { "date": "2026-03-08", "activeUsers": 2012, "sessions": 2950, "newUsers": 1567 },
+      { "date": "2026-03-09", "activeUsers": 1956, "sessions": 2880, "newUsers": 1498 },
+      { "date": "2026-03-10", "activeUsers": 2134, "sessions": 3120, "newUsers": 1678 },
+      { "date": "2026-03-11", "activeUsers": 2245, "sessions": 3280, "newUsers": 1789 },
+      { "date": "2026-03-12", "activeUsers": 2189, "sessions": 3190, "newUsers": 1723 },
+      { "date": "2026-03-13", "activeUsers": 2367, "sessions": 3450, "newUsers": 1890 },
+      { "date": "2026-03-14", "activeUsers": 2456, "sessions": 3580, "newUsers": 1956 }
+    ]
+  },
+  "devices": {
+    "data": {
+      "mobile": 15678,
+      "desktop": 9876,
+      "tablet": 2902
+    }
+  },
+  "locations": {
+    "data": [
+      { "city": "New York", "sessions": 5432 },
+      { "city": "Los Angeles", "sessions": 4321 },
+      { "city": "Chicago", "sessions": 3210 },
+      { "city": "Houston", "sessions": 2890 },
+      { "city": "Phoenix", "sessions": 2456 },
+      { "city": "Philadelphia", "sessions": 2123 },
+      { "city": "San Antonio", "sessions": 1987 },
+      { "city": "San Diego", "sessions": 1765 },
+      { "city": "Dallas", "sessions": 1654 },
+      { "city": "Austin", "sessions": 1543 }
+    ]
+  },
+  "sources": {
+    "data": [
+      { "source": "organic", "sessions": 12456 },
+      { "source": "direct", "sessions": 8765 },
+      { "source": "referral", "sessions": 5432 },
+      { "source": "social", "sessions": 3456 },
+      { "source": "email", "sessions": 2345 },
+      { "source": "paid_search", "sessions": 1876 }
+    ]
+  }
+}

@@ -1,187 +1,216 @@
-import React, { useState, useEffect, Suspense, useRef } from "react";
+
+// // ADMIN_SEGMENT/Admin_dashboard.jsx
+
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { TAB_REGISTRY } from "./TabRegistry";
 import { ROLE_PERMISSIONS, ROLE_LABELS, ROLES } from "./roles";
 import LOGO from "../../assets/logo2.png";
 
+
+// ── HARDCODED ROLE ────────────────────────────────────────────────────────────
 const HARDCODED_ROLE = "admin";
+// swap to: user?.role || ROLES.ADMIN  when backend is ready
+// ─────────────────────────────────────────────────────────────────────────────
 
 const AdminDashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useSelector((state) => state.auth);
-
-  // -- UI States --
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [hoveredTab, setHoveredTab] = useState(null);
-  const [popoverPos, setPopoverPos] = useState({ top: 0 });
-  const hoverTimer = useRef(null);
-
-  // -- Role & permissions --
-  const activeRole = HARDCODED_ROLE;
+  // const HARDCODED_ROLE = user?.role || ROLES.ADMIN;
+  // ── Role & permissions ────────────────────────────────────────────────────
+  const activeRole    = HARDCODED_ROLE;
   const allowedTabIds = ROLE_PERMISSIONS[activeRole] || [];
-  const allowedTabs = TAB_REGISTRY.filter((tab) => allowedTabIds.includes(tab.id));
-  const defaultTab = allowedTabs[0]?.id || "products";
+  const allowedTabs   = TAB_REGISTRY.filter((tab) => allowedTabIds.includes(tab.id));
+  const defaultTab    = allowedTabs[0]?.id || "products";
 
+  // ── Derive activeTab synchronously from URL + permissions ─────────────────
   const tabFromUrl = searchParams.get("tab");
-  const activeTab = tabFromUrl && allowedTabIds.includes(tabFromUrl) ? tabFromUrl : defaultTab;
+  const activeTab  = tabFromUrl && allowedTabIds.includes(tabFromUrl)
+    ? tabFromUrl
+    : defaultTab;
+
   const activeCtab = searchParams.get("ctab") || null;
 
+  // ── Dropdown state — pure UI, not in URL ──────────────────────────────────
+  // Auto-expand the parent whose tab is currently active in the URL on mount.
+  // After that, the user controls it via click (toggle).
   const [expandedTab, setExpandedTab] = useState(() => {
     const urlTab = new URLSearchParams(window.location.search).get("tab");
-    const entry = allowedTabs.find((t) => t.id === urlTab && t.subItems?.length);
+    const entry  = allowedTabs.find((t) => t.id === urlTab && t.subItems?.length);
     return entry ? entry.id : null;
   });
 
+  // ── Single-responsibility effect: keep URL honest ─────────────────────────
   useEffect(() => {
-    const urlTab = searchParams.get("tab");
-    if (!urlTab || !allowedTabIds.includes(urlTab)) {
+    const urlTab    = searchParams.get("tab");
+    const urlIsWrong = !urlTab || !allowedTabIds.includes(urlTab);
+
+    if (urlIsWrong) {
+      // Wipe ctab too when correcting the tab
       setSearchParams({ tab: defaultTab }, { replace: true });
     }
   }, [activeRole, searchParams]);
 
+  // ── When activeTab changes (URL driven), auto-expand its parent if needed ─
+  // This handles browser back/forward and direct URL navigation.
   useEffect(() => {
     const entry = allowedTabs.find((t) => t.id === activeTab && t.subItems?.length);
-    if (entry && !isCollapsed) {
-      setExpandedTab(entry.id);
+    if (entry) {
+      // Only auto-expand — never auto-collapse. User collapse is intentional.
+      setExpandedTab((prev) => (prev === entry.id ? prev : entry.id));
     }
-  }, [activeTab, isCollapsed]);
+  }, [activeTab]);
 
+  // ── Badges ────────────────────────────────────────────────────────────────
   const productsBadge = useSelector((s) => s.adminGetProducts?.products?.length || 0);
-  const archivedBadge = useSelector((s) => s.adminArchived?.products?.length || 0);
+  const archivedBadge = useSelector((s) => s.adminArchived?.products?.length   || 0);
   const BADGE_MAP = { products: productsBadge, archived: archivedBadge };
 
+  // ── Parent tab click ──────────────────────────────────────────────────────
   const handleTabClick = (tab) => {
     if (!allowedTabIds.includes(tab.id)) return;
 
     if (tab.subItems?.length) {
-      // If collapsed, clicking a tab with subitems expands the sidebar first
-      if (isCollapsed) {
-        setIsCollapsed(false);
+      if (expandedTab === tab.id) {
+        // Same parent clicked → collapse dropdown only, don't change URL/tab
+        setExpandedTab(null);
+      } else {
+        // Different parent with subItems → expand + navigate to first sub-item
         setExpandedTab(tab.id);
         const firstSub = tab.subItems[0];
         setSearchParams({ tab: tab.id, ctab: firstSub.id });
-      } else {
-        if (expandedTab === tab.id) {
-          setExpandedTab(null);
-        } else {
-          setExpandedTab(tab.id);
-          const firstSub = tab.subItems[0];
-          setSearchParams({ tab: tab.id, ctab: firstSub.id });
-        }
       }
     } else {
+      // Plain tab → close any open dropdown, navigate
       setExpandedTab(null);
       setSearchParams({ tab: tab.id });
     }
-    if (window.innerWidth < 1024) setIsMobileOpen(false);
   };
 
+  // ── Sub-item click ────────────────────────────────────────────────────────
   const handleSubItemClick = (parentId, subId) => {
+    if (!allowedTabIds.includes(parentId)) return;
     setSearchParams({ tab: parentId, ctab: subId });
-    setHoveredTab(null);
-    if (window.innerWidth < 1024) setIsMobileOpen(false);
   };
 
-  // -- Hover Logic with Delay to prevent "fast disappear" --
-  const handleMouseEnter = (e, tab) => {
-    if (isCollapsed && tab.subItems?.length > 0) {
-      clearTimeout(hoverTimer.current);
-      const rect = e.currentTarget.getBoundingClientRect();
-      setPopoverPos({ top: rect.top });
-      setHoveredTab(tab);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    hoverTimer.current = setTimeout(() => {
-      setHoveredTab(null);
-    }, 200); // 200ms grace period
-  };
-
+  // ── onSwitchTab (called from inside tab components) ───────────────────────
   const handleSwitchTab = (tabId) => {
     const tab = allowedTabs.find((t) => t.id === tabId);
     if (tab) handleTabClick(tab);
   };
 
   const activeTabConfig = allowedTabs.find((t) => t.id === activeTab);
-  const TabComponent = activeTabConfig?.component ?? null;
+  const TabComponent    = activeTabConfig?.component ?? null;
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {isMobileOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsMobileOpen(false)} />
-      )}
 
-      {/* Sidebar - w-64 as requested */}
-      <aside 
-        className={`bg-white border-r border-gray-200 flex flex-col sticky top-0 h-screen z-50 transition-all duration-300
-          ${isCollapsed ? "w-20" : "w-64"} 
-          ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-          fixed lg:sticky
-        `}
-      >
-        {/* Toggle Arrow */}
-        <button 
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="absolute -right-3 top-12 bg-white border border-gray-200 rounded-full p-1 shadow-sm hover:text-blue-600 hidden lg:block cursor-pointer z-50"
-        >
-          <svg className={`w-4 h-4 transition-transform ${isCollapsed ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
+      {/* ── Sidebar ─────────────────────────────────────────────────────── */}
+      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col sticky top-0 h-screen z-20">
 
-        {/* Logo Section */}
-      <div className="p-6 flex flex-col items-center justify-center text-center border-b border-gray-50">
-          <div className="sm:w-24 h-10 flex items-center justify-center mb-3">
-             <img src={LOGO} alt="logo" className="max-h-full max-w-full object-contain" />
+        {/* Logo / user
+        <div className="p-6 flex items-center space-x-3">
+          <div className="w-20 h-10 flex items-center justify-center flex-shrink-1">
+            <img src={LOGO} alt="logo" />
           </div>
-          {!isCollapsed && (
-            <div className="overflow-hidden w-full">
-              <h1 className="text-base font-bold text-gray-900 truncate leading-tight uppercase tracking-tight">
-                {user?.name || "Admin"}
-              </h1>
-              <p className="text-[10px] font-bold text-blue-500 uppercase tracking-[0.15em] mt-0.5">
-                {ROLE_LABELS[activeRole] || activeRole}
-              </p>
-            </div>
-          )}
+          <div className="overflow-hidden">
+            <h1 className="text-xl font- text-gray-900 truncate">
+              {user?.name || "Admin"}
+            </h1>
+            <span className="text-xs font-semibold text-blue-500 tracking-wide">
+              {ROLE_LABELS[activeRole] || activeRole}
+            </span>
+          </div>
+        </div> */}
+
+        {/* Logo / user */}
+        <div className="p-4 flex flex-col items-center border-b border-slate-50">
+          {/* Logo at Top */}
+          {/* E-COM Context Tag - Top Right Floating */}
+         <div className="absolute top-3 right-3">
+          <span className="cursor-pointer inline-flex items-center gap-1.5 px-2 py-1 bg-green-50 hover:bg-green-100 border border-green-100 rounded-md transition-all duration-300 group shadow-sm">
+            {/* Small Dot Indicator for 'Live' feel */}
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            
+            <span className="text-[10px] font-black text-green-700 tracking-widest uppercase leading-none">
+              E-COM
+            </span>
+          </span>
+        </div>
+          <div className="w-25 h-22 flex items-center justify-center flex-shrink-0">
+            <img src={LOGO} alt="logo" className="max-h-full object-contain" />
+          </div>
+
+          {/* User Info Downward */}
+          <div className="mt-2 text-center overflow-hidden w-full">
+            <h1 className="text-sm font- text-slate-800 truncate">
+              {user?.name || "Admin"}
+            </h1>
+            <p className="text-[10px] font- text-blue-600 tracking-wider uppercase leading-none mt-1">
+              {ROLE_LABELS[activeRole] || activeRole}
+            </p>
+          </div>
         </div>
 
-        {/* Navigation */}
+        {/* Nav — only allowed tabs rendered */}
         <nav className="flex-1 px-4 space-y-1 mt-4 overflow-y-auto">
           {allowedTabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            const hasSubItems = tab.subItems?.length > 0;
-            const isExpanded = expandedTab === tab.id;
+            const isActive      = activeTab === tab.id;
+            const hasSubItems   = tab.subItems?.length > 0;
+            const isExpanded    = expandedTab === tab.id;
 
             return (
-              <div key={tab.id} className="relative">
+              <div key={tab.id}>
+
+                {/* Parent button */}
                 <button
                   onClick={() => handleTabClick(tab)}
-                  onMouseEnter={(e) => handleMouseEnter(e, tab)}
-                  onMouseLeave={handleMouseLeave}
-                  className={`w-full flex items-center cursor-pointer justify-between px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
-                    isActive ? "bg-blue-50 text-blue-600 shadow-sm" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                  } ${isCollapsed ? "justify-center" : ""}`}
+                  className={`w-full flex items-center cursor-pointer justify-between px-4 py-3 text-md font-medium rounded-lg transition-all duration-200 ${
+                    isActive
+                      ? "bg-blue-50 text-blue-600 shadow-sm"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  }`}
                 >
                   <div className="flex items-center space-x-3">
-                    <svg className={`w-5 h-5 shrink-0 ${isActive ? "text-blue-600" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg
+                      className={`w-5 h-5 shrink-0 ${isActive ? "text-blue-600" : "text-gray-400"}`}
+                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
                     </svg>
-                    {!isCollapsed && <span>{tab.label}</span>}
+                    <span>{tab.label}</span>
                   </div>
 
-                  {!isCollapsed && hasSubItems && (
-                    <svg className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {/* Badge */}
+                    {BADGE_MAP[tab.id] != null && BADGE_MAP[tab.id] > 0 && (
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                        isActive ? "bg-blue-200 text-blue-700" : "bg-gray-200 text-gray-600"
+                      }`}>
+                        {BADGE_MAP[tab.id]}
+                      </span>
+                    )}
+
+                    {/* Chevron — only for tabs with sub-items */}
+                    {hasSubItems && (
+                      <svg
+                        className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""} ${
+                          isActive ? "text-blue-500" : "text-gray-400"
+                        }`}
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    )}
+                  </div>
                 </button>
 
-                {/* Inline Sub-items for expanded sidebar */}
-                {!isCollapsed && hasSubItems && isExpanded && (
+                {/* ── Dropdown sub-items ─────────────────────────────────────
+                    Driven entirely by tab.subItems from TabRegistry.
+                    To add a sub-tab: edit the registry only. Nothing here changes.
+                ─────────────────────────────────────────────────────────────── */}
+                {hasSubItems && isExpanded && (
                   <div className="mt-1 ml-4 pl-4 border-l-2 border-blue-100 space-y-0.5">
                     {tab.subItems.map((sub) => {
                       const isSubActive = isActive && activeCtab === sub.id;
@@ -189,270 +218,259 @@ const AdminDashboard = () => {
                         <button
                           key={sub.id}
                           onClick={() => handleSubItemClick(tab.id, sub.id)}
-                          className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-lg cursor-pointer transition-all ${
-                            isSubActive ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+                          className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-lg transition-all duration-150 cursor-pointer text-left ${
+                            isSubActive
+                              ? "bg-blue-50 text-blue-700"
+                              : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
                           }`}
                         >
+                          <svg
+                            className={`w-3.5 h-3.5 shrink-0 ${isSubActive ? "text-blue-600" : "text-gray-400"}`}
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sub.icon} />
+                          </svg>
                           {sub.label}
                         </button>
                       );
                     })}
                   </div>
                 )}
+
               </div>
             );
           })}
         </nav>
 
-        {/* Footer Profile - EXACTLY AS BEFORE */}
-        <div className="p-6 border-t border-gray-100">
-          <div className={`flex items-center ${isCollapsed ? "justify-center" : "space-x-3"}`}>
-            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 shrink-0 border border-gray-200 overflow-hidden">
-               <span className="font-bold text-gray-600">{user?.name?.charAt(0) || "A"}</span>
-            </div>
-            {!isCollapsed && (
-              <div className="overflow-hidden">
-                <h1 className="text-sm font-bold text-gray-900 truncate">
-                  {user?.name || "Admin User"}
-                </h1>
-                <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wide">
-                  {ROLE_LABELS[activeRole] || activeRole}
-                </span>
-              </div>
-            )}
-          </div>
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-100">
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+            System v1.0.4
+          </p>
         </div>
       </aside>
 
-      {/* Stable Hover Popover (Only for Collapsed State) */}
-      {isCollapsed && hoveredTab && (
-        <div 
-          className="fixed z-[9999] ml-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl py-2 animate-in fade-in slide-in-from-left-1 duration-150"
-          style={{ top: `${popoverPos.top}px`, left: '75px' }}
-          onMouseEnter={() => clearTimeout(hoverTimer.current)}
-          onMouseLeave={handleMouseLeave}
-        >
-          <div className="px-4 py-2 border-b border-gray-50 mb-1">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{hoveredTab.label}</span>
-          </div>
-          {hoveredTab.subItems.map((sub) => (
-            <button
-              key={sub.id}
-              onClick={() => handleSubItemClick(hoveredTab.id, sub.id)}
-              className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-600 cursor-pointer transition-colors"
-            >
-              {sub.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white h-16 border-b border-gray-200 flex items-center px-8 sticky top-0 z-30">
-          <button onClick={() => setIsMobileOpen(true)} className="lg:hidden mr-4 p-2 hover:bg-gray-100 rounded-lg">
-             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-          </button>
-          <h2 className="text-lg font-bold text-gray-800 capitalize tracking-tight">
+      {/* ── Main content ──────────────────────────────────────────────────── */}
+      <main className="flex-1 overflow-y-auto">
+        <header className="bg-white h-16 border-b border-gray-200 flex items-center px-8 sticky top-0 z-10">
+          <h2 className="text-lg font-semibold text-gray-800 capitalize">
             {activeTabConfig?.label || "Dashboard"}
           </h2>
         </header>
 
-        <div className="p-8 flex-1 overflow-y-auto">
-          <Suspense fallback={<div className="flex items-center justify-center h-64 animate-pulse text-blue-500">Loading...</div>}>
-            {TabComponent ? <TabComponent onSwitchTab={handleSwitchTab} /> : <div className="text-gray-400">Empty Section</div>}
+        <div className="p-8">
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-64">
+              <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          }>
+            {TabComponent ? (
+              <TabComponent onSwitchTab={handleSwitchTab} />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+                <svg className="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                    d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+                <p className="text-sm font-medium">This section is coming soon</p>
+              </div>
+            )}
           </Suspense>
         </div>
       </main>
+
     </div>
   );
 };
 
 export default AdminDashboard;
 
-// try to add some collapse 
-// // ADMIN_SEGMENT/Admin_dashboard.jsx
 
-// import React, { useState, useEffect, Suspense } from "react";
+// >??? use if want other wise down to down in working but upper have role based
+// import React, { useState, useEffect, Suspense, useRef } from "react";
 // import { useSearchParams } from "react-router-dom";
 // import { useSelector } from "react-redux";
 // import { TAB_REGISTRY } from "./TabRegistry";
 // import { ROLE_PERMISSIONS, ROLE_LABELS, ROLES } from "./roles";
 // import LOGO from "../../assets/logo2.png";
 
-// // ── HARDCODED ROLE ────────────────────────────────────────────────────────────
 // const HARDCODED_ROLE = "admin";
-// // swap to: user?.role || ROLES.ADMIN  when backend is ready
-// // ─────────────────────────────────────────────────────────────────────────────
 
 // const AdminDashboard = () => {
 //   const [searchParams, setSearchParams] = useSearchParams();
 //   const { user } = useSelector((state) => state.auth);
 
-//   // ── Role & permissions ────────────────────────────────────────────────────
-//   const activeRole    = HARDCODED_ROLE;
+//   // -- UI States --
+//   const [isCollapsed, setIsCollapsed] = useState(false);
+//   const [isMobileOpen, setIsMobileOpen] = useState(false);
+//   const [hoveredTab, setHoveredTab] = useState(null);
+//   const [popoverPos, setPopoverPos] = useState({ top: 0 });
+//   const hoverTimer = useRef(null);
+
+//   // -- Role & permissions --
+//   const activeRole = HARDCODED_ROLE;
 //   const allowedTabIds = ROLE_PERMISSIONS[activeRole] || [];
-//   const allowedTabs   = TAB_REGISTRY.filter((tab) => allowedTabIds.includes(tab.id));
-//   const defaultTab    = allowedTabs[0]?.id || "products";
+//   const allowedTabs = TAB_REGISTRY.filter((tab) => allowedTabIds.includes(tab.id));
+//   const defaultTab = allowedTabs[0]?.id || "products";
 
-//   // ── Derive activeTab synchronously from URL + permissions ─────────────────
 //   const tabFromUrl = searchParams.get("tab");
-//   const activeTab  = tabFromUrl && allowedTabIds.includes(tabFromUrl)
-//     ? tabFromUrl
-//     : defaultTab;
-
+//   const activeTab = tabFromUrl && allowedTabIds.includes(tabFromUrl) ? tabFromUrl : defaultTab;
 //   const activeCtab = searchParams.get("ctab") || null;
 
-//   // ── Dropdown state — pure UI, not in URL ──────────────────────────────────
-//   // Auto-expand the parent whose tab is currently active in the URL on mount.
-//   // After that, the user controls it via click (toggle).
 //   const [expandedTab, setExpandedTab] = useState(() => {
 //     const urlTab = new URLSearchParams(window.location.search).get("tab");
-//     const entry  = allowedTabs.find((t) => t.id === urlTab && t.subItems?.length);
+//     const entry = allowedTabs.find((t) => t.id === urlTab && t.subItems?.length);
 //     return entry ? entry.id : null;
 //   });
 
-//   // ── Single-responsibility effect: keep URL honest ─────────────────────────
 //   useEffect(() => {
-//     const urlTab    = searchParams.get("tab");
-//     const urlIsWrong = !urlTab || !allowedTabIds.includes(urlTab);
-
-//     if (urlIsWrong) {
-//       // Wipe ctab too when correcting the tab
+//     const urlTab = searchParams.get("tab");
+//     if (!urlTab || !allowedTabIds.includes(urlTab)) {
 //       setSearchParams({ tab: defaultTab }, { replace: true });
 //     }
 //   }, [activeRole, searchParams]);
 
-//   // ── When activeTab changes (URL driven), auto-expand its parent if needed ─
-//   // This handles browser back/forward and direct URL navigation.
 //   useEffect(() => {
 //     const entry = allowedTabs.find((t) => t.id === activeTab && t.subItems?.length);
-//     if (entry) {
-//       // Only auto-expand — never auto-collapse. User collapse is intentional.
-//       setExpandedTab((prev) => (prev === entry.id ? prev : entry.id));
+//     if (entry && !isCollapsed) {
+//       setExpandedTab(entry.id);
 //     }
-//   }, [activeTab]);
+//   }, [activeTab, isCollapsed]);
 
-//   // ── Badges ────────────────────────────────────────────────────────────────
 //   const productsBadge = useSelector((s) => s.adminGetProducts?.products?.length || 0);
-//   const archivedBadge = useSelector((s) => s.adminArchived?.products?.length   || 0);
+//   const archivedBadge = useSelector((s) => s.adminArchived?.products?.length || 0);
 //   const BADGE_MAP = { products: productsBadge, archived: archivedBadge };
 
-//   // ── Parent tab click ──────────────────────────────────────────────────────
 //   const handleTabClick = (tab) => {
 //     if (!allowedTabIds.includes(tab.id)) return;
 
 //     if (tab.subItems?.length) {
-//       if (expandedTab === tab.id) {
-//         // Same parent clicked → collapse dropdown only, don't change URL/tab
-//         setExpandedTab(null);
-//       } else {
-//         // Different parent with subItems → expand + navigate to first sub-item
+//       // If collapsed, clicking a tab with subitems expands the sidebar first
+//       if (isCollapsed) {
+//         setIsCollapsed(false);
 //         setExpandedTab(tab.id);
 //         const firstSub = tab.subItems[0];
 //         setSearchParams({ tab: tab.id, ctab: firstSub.id });
+//       } else {
+//         if (expandedTab === tab.id) {
+//           setExpandedTab(null);
+//         } else {
+//           setExpandedTab(tab.id);
+//           const firstSub = tab.subItems[0];
+//           setSearchParams({ tab: tab.id, ctab: firstSub.id });
+//         }
 //       }
 //     } else {
-//       // Plain tab → close any open dropdown, navigate
 //       setExpandedTab(null);
 //       setSearchParams({ tab: tab.id });
 //     }
+//     if (window.innerWidth < 1024) setIsMobileOpen(false);
 //   };
 
-//   // ── Sub-item click ────────────────────────────────────────────────────────
 //   const handleSubItemClick = (parentId, subId) => {
-//     if (!allowedTabIds.includes(parentId)) return;
 //     setSearchParams({ tab: parentId, ctab: subId });
+//     setHoveredTab(null);
+//     if (window.innerWidth < 1024) setIsMobileOpen(false);
 //   };
 
-//   // ── onSwitchTab (called from inside tab components) ───────────────────────
+//   // -- Hover Logic with Delay to prevent "fast disappear" --
+//   const handleMouseEnter = (e, tab) => {
+//     if (isCollapsed && tab.subItems?.length > 0) {
+//       clearTimeout(hoverTimer.current);
+//       const rect = e.currentTarget.getBoundingClientRect();
+//       setPopoverPos({ top: rect.top });
+//       setHoveredTab(tab);
+//     }
+//   };
+
+//   const handleMouseLeave = () => {
+//     hoverTimer.current = setTimeout(() => {
+//       setHoveredTab(null);
+//     }, 200); // 200ms grace period
+//   };
+
 //   const handleSwitchTab = (tabId) => {
 //     const tab = allowedTabs.find((t) => t.id === tabId);
 //     if (tab) handleTabClick(tab);
 //   };
 
 //   const activeTabConfig = allowedTabs.find((t) => t.id === activeTab);
-//   const TabComponent    = activeTabConfig?.component ?? null;
+//   const TabComponent = activeTabConfig?.component ?? null;
 
 //   return (
 //     <div className="flex min-h-screen bg-gray-50">
+//       {isMobileOpen && (
+//         <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsMobileOpen(false)} />
+//       )}
 
-//       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
-//       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col sticky top-0 h-screen z-20">
+//       {/* Sidebar - w-64 as requested */}
+//       <aside 
+//         className={`bg-white border-r border-gray-200 flex flex-col sticky top-0 h-screen z-50 transition-all duration-300
+//           ${isCollapsed ? "w-20" : "w-64"} 
+//           ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+//           fixed lg:sticky
+//         `}
+//       >
+//         {/* Toggle Arrow */}
+//         <button 
+//           onClick={() => setIsCollapsed(!isCollapsed)}
+//           className="absolute -right-3 top-12 bg-white border border-gray-200 rounded-full p-1 shadow-sm hover:text-blue-600 hidden lg:block cursor-pointer z-50"
+//         >
+//           <svg className={`w-4 h-4 transition-transform ${isCollapsed ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+//           </svg>
+//         </button>
 
-//         {/* Logo / user */}
-//         <div className="p-6 flex items-center space-x-3">
-//           <div className="w-24 h-10 flex items-center justify-center flex-shrink-1">
-//             <img src={LOGO} alt="logo" />
+//         {/* Logo Section */}
+//       <div className="p-6 flex flex-col items-center justify-center text-center border-b border-gray-50">
+//           <div className="sm:w-24 h-10 flex items-center justify-center mb-3">
+//              <img src={LOGO} alt="logo" className="max-h-full max-w-full object-contain" />
 //           </div>
-//           <div className="overflow-hidden">
-//             <h1 className="text-xl font- text-gray-900 truncate">
-//               {user?.name || "Admin"}
-//             </h1>
-//             <span className="text-xs font-semibold text-blue-500 tracking-wide">
-//               {ROLE_LABELS[activeRole] || activeRole}
-//             </span>
-//           </div>
+//           {!isCollapsed && (
+//             <div className="overflow-hidden w-full">
+//               <h1 className="text-base font-bold text-gray-900 truncate leading-tight uppercase tracking-tight">
+//                 {user?.name || "Admin"}
+//               </h1>
+//               <p className="text-[10px] font-bold text-blue-500 uppercase tracking-[0.15em] mt-0.5">
+//                 {ROLE_LABELS[activeRole] || activeRole}
+//               </p>
+//             </div>
+//           )}
 //         </div>
 
-//         {/* Nav — only allowed tabs rendered */}
+//         {/* Navigation */}
 //         <nav className="flex-1 px-4 space-y-1 mt-4 overflow-y-auto">
 //           {allowedTabs.map((tab) => {
-//             const isActive      = activeTab === tab.id;
-//             const hasSubItems   = tab.subItems?.length > 0;
-//             const isExpanded    = expandedTab === tab.id;
+//             const isActive = activeTab === tab.id;
+//             const hasSubItems = tab.subItems?.length > 0;
+//             const isExpanded = expandedTab === tab.id;
 
 //             return (
-//               <div key={tab.id}>
-
-//                 {/* Parent button */}
+//               <div key={tab.id} className="relative">
 //                 <button
 //                   onClick={() => handleTabClick(tab)}
+//                   onMouseEnter={(e) => handleMouseEnter(e, tab)}
+//                   onMouseLeave={handleMouseLeave}
 //                   className={`w-full flex items-center cursor-pointer justify-between px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
-//                     isActive
-//                       ? "bg-blue-50 text-blue-600 shadow-sm"
-//                       : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-//                   }`}
+//                     isActive ? "bg-blue-50 text-blue-600 shadow-sm" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+//                   } ${isCollapsed ? "justify-center" : ""}`}
 //                 >
 //                   <div className="flex items-center space-x-3">
-//                     <svg
-//                       className={`w-5 h-5 shrink-0 ${isActive ? "text-blue-600" : "text-gray-400"}`}
-//                       fill="none" stroke="currentColor" viewBox="0 0 24 24"
-//                     >
+//                     <svg className={`w-5 h-5 shrink-0 ${isActive ? "text-blue-600" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
 //                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
 //                     </svg>
-//                     <span>{tab.label}</span>
+//                     {!isCollapsed && <span>{tab.label}</span>}
 //                   </div>
 
-//                   <div className="flex items-center gap-2">
-//                     {/* Badge */}
-//                     {BADGE_MAP[tab.id] != null && BADGE_MAP[tab.id] > 0 && (
-//                       <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-//                         isActive ? "bg-blue-200 text-blue-700" : "bg-gray-200 text-gray-600"
-//                       }`}>
-//                         {BADGE_MAP[tab.id]}
-//                       </span>
-//                     )}
-
-//                     {/* Chevron — only for tabs with sub-items */}
-//                     {hasSubItems && (
-//                       <svg
-//                         className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""} ${
-//                           isActive ? "text-blue-500" : "text-gray-400"
-//                         }`}
-//                         fill="none" stroke="currentColor" viewBox="0 0 24 24"
-//                       >
-//                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-//                       </svg>
-//                     )}
-//                   </div>
+//                   {!isCollapsed && hasSubItems && (
+//                     <svg className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+//                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+//                     </svg>
+//                   )}
 //                 </button>
 
-//                 {/* ── Dropdown sub-items ─────────────────────────────────────
-//                     Driven entirely by tab.subItems from TabRegistry.
-//                     To add a sub-tab: edit the registry only. Nothing here changes.
-//                 ─────────────────────────────────────────────────────────────── */}
-//                 {hasSubItems && isExpanded && (
+//                 {/* Inline Sub-items for expanded sidebar */}
+//                 {!isCollapsed && hasSubItems && isExpanded && (
 //                   <div className="mt-1 ml-4 pl-4 border-l-2 border-blue-100 space-y-0.5">
 //                     {tab.subItems.map((sub) => {
 //                       const isSubActive = isActive && activeCtab === sub.id;
@@ -460,72 +478,91 @@ export default AdminDashboard;
 //                         <button
 //                           key={sub.id}
 //                           onClick={() => handleSubItemClick(tab.id, sub.id)}
-//                           className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-lg transition-all duration-150 cursor-pointer text-left ${
-//                             isSubActive
-//                               ? "bg-blue-50 text-blue-700"
-//                               : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+//                           className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-lg cursor-pointer transition-all ${
+//                             isSubActive ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
 //                           }`}
 //                         >
-//                           <svg
-//                             className={`w-3.5 h-3.5 shrink-0 ${isSubActive ? "text-blue-600" : "text-gray-400"}`}
-//                             fill="none" stroke="currentColor" viewBox="0 0 24 24"
-//                           >
-//                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sub.icon} />
-//                           </svg>
 //                           {sub.label}
 //                         </button>
 //                       );
 //                     })}
 //                   </div>
 //                 )}
-
 //               </div>
 //             );
 //           })}
 //         </nav>
 
-//         {/* Footer */}
-//         <div className="p-4 border-t border-gray-100">
-//           <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
-//             System v1.0.4
-//           </p>
+//         {/* Footer Profile - EXACTLY AS BEFORE */}
+//         <div className="p-6 border-t border-gray-100">
+//           <div className={`flex items-center ${isCollapsed ? "justify-center" : "space-x-3"}`}>
+//             <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 shrink-0 border border-gray-200 overflow-hidden">
+//                <span className="font-bold text-gray-600">{user?.name?.charAt(0) || "A"}</span>
+//             </div>
+//             {!isCollapsed && (
+//               <div className="overflow-hidden">
+//                 <h1 className="text-sm font-bold text-gray-900 truncate">
+//                   {user?.name || "Admin User"}
+//                 </h1>
+//                 <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wide">
+//                   {ROLE_LABELS[activeRole] || activeRole}
+//                 </span>
+//               </div>
+//             )}
+//           </div>
 //         </div>
 //       </aside>
 
-//       {/* ── Main content ──────────────────────────────────────────────────── */}
-//       <main className="flex-1 overflow-y-auto">
-//         <header className="bg-white h-16 border-b border-gray-200 flex items-center px-8 sticky top-0 z-10">
-//           <h2 className="text-lg font-semibold text-gray-800 capitalize">
+//       {/* Stable Hover Popover (Only for Collapsed State) */}
+//       {isCollapsed && hoveredTab && (
+//         <div 
+//           className="fixed z-[9999] ml-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl py-2 animate-in fade-in slide-in-from-left-1 duration-150"
+//           style={{ top: `${popoverPos.top}px`, left: '75px' }}
+//           onMouseEnter={() => clearTimeout(hoverTimer.current)}
+//           onMouseLeave={handleMouseLeave}
+//         >
+//           <div className="px-4 py-2 border-b border-gray-50 mb-1">
+//             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{hoveredTab.label}</span>
+//           </div>
+//           {hoveredTab.subItems.map((sub) => (
+//             <button
+//               key={sub.id}
+//               onClick={() => handleSubItemClick(hoveredTab.id, sub.id)}
+//               className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-600 cursor-pointer transition-colors"
+//             >
+//               {sub.label}
+//             </button>
+//           ))}
+//         </div>
+//       )}
+
+//       {/* Main Content */}
+//       <main className="flex-1 flex flex-col min-w-0">
+//         <header className="bg-white h-16 border-b border-gray-200 flex items-center px-8 sticky top-0 z-30">
+//           <button onClick={() => setIsMobileOpen(true)} className="lg:hidden mr-4 p-2 hover:bg-gray-100 rounded-lg">
+//              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+//           </button>
+//           <h2 className="text-lg font-bold text-gray-800 capitalize tracking-tight">
 //             {activeTabConfig?.label || "Dashboard"}
 //           </h2>
 //         </header>
 
-//         <div className="p-8">
-//           <Suspense fallback={
-//             <div className="flex items-center justify-center h-64">
-//               <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-//             </div>
-//           }>
-//             {TabComponent ? (
-//               <TabComponent onSwitchTab={handleSwitchTab} />
-//             ) : (
-//               <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-//                 <svg className="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-//                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-//                     d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-//                 </svg>
-//                 <p className="text-sm font-medium">This section is coming soon</p>
-//               </div>
-//             )}
+//         <div className="p-8 flex-1 overflow-y-auto">
+//           <Suspense fallback={<div className="flex items-center justify-center h-64 animate-pulse text-blue-500">Loading...</div>}>
+//             {TabComponent ? <TabComponent onSwitchTab={handleSwitchTab} /> : <div className="text-gray-400">Empty Section</div>}
 //           </Suspense>
 //         </div>
 //       </main>
-
 //     </div>
 //   );
 // };
 
 // export default AdminDashboard;
+
+// try to add some collapse 
+// >???
+
+
 // CODE IS WORKING BUT UPPER CODE HAVE ROLE BASED TAB RENDERING AND ALSO HAVE SIDEBAR RATHER THEN HORIZONTAL SPLIT
 // // ADMIN_SEGMENT/Admin_dashboard.jsx
 // import React, { useState, useEffect, Suspense } from "react";

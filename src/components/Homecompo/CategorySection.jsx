@@ -207,20 +207,24 @@ const CategorySection = ({ slug, title }) => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="w-full bg-white py-8 md:py-16 text-center">
-        <p className="text-red-500 mb-2 font-medium">Failed to load {title}</p>
-        <p className="text-gray-400 text-sm mb-4">{error.message}</p>
-        <button
-          onClick={handleRetry}
-          className="inline-flex items-center gap-2 px-6 py-2 bg-[#f7a221] text-white rounded-lg hover:bg-[#e09110] transition-colors"
-        >
-          <RefreshCw size={16} /> Try Again
-        </button>
-      </div>
-    );
-  }
+if (error) {
+  return (
+    <div className="w-full bg-white py-8 md:py-16 text-center">
+      <p className="text-red-500 mb-2 font-medium">
+        Failed to load {title}
+      </p>
+      <p className="text-gray-400 text-sm mb-4">
+        {error.message || "Something went wrong"}
+      </p>
+      <button
+        onClick={handleRetry}
+        className="inline-flex items-center gap-2 px-6 py-2 bg-[#f7a221] text-white rounded-lg hover:bg-[#e09110] transition-colors"
+      >
+        <RefreshCw size={16} /> Try Again
+      </button>
+    </div>
+  );
+}
 
   return (
     <div className="w-full bg-white py-8 md:py-16 overflow-hidden">
