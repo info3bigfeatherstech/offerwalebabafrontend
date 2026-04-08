@@ -18,6 +18,7 @@ import {
   selectCartError,
   selectDisplayCartCount,
 } from "../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice";
+import { current } from '@reduxjs/toolkit';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -301,6 +302,8 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
 
   // ── Which items to show ────────────────────────────────────────────────────
   const currentItems = isLoggedIn ? items : guestItems;
+  console.log("currentItems", currentItems);
+  
 
   // ── Computed subtotal for guest cart (slice doesn't compute it) ────────────
   const subtotal = useMemo(() => {
@@ -498,10 +501,11 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
 
           /* Items list */
           ) : currentItems.length > 0 ? (
-            <div className="divide-y divide-gray-50">
+            <div className="divide-y divide-gray-50 scrollbar-hide">
               {currentItems.map((item, index) => {
                 const loadingState = getItemLoading(item);
                 const itemKey = item._id || `${item.productSlug || item._productSlug}-${item.variantId}-${index}`;
+                const path = `/products/${item._productSlug}`
                 
                 // For guest users, use the simplified GuestCartItem component
                 if (!isLoggedIn) {
@@ -520,7 +524,7 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
                 
                 // For logged-in users, use the full CartItem component
                 return (
-                  <div key={itemKey} className="py-2">
+                  <Link key={itemKey} to={path} className="py-2">
                     <CartItem
                       item={item}
                       isLoggedIn={isLoggedIn}
@@ -529,7 +533,7 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
                       isUpdating={loadingState.updating}
                       isRemoving={loadingState.removing}
                     />
-                  </div>
+                  </Link>
                 );
               })}
 
@@ -609,6 +613,7 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
               </Link>
               <Link
                 onClick={handleCart}
+                to="/account/usercart"
                 onClose={onClose}
                 className="w-full bg-white border-2 border-black text-black py-3.5 rounded-xl font-black uppercase tracking-[0.2em] text-[11px] flex items-center justify-center hover:bg-gray-50 transition-all active:scale-95"
               >

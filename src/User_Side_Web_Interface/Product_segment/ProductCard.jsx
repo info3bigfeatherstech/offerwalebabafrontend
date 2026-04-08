@@ -44,9 +44,7 @@ const logError = (context, error, info = {}) => {
 // ── Component ─────────────────────────────────────────────────────────────────
 const ProductCard = ({ product, index }) => {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  console.log(product);
-  
+  const dispatch = useDispatch();  
 
   const { isLoggedIn } = useSelector((state) => state.auth);
   const wishlisted = useSelector(selectIsWishlisted(product?.slug));

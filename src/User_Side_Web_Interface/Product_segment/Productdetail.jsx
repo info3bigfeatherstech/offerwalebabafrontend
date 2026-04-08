@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { IoLogoWhatsapp, IoLogoFacebook, IoLogoInstagram } from "react-icons/io5";
@@ -9,6 +9,7 @@ import {
   RefreshCw, ArrowLeft, Loader2, ArrowRight,
   Package, ShieldCheck, RotateCcw,
   Tag,
+  Share2,
 } from "lucide-react";
 import {
   addToWishlist, removeFromWishlist,
@@ -108,15 +109,24 @@ const ProductUI = () => {
   const { slug } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [shareOpen, setShareOpen] = useState(false);
     const location = useLocation();
-  console.log("route", location);
-
   const [activeThumb, setActiveThumb] = useState(0);
   const [selectedAttrs, setSelectedAttrs] = useState({});
   const [openDesc, setOpenDesc] = useState(false);
   const [localLoading, setLocalLoading] = useState({
     add: false, update: false, remove: false, wishlist: false,
   });
+   const [showZoom, setShowZoom] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isVisible, setisVisible] = useState(false)
+  const containerRef  = useRef(null);
+  const lensRef = useRef(null);
+  const zoomRef = useRef(null);
+  const rafRef = useRef(null);
+
+  const targetRef = useRef({ x: 0.5, y: 0.5 });
+  const currentRef = useRef({ x: 0.5, y: 0.5 });
 
   const product    = useSelector(selectCurrentProduct);
   const related    = useSelector(selectRelatedProducts);
@@ -144,6 +154,75 @@ const ProductUI = () => {
       .catch(() => {});
     return () => { dispatch(clearCurrentProduct()); dispatch(clearRelatedProducts()); };
   }, [slug, dispatch]);
+  useEffect(() => {
+  const close = () => setShareOpen(false);
+  document.addEventListener("click", close);
+  return () => document.removeEventListener("click", close);
+}, []);
+// ✅ Detect mobile
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      const isTouch =
+        "ontouchstart" in window || navigator.maxTouchPoints > 0;
+      const isSmallScreen = window.innerWidth < 768;
+
+      setIsMobile(isTouch || isSmallScreen);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // 🔥 RAF loop (NO React re-render → smooth AF)
+  useEffect(() => {
+    const animate = () => {
+      // smooth interpolation (LERP)
+      currentRef.current.x +=
+        (targetRef.current.x - currentRef.current.x) * 0.15;
+      currentRef.current.y +=
+        (targetRef.current.y - currentRef.current.y) * 0.15;
+
+      const { x, y } = currentRef.current;
+
+      // update lens
+      if (lensRef.current) {
+        lensRef.current.style.left = `${x * 100}%`;
+        lensRef.current.style.top = `${y * 100}%`;
+      }
+
+      // update zoom background
+      if (zoomRef.current) {
+        zoomRef.current.style.backgroundPosition = `${x * 100}% ${y * 100}%`;
+      }
+
+      rafRef.current = requestAnimationFrame(animate);
+    };
+
+    rafRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, []);
+
+  // ✅ Update cursor position
+  const updatePosition = (clientX, clientY) => {
+    const rect = containerRef.current.getBoundingClientRect();
+
+    let x = (clientX - rect.left) / rect.width;
+    let y = (clientY - rect.top) / rect.height;
+
+    // 🔥 hard clamp (no edge jitter)
+    const padding = 0.05;
+    x = Math.max(padding, Math.min(1 - padding, x));
+    y = Math.max(padding, Math.min(1 - padding, y));
+
+    targetRef.current = { x, y };
+  };
+
+  const handleMouseMove = (e) => {
+    updatePosition(e.clientX, e.clientY);
+  };
 
   // ── variant logic ──────────────────────────────────────────────────────────
   const activeVariants = useMemo(
@@ -306,9 +385,7 @@ const ProductUI = () => {
     };
     if (map[type]) window.open(map[type], "_blank");
     if (type === "instagram") { navigator?.clipboard?.writeText(url); alert("Link copied!"); }
-  };
-  console.log("Product", product);
-  
+  };  
 
   // ── guards ─────────────────────────────────────────────────────────────────
   if (isLoading) return <div className="bg-gray-50 min-h-screen"><Skeleton /></div>;
@@ -331,13 +408,109 @@ const ProductUI = () => {
   <Breadcrumb product={product}/>
   <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-8 space-y-3 sm:space-y-4">
+        {isVisible && (
+  <div
+  className="ImageCard fixed inset-0 z-50 md:hidden bg-black/60 backdrop-blur-sm flex items-end"
+  onClick={() => setisVisible(false)}
+>
+    
+    {/* Sheet */}
+   <div
+  className="w-full bg-white rounded-t-3xl px-4 pt-4 pb-8 max-h-[92vh] overflow-y-auto"
+  onClick={(e) => e.stopPropagation()}
+>
+      
+      {/* Handle + Header */}
+      <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm font-bold text-gray-800">
+          {activeThumb + 1} / {images.length}
+        </p>
+        <button
+          onClick={() => setisVisible(false)}
+          className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition"
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Main Big Image — NO ZOOM */}
+      <div className="w-full flex items-center justify-center bg-gray-50 rounded-2xl overflow-hidden mb-4 relative"
+        style={{ aspectRatio: "1/1" }}
+      >
+        {activeImg ? (
+          <img
+            src={activeImg}
+            alt={title}
+            className="w-full h-full object-contain p-4"
+          />
+        ) : (
+          <Package size={48} className="text-gray-300" />
+        )}
+
+        {/* Prev / Next arrows */}
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={() => setActiveThumb((p) => (p - 1 + images.length) % images.length)}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white shadow flex items-center justify-center text-gray-600 hover:bg-gray-100"
+            >
+              ‹
+            </button>
+            <button
+              onClick={() => setActiveThumb((p) => (p + 1) % images.length)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white shadow flex items-center justify-center text-gray-600 hover:bg-gray-100"
+            >
+              ›
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Dot indicators */}
+      {images.length > 1 && (
+        <div className="flex justify-center gap-1.5 mb-5">
+          {images.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setActiveThumb(i)}
+              className={`rounded-full transition-all duration-200 ${
+                activeThumb === i
+                  ? "w-4 h-2 bg-orange-400"
+                  : "w-2 h-2 bg-gray-300"
+              }`}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Thumbnail grid */}
+      <div className="grid grid-cols-5 gap-2">
+        {images.map((img, i) => (
+          <button
+            key={i}
+            onClick={() => setActiveThumb(i)}
+            className={`rounded-xl overflow-hidden border-2 transition-all duration-200 aspect-square
+              ${activeThumb === i
+                ? "border-orange-400 shadow-md shadow-orange-100 scale-[1.04]"
+                : "border-gray-200 hover:border-orange-300"
+              }`}
+          >
+            <img src={img.url} alt={`thumb-${i}`} className="w-full h-full object-cover" />
+          </button>
+        ))}
+      </div>
+
+    </div>
+  </div>
+)}
 
         {/* ═══════════ MAIN PRODUCT CARD ═══════════ */}
-        <div className="bg-gray-50 rounded-2xl sm:rounded-3xl overflow-hidden">
+        <div className="bg-gray-50 rounded-2xl sm:rounded-3xl overflow-hidden ">
           <div className="flex flex-col lg:grid lg:grid-cols-2">
 
             {/* ── LEFT: Image panel ── */}
-            <div className="flex flex-row lg:border-r border-gray-100">
+            <div className="flex flex-row lg:border-r border-gray-100 gap-6">
 
               {/* ── Thumbnail sidebar ──
                   Mobile  : hidden (swipe main image instead)
@@ -367,7 +540,8 @@ const ProductUI = () => {
                     {images.map((img, i) => (
                       <button
                         key={i}
-                        onClick={() => setActiveThumb(i)}
+                        onClick={() => {
+                          setActiveThumb(i)}}
                         className={`flex-shrink-0 w-[56px] h-[56px] rounded-xl overflow-hidden border-2 transition-all duration-200 ${
                           activeThumb === i
                             ? "border-orange-400 shadow-md shadow-orange-100 scale-[1.04]"
@@ -397,38 +571,53 @@ const ProductUI = () => {
               {/* ── Main image + mobile dot nav ── */}
               <div className="flex-1 flex flex-col">
                 {/* Image box */}
-                <div className="relative w-full flex items-center justify-center overflow-hidden"
-                  style={{ aspectRatio: "4/5", maxHeight: 560 }}>
-                  {activeImg
-                    ? <img
-                        src={activeImg}
-                        alt={title}
-                        className="w-full h-full object-cover p-4 sm:p-6 transition-opacity duration-300"
-                      />
-                    : <div className="flex flex-col items-center gap-3 text-gray-300">
-                        <Package size={64} />
-                        <span className="text-sm">No image</span>
-                      </div>
-                  }
+              <div
+  ref={containerRef}
+  className="relative w-full cursor-pointer flex items-center justify-center overflow-hidden"
+  style={{ aspectRatio: "4/5", maxHeight: 880 }}
+   onClick={() => { if (isMobile) setisVisible(true); }}   // 👈 ADD THIS
+  onMouseEnter={() => {
+    if (isMobile) return;
+    setShowZoom(true);
+  }}
+  onMouseLeave={() => {
+    if (isMobile) return;
+    setShowZoom(false);
+  }}
+  onMouseMove={!isMobile ? handleMouseMove : undefined}
+>
+  {/* Image */}
+  {activeImg ? (
+    <img
+      src={activeImg}
+      alt={title}
+      className="w-full h-full object-cover p-4 sm:p-6"
+    />
+  ) : (
+    <div>No image</div>
+  )}
 
-                  {/* Mobile prev/next arrows */}
-                  {images.length > 1 && (
-                    <>
-                      <button
-                        onClick={() => setActiveThumb((p) => (p - 1 + images.length) % images.length)}
-                        className="lg:hidden absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center text-gray-600 hover:bg-gray-100 transition"
-                      >
-                        ‹
-                      </button>
-                      <button
-                        onClick={() => setActiveThumb((p) => (p + 1) % images.length)}
-                        className="lg:hidden absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center text-gray-600 hover:bg-gray-100 transition"
-                      >
-                        ›
-                      </button>
-                    </>
-                  )}
-                </div>
+  {/* 🔥 AMAZON DOTTED LENS */}
+  {showZoom && !isMobile && (
+    <div
+      ref={lensRef}
+      className="absolute pointer-events-none"
+      style={{
+        width: "10rem",
+        height: "11rem",
+        transform: "translate(-50%, -50%)",
+
+        backgroundColor: "rgba(163, 89, 223, 0.35)",
+        backgroundImage: `radial-gradient(rgba(0,0,0,0.15) 1px, transparent 1px)`,
+        backgroundSize: "6px 6px",
+
+        border: "1px solid rgba(0,0,0,0.2)",
+        boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+      }}
+    />
+  )}
+</div>
+{/* 🔥 RIGHT SIDE ZOOM (Amazon style) */}
 
                 {/* Mobile dots */}
                 {images.length > 1 && (
@@ -450,27 +639,24 @@ const ProductUI = () => {
             </div>
             <div className="flex flex-col">
                  {/* ── RIGHT: Info panel ── */}
-            <div className="flex flex-col gap-3 p-4 sm:p-6 lg:p-7 overflow-y-auto scrollbar-hide lg:max-h-[560px]">
+            <div className="flex relative flex-col gap-3 p-4 sm:p-6 lg:p-7 overflow-y-auto scrollbar-hide lg:max-h-[560px]">
+                  {showZoom && !isMobile && (
+  <div
+    ref={zoomRef}
+    className="hidden lg:block w-[30rem] absolute z-10 h-[42rem] rounded-2xl shadow-lg bg-white"
+    style={{
+      backgroundImage: `url(${activeImg})`,
+      backgroundRepeat: "no-repeat",
+      backgroundSize: "250%",
+      transition: "background-position 0.1s ease-out",
+    }}
+  />
+)}
 
               {/* Title */}
-              <h1 className="text-lg sm:text-3xl font-bold text-gray-900 leading-snug tracking-tight">
+              <h1 className="text-xl sm:text-3xl font-bold text-gray-900 leading-snug tracking-tight">
                 {title}
               </h1>
-               {/* Share */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-gray-400 font-semibold uppercase tracking-wide">Share</span>
-                {[
-                  { type: "whatsapp",  Icon: IoLogoWhatsapp,  cls: "bg-green-500" },
-                  { type: "facebook",  Icon: IoLogoFacebook,  cls: "bg-blue-600" },
-                  { type: "instagram", Icon: IoLogoInstagram, cls: "bg-pink-500" },
-                  { type: "telegram",  Icon: FaTelegram,      cls: "bg-sky-500" },
-                ].map(({ type, Icon, cls }) => (
-                  <button key={type} onClick={() => share(type)}
-                    className={`w-8 h-8 rounded-full ${cls} text-white flex items-center justify-center hover:scale-110 transition-transform shadow-sm`}>
-                    <Icon size={15} />
-                  </button>
-                ))}
-              </div>
 
               {/* Brand + Rating */}
               <div className="flex flex-col flex-wrap gap-2">
@@ -479,14 +665,11 @@ const ProductUI = () => {
                     by <span className="text-orange-500 font-semibold">{brand}</span>
                   </span>
                 )}
-                <div className="flex items-center gap-1.5">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} size={13}
-                      className={i < Math.round(rating) ? "fill-amber-400 text-amber-400" : "fill-gray-200 text-gray-200"} />
-                  ))}
-                  <span className="text-sm font-bold text-gray-700 ml-1">{rating}</span>
-                  {ratingCnt > 0 && <span className="text-xs text-gray-400">({ratingCnt} reviews)</span>}
-                </div>
+            <div className="flex items-center w-fit  px-1 py-2 rounded-lg gap-2 bg-gray-100">
+              <div className="flex text-sm items-center gap-2">4.7 <Star size={14} fill="#F7C85C" className="text-[#F7C85C]"/></div>
+              <div className="w-[1.5px] h-5 bg-zinc-300"></div>
+              <div className="text-sm">3 Ratings</div>
+            </div>
               </div>
 
               {/* Price */}
@@ -505,6 +688,109 @@ const ProductUI = () => {
                 <p className="font-medium text-zinc-900 flex items-center gap-1 text-sm"> <span className="font-bold text-[crimson] text-sm">{formatCount(soldInfo)} bought</span> in past month
 </p>
               </div>
+             <div className="flex flex-col gap-2">
+               <div className="w-full h-px bg-gray-200"></div>
+              {/* Share */}
+            {/* ── Wishlist + Share bar ── */}
+<div className="relative flex rounded-2xl overflow-visible bg-gray-50 mt-1">
+
+  {/* Wishlist */}
+  <button
+    onClick={handleWishlist}
+    disabled={localLoading.wishlist}
+    className={`px-3 py-2 flex items-center gap-2 text-sm font-semibold transition-all duration-200 rounded-l-2xl active:scale-[0.98]
+      ${wishlisted
+        ? "text-red-500 bg-red-50"
+        : "text-gray-600 hover:bg-gray-50 hover:text-red-400"
+      } disabled:opacity-50`}
+  >
+    {localLoading.wishlist
+      ? <Loader2 size={16} className="animate-spin" />
+      : <Heart size={16} className={wishlisted ? "fill-red-500 text-red-500" : ""} />}
+    <span className="hidden sm:inline">
+      {wishlisted ? "Wishlisted" : "Add to Wishlist"}
+    </span>
+    <span className="sm:hidden text-xs">
+      {wishlisted ? "Wishlisted" : "Wishlist"}
+    </span>
+  </button>
+
+  {/* Divider */}
+  <div className="w-px self-stretch bg-gray-200 flex-shrink-0" />
+
+  {/* Share */}
+  <div className="relative flex-shrink-0">
+    <button
+      onClick={(e) => { e.stopPropagation(); setShareOpen((v) => !v); }}
+      className={`h-full py-3.5 px-5 sm:px-7 flex items-center gap-2 text-sm font-semibold transition-all duration-200 rounded-r-2xl active:scale-[0.98]
+        ${shareOpen ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"}`}
+    >
+      <Share2 size={15} />
+      <span>Share</span>
+    </button>
+
+    {/* Desktop popover */}
+    {shareOpen && (
+      <div className="hidden sm:flex absolute bottom-[calc(100%+12px)] right-0 items-center gap-3 bg-white border border-gray-200 rounded-2xl px-5 py-3.5 shadow-xl shadow-black/5 z-50 whitespace-nowrap">
+        {/* Arrow */}
+        <div className="absolute -bottom-[6px] right-8 w-3 h-3 bg-white border-r border-b border-gray-200 rotate-45" />
+        <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest pr-1">Share via</span>
+        {[
+          { type: "whatsapp",  Icon: IoLogoWhatsapp,  cls: "bg-green-500 hover:bg-green-600" },
+          { type: "facebook",  Icon: IoLogoFacebook,  cls: "bg-blue-600 hover:bg-blue-700" },
+          { type: "instagram", Icon: IoLogoInstagram, cls: "bg-gradient-to-br from-yellow-400 via-pink-500 to-purple-600" },
+          { type: "telegram",  Icon: FaTelegram,      cls: "bg-sky-500 hover:bg-sky-600" },
+        ].map(({ type, Icon, cls }) => (
+          <button
+            key={type}
+            onClick={() => { share(type); setShareOpen(false); }}
+            className={`w-9 h-9 rounded-full ${cls} text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-150 shadow-sm`}
+          >
+            <Icon size={16} />
+          </button>
+        ))}
+      </div>
+    )}
+
+    {/* Mobile overlay */}
+    {shareOpen && (
+      <div
+        className="sm:hidden fixed inset-0 bg-black/40 z-40 backdrop-blur-[2px]"
+        onClick={() => setShareOpen(false)}
+      />
+    )}
+
+    {/* Mobile bottom sheet */}
+    <div className={`sm:hidden fixed bottom-0 left-0 right-0 bg-white z-50 px-6 pt-4 pb-10 transition-transform duration-300 ease-out
+      ${shareOpen ? "translate-y-0" : "translate-y-full"}
+      rounded-t-3xl shadow-2xl`}
+    >
+      {/* Drag handle */}
+      <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+      <p className="text-center text-base font-bold text-gray-900 mb-6">Share this product</p>
+      <div className="flex justify-center gap-6 sm:gap-10">
+        {[
+          { type: "whatsapp",  Icon: IoLogoWhatsapp,  cls: "bg-green-500", label: "WhatsApp" },
+          { type: "facebook",  Icon: IoLogoFacebook,  cls: "bg-blue-600",  label: "Facebook" },
+          { type: "instagram", Icon: IoLogoInstagram, cls: "bg-gradient-to-br from-yellow-400 via-pink-500 to-purple-600", label: "Instagram" },
+          { type: "telegram",  Icon: FaTelegram,      cls: "bg-sky-500",   label: "Telegram" },
+        ].map(({ type, Icon, cls, label }) => (
+          <div key={type} className="flex flex-col items-center gap-2.5">
+            <button
+              onClick={() => { share(type); setShareOpen(false); }}
+              className={`w-14 h-14 rounded-2xl ${cls} text-white flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-150 shadow-md`}
+            >
+              <Icon size={24} />
+            </button>
+            <span className="text-[11px] text-gray-500 font-medium">{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+</div>
+ <div className="w-full h-px bg-gray-200"></div>
+             </div>
 
               {lowStock && (
                 <p className="text-xs text-orange-600 font-semibold flex items-center gap-1 -mt-1">
@@ -643,18 +929,6 @@ const ProductUI = () => {
                     </button>
                   </div>
                 )}
-
-                <button onClick={handleWishlist} disabled={localLoading.wishlist}
-                  className={`w-full py-3 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 border-2 transition-all duration-200 ${
-                    wishlisted
-                      ? "border-red-300 bg-red-50 text-red-500"
-                      : "border-gray-200 bg-white text-gray-500 hover:border-red-300 hover:text-red-400"
-                  }`}>
-                  {localLoading.wishlist
-                    ? <Loader2 size={16} className="animate-spin" />
-                    : <Heart size={16} className={wishlisted ? "fill-red-500 text-red-500" : ""} />}
-                  {wishlisted ? "Wishlisted" : "Add to Wishlist"}
-                </button>
               </div>
 
             </div>{/* end right */}

@@ -44,9 +44,7 @@ const logError = (context, error, info = {}) => {
 // item.variantId matches item.productId.variants[]._id
 // item.priceSnapshot = { base, sale } — per-item price snapshot
 // ─────────────────────────────────────────────────────────────────────────────
-const getItemDisplayData = (item) => {
-  console.log(item.productId.maxDiscountPercentage);
-  
+const getItemDisplayData = (item) => {  
   const isPopulated = typeof item.productId === 'object' && item.productId !== null;
 
   // Find matched variant by variantId
@@ -89,7 +87,6 @@ const getItemDisplayData = (item) => {
 // CartRow — single item row
 // ─────────────────────────────────────────────────────────────────────────────
 const CartRow = ({ item, isLoggedIn, onUpdate, onRemove, isUpdating, isRemoving }) => {
-  console.log("items", item);
   const { name, image, price, brand, attrs, slug } = getItemDisplayData(item);
   const qty = item.quantity || 1;
   
@@ -119,7 +116,6 @@ const CartRow = ({ item, isLoggedIn, onUpdate, onRemove, isUpdating, isRemoving 
   
 
 const CartComponent = ({ item, isLoggedIn, onUpdate, onRemove, isUpdating, isRemoving, name, image, price, brand, attrs, slug, itemTotal, qty }) => {
-  console.log("items", item);
   const maxDiscount = item.productId?.maxDiscountPercentage ?? 0;
   
   

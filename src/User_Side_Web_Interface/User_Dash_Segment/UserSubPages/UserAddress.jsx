@@ -240,7 +240,6 @@ if (name === "addressLine2") {
 
         if (data[0]?.Status === "Success") {
           const po = data[0].PostOffice[0];
-          console.log("Pincode API result:", po);
           // auto-fill city, state, area from pincode
           setForm((p) => ({
             ...p,
@@ -548,9 +547,7 @@ if (name === "addressLine2") {
         if (editAddress) {
           await dispatch(updateAddress({ id: editAddress._id, ...formData })).unwrap();
           toast.success("Address updated!", { theme: "dark" });
-        } else {
-          console.log(formData);
-          
+        } else {          
           await dispatch(addAddress(formData)).unwrap();
           toast.success("Address added!", { theme: "dark" });
         }

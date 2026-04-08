@@ -2,22 +2,23 @@ import React, { useEffect, useState } from 'react';
 import { SlidersHorizontal, X, ChevronDown } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchProducts } from '../../components/REDUX_FEATURES/REDUX_SLICES/userProductsSlice';
+import { fetchProducts, selectAllProducts } from '../../components/REDUX_FEATURES/REDUX_SLICES/userProductsSlice';
 import ProductCard from '../Product_segment/ProductCard';
 
 const ShopByPrice = () => {
-  const { slug } = useParams();
-  console.log(slug);
-  
+  const { slug } = useParams();  
+  const slug1 = slug.match(/\d+/)?.[0] ?? "0"; 
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [selectedPriceRanges, setSelectedPriceRanges] = useState([]);
+  console.log("slug1", slug1);
+  
   const dispatch = useDispatch();
   const priceRanges = [
     "Under ₹500",
     "₹500 - ₹1000",
     "₹1000 - ₹5000",
     "Over ₹5000"
-  ];
+  ];  
 
   const togglePriceRange = (range) => {
     setSelectedPriceRanges(prev =>
@@ -31,51 +32,9 @@ const ShopByPrice = () => {
 
   const activeFilterCount = selectedPriceRanges.length;
 
-  const FilterSidebar = () => (
-    <div className="space-y-8">
-
-      {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-zinc-100">
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal size={16} />
-          <span className="text-sm font-bold uppercase tracking-widest">Filters</span>
-        </div>
-        {activeFilterCount > 0 && (
-          <button
-            onClick={clearFilters}
-            className="text-[11px] font-bold text-red-500 hover:text-red-700 uppercase tracking-wider"
-          >
-            Clear All ({activeFilterCount})
-          </button>
-        )}
-      </div>
-
-      {/* Price Range */}
-      <div>
-        <h4 className="text-[11px] font-black uppercase tracking-widest mb-4">Price Range</h4>
-        <div className="space-y-2">
-          {priceRanges.map((range) => (
-            <label
-              key={range}
-              className="flex items-center gap-3 text-sm text-zinc-600 cursor-pointer hover:text-zinc-900"
-            >
-              <input
-                type="checkbox"
-                className="w-4 h-4 accent-zinc-900"
-                checked={selectedPriceRanges.includes(range)}
-                onChange={() => togglePriceRange(range)}
-              />
-              {range}
-            </label>
-          ))}
-        </div>
-      </div>
-
-    </div>
-  );
-
   let data = useSelector((state) => state.userProducts.products);
-  console.log("Product fetched now", data);
+  const filteredData = data.filter( elem => elem.maxPrice === +slug1 )
+  console.log("filteredData", filteredData);
   
   useEffect( () => {
     dispatch(fetchProducts({ page: 1, limit: 36 }));
@@ -128,7 +87,7 @@ const ShopByPrice = () => {
           {/* Sort + Count — desktop */}
           <div className="hidden md:flex items-center justify-between mb-6">
             <p className="text-sm text-gray-500 font-medium">
-              SHOWING <span className="font-bold text-black">5</span> PRODUCT
+              SHOWING <span className="font-bold text-black">{filteredData.length}</span> PRODUCT
             </p>
           
          
@@ -154,7 +113,10 @@ const ShopByPrice = () => {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <ProductCard data={data} />
+            {filteredData?.map((elem, index) => (
+              <>
+               <ProductCard product={elem} index={index} /></>
+            ))}
           </div>
 
         </div>
