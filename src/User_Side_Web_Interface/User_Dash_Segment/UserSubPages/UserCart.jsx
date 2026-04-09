@@ -87,15 +87,28 @@ const getItemDisplayData = (item) => {
 // CartRow — single item row
 // ─────────────────────────────────────────────────────────────────────────────
 const CartRow = ({ item, isLoggedIn, onUpdate, onRemove, isUpdating, isRemoving }) => {
-  const { name, image, price, brand, attrs, slug } = getItemDisplayData(item);
-  const qty = item.quantity || 1;
-  
+  console.log("myitems", item);
+  const name      = item.product?.title || item.product?.name || 'Product';
+  const brand     = item.product?.brand || null;
+  const slug      = item.product?.slug || null;
+  const price     = item.price?.sale ?? item.price?.base ?? null;
+  const basePrice = item.price?.base ?? null;
+  const discount  = item.price?.discountPercentage ?? 0;
+  const qty       = item.quantity || 1;
   const itemTotal = price != null ? price * qty : null;
 
+  // variant match karke image nikalo
+  const matchedVariant = item.product?.variants?.find(
+    v => String(v._id) === String(item.variantId)
+  ) ?? item.product?.variants?.[0];
+  
+  const image = matchedVariant?.images?.[0]?.url || null;
+  const attrs = matchedVariant?.attributes ?? [];
   return (
     <div className="p-4 sm:p-6 transition-all duration-300">
       <CartComponent item={item}
         isLoggedIn={isLoggedIn}
+         basePrice={basePrice} 
         onUpdate={onUpdate}
         onRemove={onRemove}
         isUpdating={isUpdating}
@@ -115,8 +128,10 @@ const CartRow = ({ item, isLoggedIn, onUpdate, onRemove, isUpdating, isRemoving 
 
   
 
-const CartComponent = ({ item, isLoggedIn, onUpdate, onRemove, isUpdating, isRemoving, name, image, price, brand, attrs, slug, itemTotal, qty }) => {
-  const maxDiscount = item.productId?.maxDiscountPercentage ?? 0;
+const CartComponent = ({ item, isLoggedIn,basePrice, onUpdate, onRemove, isUpdating, isRemoving, name, image, price, brand, attrs, slug, itemTotal, qty }) => {
+  const maxDiscount = item.price?.discountPercentage ?? 0;
+  console.log("items", item);
+  
   
   
   
@@ -161,7 +176,9 @@ const CartComponent = ({ item, isLoggedIn, onUpdate, onRemove, isUpdating, isRem
 
       <div className="flex items-center gap-1.5 mt-1 flex-wrap">
         <span className="font-semibold text-xs md:text-sm">{fmt(price)}</span>
-        <span className="text-gray-400 text-[11px] line-through">{fmt(price * 2)}</span>
+       {basePrice && basePrice !== price && (
+      <span className="text-gray-400 text-[11px] line-through">{fmt(basePrice)}</span>
+    )}
         <span className="font-semibold text-[11px] text-[#79AE6F]">{maxDiscount}% OFF</span>
       </div>
     </div>

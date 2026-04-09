@@ -84,11 +84,7 @@ const ProductsTab = ({ onSwitchTab }) => {
 
   // ── Initial fetch ────────────────────────────────────────────────────────────
   useEffect(() => {
-<<<<<<< HEAD
-    dispatch(fetchProducts({ page: 1, limit: 30 }));
-=======
     dispatch(fetchProducts({ page: 1, limit: 15 }));  // ✅ Changed to 15 per page
->>>>>>> 9cd4ec0755b22d2b9e5005ad42230068cf8c997c
     dispatch(fetchCategories());
     dispatch(fetchLowStockProducts({ page: 1, limit: 1 }));
       dispatch(fetchActiveProductsCount());

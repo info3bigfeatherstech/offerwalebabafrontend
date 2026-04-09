@@ -133,9 +133,9 @@ export const searchProducts = createAsyncThunk(
 
 export const fetchFeaturedProducts = createAsyncThunk(
   "userProducts/fetchFeaturedProducts",
-  async (limit = 10, { rejectWithValue }) => {
+  async ({ limit = 10, page = 1 } = {}, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get(`/products/featured?limit=${limit}`);
+      const response = await axiosInstance.get(`/products/featured?limit=${limit}&page=${page}`);
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to fetch featured products");
       return response.data;
@@ -244,9 +244,18 @@ const userProductsSlice = createSlice({
         state.loading.products = true;
         state.error.products = null;
       })
-      .addCase(fetchProducts.fulfilled, (state, action) => {
-        state.loading.products = false;
-        state.products = action.payload.products || [];
+     .addCase(fetchProducts.fulfilled, (state, action) => {
+  state.loading.products = false;
+  const incoming = action.payload.products || [];
+  const page = action.payload.page ?? action.payload.pagination?.page ?? 1;
+  
+  if (page === 1) {
+    state.products = incoming;           // fresh load → replace
+  } else {
+    const existingIds = new Set(state.products.map(p => p._id));
+    const fresh = incoming.filter(p => !existingIds.has(p._id));
+    state.products = [...state.products, ...fresh]; // load more → append
+  }
         const p = action.payload.pagination || {};
         state.pagination = {
           total: p.total ?? action.payload.total ?? 0,
@@ -377,10 +386,30 @@ const userProductsSlice = createSlice({
         state.loading.featured = true;
         state.error.featured = null;
       })
-      .addCase(fetchFeaturedProducts.fulfilled, (state, action) => {
-        state.loading.featured = false;
-        state.featuredProducts = action.payload.products || [];
-      })
+   .addCase(fetchFeaturedProducts.fulfilled, (state, action) => {
+  state.loading.featured = false;
+  const incoming = action.payload.products || [];
+  const page = action.payload.pagination?.page ?? 1;
+
+  console.log(`✅ Featured fulfilled — page: ${page}, incoming: ${incoming.length}, appending: ${page > 1}`);
+
+  if (page === 1) {
+    state.featuredProducts = incoming;
+  } else {
+    const existingIds = new Set(state.featuredProducts.map(p => p._id));
+    const fresh = incoming.filter(p => !existingIds.has(p._id));
+    state.featuredProducts = [...state.featuredProducts, ...fresh];
+  }
+
+  state.pagination = {
+    total:       action.payload.pagination.total,
+    page:        action.payload.pagination.page,
+    limit:       action.payload.pagination.limit,
+    totalPages:  action.payload.pagination.totalPages,
+    hasNextPage: action.payload.pagination.hasNextPage,
+    hasPrevPage: action.payload.pagination.hasPrevPage,
+  };
+})
       .addCase(fetchFeaturedProducts.rejected, (state, action) => {
         state.loading.featured = false;
         state.error.featured = action.payload || { message: "Failed to fetch featured products" };

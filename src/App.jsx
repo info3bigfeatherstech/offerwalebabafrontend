@@ -29,12 +29,7 @@ import { logoutUser, fetchMe } from "./components/REDUX_FEATURES/REDUX_SLICES/au
 // ── These two are fine at app-level — they power Navbar badges ───────────────
 import useWishlistInit from "./components/HOOKS/useWishlistInit";
 import useCartInit from "./components/HOOKS/useCartInit";
-<<<<<<< HEAD
-import CustomerDashboard from "./components/ADMIN_SEGMENT/ADMIN_TABS/CUSTOMER_SEGMENT/CustomerDashboard";
 import ShopByPrice from "./User_Side_Web_Interface/ShopByPriceSegment/ShopByPrice";
-import CartComponent from "./User_Side_Web_Interface/User_Dash_Segment/UserSubPages/UserCart";
-=======
->>>>>>> 9cd4ec0755b22d2b9e5005ad42230068cf8c997c
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Optional: protect /account routes ────────────────────────────────────────
@@ -121,8 +116,6 @@ const AppContent = () => {
                 <Route path="/category/:slug"  element={<CatProducts />} />
                 <Route path="/products/:slug"  element={<ProductDetail />} />
                 <Route path="/shopbyprice/:slug" element={<ShopByPrice />} />
-                <Route path="/cart" element={<CartComponent />} />
-
                 {/* ── Admin auth routes (public — no AdminPrivateRoute) ───── */}
                 <Route path="/admin/login"        element={<AdminLogin />} />
                 <Route path="/admin/unauthorized" element={<AdminUnauthorized />} />

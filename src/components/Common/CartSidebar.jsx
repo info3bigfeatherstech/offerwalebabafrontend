@@ -140,29 +140,29 @@ const CartItem = ({ item, isLoggedIn, onUpdateQty, onRemove, isUpdating, isRemov
   // ── Find the specific variant that was added ──────────────────────────────
   // API: item.variantId matches item.productId.variants[]._id
   const matchedVariant = isPopulated
-    ? (item.productId.variants?.find(
+    ? (item.product.variants?.find(
         (v) => String(v._id) === String(item.variantId)
-      ) ?? item.productId.variants?.[0] ?? null)
+      ) ?? item.product.variants?.[0] ?? null)
     : null;
 
   // Name — title first ("Studio Light - Red Edition"), fallback to name
   const name = isPopulated
-    ? (item.productId.title || item.productId.name)
-    : (item.name || item.productSlug || "Product");
+    ? (item.product.name || item.productId.name)
+    : (item.name || item.product.slug || "Product");
 
   // Image — from the MATCHED variant images[], not product-level
   // API: item.productId.variants[matched].images[0].url
   const image =
     matchedVariant?.images?.[0]?.url ||
-    item.productId?.variants?.[0]?.images?.[0]?.url ||
+    item.product?.variants?.[0]?.images?.[0]?.url ||
     item.image ||
     null;
 
   // Price — from priceSnapshot (backend attaches this per cart item)
   // priceSnapshot = { base, sale }
   const price =
-    item.priceSnapshot?.sale ??
-    item.priceSnapshot?.base ??
+    item.price?.sale ??
+    item.price?.base ??
     matchedVariant?.finalPrice ??
     matchedVariant?.price?.sale ??
     matchedVariant?.price?.base ??
@@ -173,7 +173,7 @@ const CartItem = ({ item, isLoggedIn, onUpdateQty, onRemove, isUpdating, isRemov
 
   // Category — API returns category as plain string ID (not populated)
   // Use brand as display label instead
-  const category = item.productId?.brand || null;
+  const category = item.product?.brand || null;
 
   const qty = item.quantity || 1;
   const itemTotal = price != null ? price * qty : null;
@@ -284,6 +284,8 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
 
   // ── Selectors ─────────────────────────────────────────────────────────────
   const items       = useSelector(selectCartItems);
+  console.log("items", items);
+  
   const guestItems  = useSelector(selectCartGuestItems);
   const totalAmount = useSelector(selectCartTotalAmount);
   const totalItems  = useSelector(selectDisplayCartCount);
@@ -301,9 +303,7 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
     }));
 
   // ── Which items to show ────────────────────────────────────────────────────
-  const currentItems = isLoggedIn ? items : guestItems;
-  console.log("currentItems", currentItems);
-  
+  const currentItems = isLoggedIn ? items : guestItems;  
 
   // ── Computed subtotal for guest cart (slice doesn't compute it) ────────────
   const subtotal = useMemo(() => {
@@ -339,67 +339,66 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleUpdateQty = async (item, newQty) => {
-    if (newQty < 1) return;
-    
-    const itemId = item._id || `${item.productSlug}-${item.variantId}`;
-    
-    if (isLoggedIn) {
-      setItemState(itemId, 'updating', true);
-      try {
-        await dispatch(updateCartItem({
-          productId: item.productId?._id || item.productId,
-          variantId: item.variantId,
-          quantity:  newQty,
-          productSlug: item._productSlug,
-        })).unwrap();
-      } catch (e) {
-        logError("updateCartItem", e, { newQty });
-      } finally {
-        setItemState(itemId, 'updating', false);
-      }
-    } else {
-      setItemState(itemId, 'updating', true);
-      dispatch(updateGuestCartItem({
-        productSlug: item.productSlug,
+  if (newQty < 1) return;
+  const itemId = item._id || `${item.product?.slug || item._productSlug}-${item.variantId}`;
+
+  if (isLoggedIn) {
+    setItemState(itemId, 'updating', true);
+    try {
+      await dispatch(updateCartItem({
+        productId:   item.productId?._id || item.productId,  // ✅
         variantId:   item.variantId,
         quantity:    newQty,
-      }));
-      setTimeout(() => setItemState(itemId, 'updating', false), 100);
+        productSlug: item.product?.slug || item._productSlug, // ✅
+      })).unwrap();
+    } catch (e) {
+      logError("updateCartItem", e, { newQty });
+    } finally {
+      setItemState(itemId, 'updating', false);
     }
-  };
+  } else {
+    setItemState(itemId, 'updating', true);
+    dispatch(updateGuestCartItem({
+      productSlug: item.product?.slug || item.productSlug, // ✅
+      variantId:   item.variantId,
+      quantity:    newQty,
+    }));
+    setTimeout(() => setItemState(itemId, 'updating', false), 100);
+  }
+};
 
-  const handleRemove = async (item) => {
-    const itemId = item._id || `${item.productSlug}-${item.variantId}`;
-    
-    if (isLoggedIn) {
-      setItemState(itemId, 'removing', true);
-      try {
-        await dispatch(removeCartItem({
-          productId:   item.productId?._id || item.productId,
-          variantId:   item.variantId,
-          productSlug: item._productSlug,
-        })).unwrap();
-      } catch (e) {
-        logError("removeCartItem", e);
-      } finally {
-        setItemState(itemId, 'removing', false);
-      }
-    } else {
-      setItemState(itemId, 'removing', true);
-      dispatch(removeGuestCartItem({
-        productSlug: item.productSlug,
+const handleRemove = async (item) => {
+  const itemId = item._id || `${item.product?.slug || item._productSlug}-${item.variantId}`;
+
+  if (isLoggedIn) {
+    setItemState(itemId, 'removing', true);
+    try {
+      await dispatch(removeCartItem({
+        productId:   item.productId?._id || item.productId,  // ✅
         variantId:   item.variantId,
-      }));
-      setTimeout(() => setItemState(itemId, 'removing', false), 100);
+        productSlug: item.product?.slug || item._productSlug, // ✅
+      })).unwrap();
+    } catch (e) {
+      logError("removeCartItem", e);
+    } finally {
+      setItemState(itemId, 'removing', false);
     }
-  };
+  } else {
+    setItemState(itemId, 'removing', true);
+    dispatch(removeGuestCartItem({
+      productSlug: item.product?.slug || item.productSlug, // ✅
+      variantId:   item.variantId,
+    }));
+    setTimeout(() => setItemState(itemId, 'removing', false), 100);
+  }
+};
 
   const isFetching  = loading.fetch;
   const fetchFailed = error.fetch;
 
   // Get loading state for an item
   const getItemLoading = (item) => {
-    const itemId = item._id || `${item.productSlug}-${item.variantId}`;
+    const itemId = item._id || `${item._productSlug}-${item.variantId}`;
     return itemLoading[itemId] || { updating: false, removing: false };
   };
 
@@ -504,8 +503,8 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
             <div className="divide-y divide-gray-50 scrollbar-hide">
               {currentItems.map((item, index) => {
                 const loadingState = getItemLoading(item);
-                const itemKey = item._id || `${item.productSlug || item._productSlug}-${item.variantId}-${index}`;
-                const path = `/products/${item._productSlug}`
+                const itemKey = item._id || `${item.product.slug || item._productSlug}-${item.variantId}-${index}`;
+                const path = `/products/${item.product.slug}`
                 
                 // For guest users, use the simplified GuestCartItem component
                 if (!isLoggedIn) {

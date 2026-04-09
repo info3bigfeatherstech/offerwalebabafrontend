@@ -3,7 +3,9 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom';
 
 const Breadcrumb = ({ product }) => {
-    const categoryName = product.category.name || "";
+    const categoryName = product?.category?.name || "";
+    console.log("categoryname",product);
+    
     const navigate = useNavigate();
       const [isFilterOpen, setIsFilterOpen] = useState(false);
   return (

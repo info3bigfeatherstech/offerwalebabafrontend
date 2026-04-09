@@ -2,74 +2,59 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { Heart, Eye, Minus, Plus, Loader2, ShoppingCart, Star } from "lucide-react";
+import { Heart, Eye, Minus, Plus, Loader2, Star } from "lucide-react";
 
 import {
-  addToWishlist,
-  removeFromWishlist,
-  addGuestItem,
-  removeGuestItem,
+  addToWishlist, removeFromWishlist,
+  addGuestItem, removeGuestItem,
   selectIsWishlisted,
 } from "../../components/REDUX_FEATURES/REDUX_SLICES/userWishlistSlice";
 
 import {
-  addToCart,
-  updateCartItem,
-  removeCartItem,
-  addGuestCartItem,
-  updateGuestCartItem,
-  removeGuestCartItem,
+  addToCart, updateCartItem, removeCartItem,
+  addGuestCartItem, updateGuestCartItem, removeGuestCartItem,
   selectCartItemBySlug,
 } from "../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice";
 
-import LazyImage from "./LazyImage"; // RIGHT PATH
+import LazyImage from "./LazyImage";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const formatPrice = (amount) => {
-  if (amount == null) return "—";
-  return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(amount);
+const formatPrice = (n) => {
+  if (n == null) return "—";
+  return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(n);
 };
- function formatCount(count) {
+
+const formatCount = (count) => {
+  if (!count) return "0";
   if (count < 100) return count.toString();
   return Math.floor(count / 100) * 100 + "+";
-}
+};
 
-const logError = (context, error, info = {}) => {
-  console.group(`🔴 [ProductCard] ERROR in ${context}`);
-  console.error("Error:", error);
-  console.log("Info:", info);
+const logError = (ctx, err, info = {}) => {
+  console.group(`🔴 [ProductCard] ${ctx}`);
+  console.error(err);
+  console.log(info);
   console.groupEnd();
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
-const ProductCard = ({ product, index }) => {
+const ProductCard = ({ product, index = 0 }) => {
   const navigate = useNavigate();
-  const dispatch = useDispatch();  
+  const dispatch = useDispatch();
 
   const { isLoggedIn } = useSelector((state) => state.auth);
-  const wishlisted = useSelector(selectIsWishlisted(product?.slug));
+  const wishlisted     = useSelector(selectIsWishlisted(product?.slug));
+  const cartItem       = useSelector(selectCartItemBySlug(product?.slug));
 
-  // ✅ per-card local loading — NOT global Redux loading
   const [localLoading, setLocalLoading] = useState({
-    add: false,
-    update: false,
-    remove: false,
-    wishlist: false,
+    add: false, update: false, remove: false, wishlist: false,
   });
-
-  const setLoading = (key, val) =>
-    setLocalLoading((prev) => ({ ...prev, [key]: val }));
-
+  const setL = (k, v) => setLocalLoading((p) => ({ ...p, [k]: v }));
   const isProcessing = localLoading.add || localLoading.update || localLoading.remove;
 
-  // ── Cart state from Redux ─────────────────────────────────────────────────
-  const cartItem   = useSelector(selectCartItemBySlug(product?.slug));
-  const isInCart   = !!cartItem;
-  const currentQty = cartItem?.quantity ?? 0;
-
-  // ── Product derived values ────────────────────────────────────────────────
+  // ── Derived ───────────────────────────────────────────────────────────────
   const variant     = product?.variants?.[0] ?? {};
-  const title       = product?.title || product?.name || "Untitled product";
+  const title       = product?.title || product?.name || "Product";
   const salePrice   = variant.price?.sale ?? variant.price?.base ?? null;
   const basePrice   = variant.price?.base ?? null;
   const hasDiscount = basePrice != null && salePrice != null && basePrice > salePrice;
@@ -77,67 +62,48 @@ const ProductCard = ({ product, index }) => {
     (hasDiscount ? Math.round(((basePrice - salePrice) / basePrice) * 100) : null);
   const imgUrl      = variant.images?.[0]?.url || null;
   const maxStock    = variant.inventory?.trackInventory
-    ? (variant.inventory?.quantity ?? 0)
-    : Infinity;
+    ? (variant.inventory?.quantity ?? 0) : Infinity;
   const inStock      = maxStock > 0;
+  const isInCart     = !!cartItem;
+  const currentQty   = cartItem?.quantity ?? 0;
   const isAtMaxStock = currentQty >= maxStock && maxStock !== Infinity;
 
-  // ── Navigation ────────────────────────────────────────────────────────────
+  const category = typeof product?.category === "object"
+    ? product.category?.name
+    : product?.category || "";
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleCardClick = () => {
-    if (!product?.slug) {
-      logError("handleCardClick", new Error("Missing slug"), { product });
-      return;
-    }
-    navigate(`/products/${product.slug}`);
+    if (product?.slug) navigate(`/products/${product.slug}`);
   };
 
-  // ── Wishlist ──────────────────────────────────────────────────────────────
   const handleWishlist = async (e) => {
     e.stopPropagation();
-    if (!product?.slug) return;
-    if (localLoading.wishlist) return;
-
-    setLoading("wishlist", true);
+    if (!product?.slug || localLoading.wishlist) return;
+    setL("wishlist", true);
     try {
       if (isLoggedIn) {
         if (wishlisted) {
           await dispatch(removeFromWishlist({ productSlug: product.slug })).unwrap();
           toast.success("Removed from wishlist", { icon: "💔" });
-          console.log(`✅ [ProductCard] slug="${product.slug}" removed from wishlist`);
         } else {
           await dispatch(addToWishlist({ productSlug: product.slug })).unwrap();
           toast.success("Added to wishlist", { icon: "❤️" });
-          console.log(`✅ [ProductCard] slug="${product.slug}" added to wishlist`);
         }
       } else {
-        if (wishlisted) {
-          dispatch(removeGuestItem(product.slug));
-          toast.success("Removed from wishlist", { icon: "💔" });
-        } else {
-          dispatch(addGuestItem(product.slug));
-          toast.success("Saved to wishlist", { icon: "❤️" });
-        }
+        if (wishlisted) { dispatch(removeGuestItem(product.slug)); toast.success("Removed", { icon: "💔" }); }
+        else { dispatch(addGuestItem(product.slug)); toast.success("Saved to wishlist", { icon: "❤️" }); }
       }
-    } catch (error) {
-      logError("handleWishlist", error, { slug: product.slug });
-      toast.error(error?.message || "Wishlist action failed");
-    } finally {
-      setLoading("wishlist", false);
-    }
+    } catch (err) {
+      logError("handleWishlist", err, { slug: product.slug });
+      toast.error(err?.message || "Wishlist action failed");
+    } finally { setL("wishlist", false); }
   };
 
-  // ── Add to cart ───────────────────────────────────────────────────────────
   const handleAddToCart = async (e) => {
     e.stopPropagation();
-    if (isInCart) return;
-    if (isProcessing) return;
-    if (!inStock) return;
-    if (!product?.slug) {
-      logError("handleAddToCart", new Error("Missing slug"), { product });
-      return;
-    }
-
-    setLoading("add", true);
+    if (isInCart || isProcessing || !inStock || !product?.slug) return;
+    setL("add", true);
     try {
       if (isLoggedIn) {
         await dispatch(addToCart({
@@ -145,47 +111,27 @@ const ProductCard = ({ product, index }) => {
           variantId: variant?._id?.toString(),
           quantity: 1,
         })).unwrap();
-        toast.success(
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {/* <ShoppingCart size={18} /> */}
-            <span>Added to cart</span>
-          </div>
-        );
-        console.log(`✅ [ProductCard] slug="${product.slug}" added to cart`);
       } else {
         dispatch(addGuestCartItem({
-            productId: product._id,   //backend expect this when guest card merged.
+          productId: product._id,
           productSlug: product.slug,
           variantId: variant?._id?.toString() || "",
           quantity: 1,
         }));
-        toast.success(
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {/* <ShoppingCart size={18} /> */}
-            <span>Added to cart</span>
-          </div>
-        );
-        console.log(`✅ [ProductCard] guest slug="${product.slug}" added`);
       }
-    } catch (error) {
-      logError("handleAddToCart", error, { slug: product.slug });
-      toast.error(error?.message || "Failed to add to cart");
-    } finally {
-      setLoading("add", false);
-    }
+      toast.success("Added to cart 🛒");
+    } catch (err) {
+      logError("handleAddToCart", err, { slug: product.slug });
+      toast.error(err?.message || "Failed to add to cart");
+    } finally { setL("add", false); }
   };
 
-  // ── Increment ─────────────────────────────────────────────────────────────
   const handleIncrement = async (e) => {
     e.stopPropagation();
-    if (isAtMaxStock) {
-      toast.warning(`Max stock reached (${maxStock})`);
-      return;
-    }
+    if (isAtMaxStock) { toast.warning(`Max stock reached (${maxStock})`); return; }
     if (isProcessing) return;
-
     const newQty = currentQty + 1;
-    setLoading("update", true);
+    setL("update", true);
     try {
       if (isLoggedIn) {
         await dispatch(updateCartItem({
@@ -194,7 +140,6 @@ const ProductCard = ({ product, index }) => {
           quantity: newQty,
           productSlug: product.slug,
         })).unwrap();
-        console.log(`✅ [ProductCard] slug="${product.slug}" qty → ${newQty}`);
       } else {
         dispatch(updateGuestCartItem({
           productSlug: product.slug,
@@ -202,24 +147,19 @@ const ProductCard = ({ product, index }) => {
           quantity: newQty,
         }));
       }
-    } catch (error) {
-      logError("handleIncrement", error, { slug: product.slug, newQty });
-      toast.error(error?.message || "Failed to update quantity");
-    } finally {
-      setLoading("update", false);
-    }
+    } catch (err) {
+      logError("handleIncrement", err);
+      toast.error(err?.message || "Failed to update");
+    } finally { setL("update", false); }
   };
 
-  // ── Decrement ─────────────────────────────────────────────────────────────
   const handleDecrement = async (e) => {
     e.stopPropagation();
     if (isProcessing) return;
-
     const newQty = currentQty - 1;
-
     if (isLoggedIn) {
       if (newQty <= 0) {
-        setLoading("remove", true);
+        setL("remove", true);
         try {
           await dispatch(removeCartItem({
             productId: String(cartItem?.productId?._id || cartItem?.productId),
@@ -227,15 +167,12 @@ const ProductCard = ({ product, index }) => {
             productSlug: product.slug,
           })).unwrap();
           toast.info("Removed from cart");
-          console.log(`✅ [ProductCard] slug="${product.slug}" removed from cart`);
-        } catch (error) {
-          logError("handleDecrement → remove", error, { slug: product.slug });
-          toast.error(error?.message || "Failed to remove from cart");
-        } finally {
-          setLoading("remove", false);
-        }
+        } catch (err) {
+          logError("handleDecrement→remove", err);
+          toast.error(err?.message || "Failed to remove");
+        } finally { setL("remove", false); }
       } else {
-        setLoading("update", true);
+        setL("update", true);
         try {
           await dispatch(updateCartItem({
             productId: String(cartItem?.productId?._id || cartItem?.productId),
@@ -243,212 +180,199 @@ const ProductCard = ({ product, index }) => {
             quantity: newQty,
             productSlug: product.slug,
           })).unwrap();
-          console.log(`✅ [ProductCard] slug="${product.slug}" qty → ${newQty}`);
-        } catch (error) {
-          logError("handleDecrement → update", error, { slug: product.slug, newQty });
-          toast.error(error?.message || "Failed to update quantity");
-        } finally {
-          setLoading("update", false);
-        }
+        } catch (err) {
+          logError("handleDecrement→update", err);
+          toast.error(err?.message || "Failed to update");
+        } finally { setL("update", false); }
       }
     } else {
-      // Guest
       if (newQty <= 0) {
-        dispatch(removeGuestCartItem({
-          productSlug: product.slug,
-          variantId: variant?._id?.toString() || "",
-        }));
+        dispatch(removeGuestCartItem({ productSlug: product.slug, variantId: variant?._id?.toString() || "" }));
         toast.info("Removed from cart");
       } else {
-        dispatch(updateGuestCartItem({
-          productSlug: product.slug,
-          variantId: variant?._id?.toString() || "",
-          quantity: newQty,
-        }));
+        dispatch(updateGuestCartItem({ productSlug: product.slug, variantId: variant?._id?.toString() || "", quantity: newQty }));
       }
     }
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-   <div
-  className="group flex flex-col cursor-pointer p-3 font-['satoshi'] rounded-2xl bg-white border border-zinc-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
-  style={{ animationDelay: `${index * 50}ms` }}
-  onClick={handleCardClick}
->
-  {/* ── IMAGE ── */}
-  <div className="relative w-full aspect-[4/4] bg-zinc-100 rounded-xl overflow-hidden mb-3">
-    
-    <LazyImage
-      src={imgUrl}
-      alt={title}
-      aspectRatio="4/5"
-      objectFit="cover"
-      className="transition-transform duration-700 group-hover:scale-105"
-    />
+    <div
+      className="group relative flex flex-col cursor-pointer rounded-2xl bg-white border border-zinc-100 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 overflow-hidden"
+      style={{ animationDelay: `${index * 50}ms` }}
+      onClick={handleCardClick}
+    >
+      {/* ── IMAGE ── */}
+      <div className="relative w-full aspect-square bg-zinc-50 overflow-hidden">
 
-    {/* Out of stock */}
-    {!inStock && (
-      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-        <span className="text-white text-xs font-bold bg-black/60 px-3 py-1 rounded">
-          Out of Stock
-        </span>
-      </div>
-    )}
+        <LazyImage
+          src={imgUrl}
+          alt={title}
+          aspectRatio="1/1"
+          objectFit="cover"
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
 
-    {/* Discount */}
-    {discountPct && inStock && (
-      <div className="absolute top-2 left-2">
-        <span className="text-[10px] font-bold bg-red-500 text-white px-2 py-1 rounded-md shadow">
-          {discountPct}% OFF
-        </span>
-      </div>
-    )}
-
-    {/* Actions */}
-    <div className="absolute top-2 right-2 flex flex-col gap-2 translate-x-10 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
-      
-      <button
-        onClick={handleWishlist}
-        disabled={localLoading.wishlist}
-        className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-all ${
-          wishlisted
-            ? "bg-red-500 text-white"
-            : "bg-white text-zinc-600 hover:bg-zinc-900 hover:text-white"
-        }`}
-      >
-        {localLoading.wishlist
-          ? <Loader2 size={14} className="animate-spin" />
-          : <Heart size={16} className={wishlisted ? "fill-current" : ""} />
-        }
-      </button>
-
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          if (product?.slug) navigate(`/products/${product.slug}`);
-        }}
-        className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md text-zinc-600 hover:bg-zinc-900 hover:text-white transition-all"
-      >
-        <Eye size={16} />
-      </button>
-    </div>
-  </div>
-
-  {/* ── TEXT INFO ── */}
-  <div className="flex flex-col gap-1 px-1">
-
-    {/* Category */}
-    <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-medium">
-      {typeof product?.category === "object"
-        ? product.category?.name
-        : product?.category || "General"}
-    </span>
-
-    {/* Title */}
-    <div className="w-full flex items-center justify-between gap-4">
-       <h3 className="text-sm font-semibold text-zinc-900 truncate group-hover:text-yellow-600 transition-colors">
-      {title}
-    </h3>
-     <div className="font-semibold text-sm flex items-center"><Star size={14} className="text-yellow-400" fill="#F7C85C"/>4.3</div>
-    </div>
-      <div>
-                <p className="font-medium text-zinc-900 flex items-center gap-1 text-xs"> <span className="font-bold text-[crimson] text-xs">{formatCount(product?.soldInfo?.count)} bought</span> in past month
-</p>
-              </div>
-
-    {/* Price */}
-    <div className="flex items-center gap-2 mt-1">
-      <span className="text-base font-bold text-zinc-900">
-        ₹{formatPrice(salePrice)}
-      </span>
-      {hasDiscount && (
-        <span className="text-xs text-zinc-500 line-through">
-          ₹{formatPrice(basePrice)}
-        </span>
-      )}
-    </div>
-  </div>
-
-  {/* ── CART ── */}
-  <div className="mt-3" onClick={(e) => e.stopPropagation()}>
-
-    {!inStock && (
-      <button
-        disabled
-        className="w-full py-2 text-xs font-bold bg-zinc-200 text-zinc-400 rounded-lg"
-      >
-        Out of Stock
-      </button>
-    )}
-
-    {inStock && !isInCart && (
-      <button
-        onClick={handleAddToCart}
-        disabled={localLoading.add}
-        className={`w-full py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${
-          localLoading.add
-            ? "bg-zinc-400 text-white"
-            : "bg-zinc-900 text-white hover:bg-zinc-800"
-        }`}
-      >
-        {localLoading.add ? (
-          <>
-            <Loader2 size={14} className="animate-spin" />
-            Adding...
-          </>
-        ) : (
-          "ADD TO CART"
+        {/* Out of stock overlay */}
+        {!inStock && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+            <span className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1 rounded-full">
+              Out of Stock
+            </span>
+          </div>
         )}
-      </button>
-    )}
 
-    {inStock && isInCart && (
-      <>
-        <div className="flex items-center w-full border border-zinc-200 rounded-lg overflow-hidden">
-          
+        {/* Discount badge */}
+        {discountPct && inStock && (
+          <div className="absolute top-2 left-2 z-10">
+            <span className="text-[10px] font-black bg-red-500 text-white px-2 py-0.5 rounded-md shadow-sm">
+              {discountPct}% OFF
+            </span>
+          </div>
+        )}
+
+        {/* Action buttons — visible on hover (desktop) / always visible (mobile) */}
+        <div className="absolute top-2 right-2 flex flex-col gap-1.5 z-10
+          md:translate-x-10 md:opacity-0
+          md:group-hover:translate-x-0 md:group-hover:opacity-100
+          transition-all duration-300"
+        >
+          {/* Wishlist */}
           <button
-            onClick={handleDecrement}
-            disabled={isProcessing}
-            className="w-10 h-10 flex items-center justify-center bg-zinc-100 hover:bg-red-500 hover:text-white transition"
+            onClick={handleWishlist}
+            disabled={localLoading.wishlist}
+            aria-label="Toggle wishlist"
+            className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 ${
+              wishlisted
+                ? "bg-red-500 text-white"
+                : "bg-white/90 backdrop-blur-sm text-zinc-600 hover:bg-red-500 hover:text-white"
+            } disabled:opacity-50`}
           >
-            {localLoading.remove
-              ? <Loader2 size={12} className="animate-spin" />
-              : <Minus size={14} />
+            {localLoading.wishlist
+              ? <Loader2 size={13} className="animate-spin" />
+              : <Heart size={14} className={wishlisted ? "fill-current" : ""} />
             }
           </button>
 
-          <div className="flex-1 text-center text-sm font-semibold">
-            {localLoading.update
-              ? <Loader2 size={12} className="animate-spin mx-auto" />
-              : currentQty
-            }
-          </div>
-
+          {/* View */}
           <button
-            onClick={handleIncrement}
-            disabled={isAtMaxStock || isProcessing}
-            className="w-10 h-10 flex items-center justify-center bg-zinc-900 text-white hover:bg-yellow-500 transition"
+            onClick={(e) => { e.stopPropagation(); if (product?.slug) navigate(`/products/${product.slug}`); }}
+            aria-label="View product"
+            className="w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md text-zinc-600 hover:bg-zinc-900 hover:text-white transition-all active:scale-90"
           >
-            {localLoading.add
-              ? <Loader2 size={12} className="animate-spin" />
-              : <Plus size={14} />
-            }
+            <Eye size={14} />
           </button>
         </div>
+      </div>
 
-        {isAtMaxStock && (
-          <p className="text-[10px] text-center text-orange-500 mt-1 font-medium">
-            Max stock reached
+      {/* ── CONTENT ── */}
+      <div className="flex flex-col flex-1 p-2.5 sm:p-3 gap-1">
+
+        {/* Category */}
+        {category && (
+          <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-zinc-400 font-medium truncate">
+            {category}
+          </span>
+        )}
+
+        {/* Title + Rating row */}
+        <div className="flex items-start justify-between gap-1">
+          <h3 className="text-xs sm:text-sm font-semibold text-zinc-900 line-clamp-2 group-hover:text-yellow-600 transition-colors leading-snug flex-1">
+            {title}
+          </h3>
+          <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
+            <Star size={10} className="text-yellow-400 fill-yellow-400" />
+            <span className="text-[10px] font-semibold text-zinc-600">4.3</span>
+          </div>
+        </div>
+
+        {/* Sold info — hidden on very small screens */}
+        {product?.soldInfo?.count > 0 && (
+          <p className="text-[9px] sm:text-[10px] text-zinc-500 hidden sm:block">
+            <span className="font-bold text-red-500">{formatCount(product.soldInfo.count)} bought</span>
+            {" "}in past month
           </p>
         )}
-      </>
-    )}
-  </div>
-</div>
+
+        {/* Price */}
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span className="text-sm sm:text-base font-bold text-zinc-900">
+            ₹{formatPrice(salePrice)}
+          </span>
+          {hasDiscount && (
+            <span className="text-[10px] sm:text-xs text-zinc-400 line-through">
+              ₹{formatPrice(basePrice)}
+            </span>
+          )}
+        </div>
+
+        {/* ── CART ACTIONS ── */}
+        <div className="mt-auto pt-2" onClick={(e) => e.stopPropagation()}>
+
+          {/* Out of stock */}
+          {!inStock && (
+            <button disabled className="w-full py-2 text-[10px] font-bold bg-zinc-100 text-zinc-400 rounded-xl cursor-not-allowed">
+              Out of Stock
+            </button>
+          )}
+
+          {/* Add to cart */}
+          {inStock && !isInCart && (
+            <button
+              onClick={handleAddToCart}
+              disabled={localLoading.add}
+              className={`w-full py-2 sm:py-2.5 text-[10px] sm:text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 ${
+                localLoading.add
+                  ? "bg-zinc-300 text-white cursor-wait"
+                  : "bg-zinc-900 text-white hover:bg-yellow-500"
+              } disabled:opacity-60`}
+            >
+              {localLoading.add ? (
+                <><Loader2 size={12} className="animate-spin" /> Adding...</>
+              ) : "ADD TO CART"}
+            </button>
+          )}
+
+          {/* Qty controls */}
+          {inStock && isInCart && (
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center w-full border-2 border-zinc-900 rounded-xl overflow-hidden">
+                <button
+                  onClick={handleDecrement}
+                  disabled={isProcessing}
+                  className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-zinc-100 hover:bg-red-500 hover:text-white transition-colors disabled:opacity-40 flex-shrink-0"
+                >
+                  {localLoading.remove
+                    ? <Loader2 size={11} className="animate-spin" />
+                    : <Minus size={13} />}
+                </button>
+                <div className="flex-1 text-center text-xs sm:text-sm font-bold text-zinc-900 select-none">
+                  {localLoading.update
+                    ? <Loader2 size={11} className="animate-spin mx-auto" />
+                    : currentQty}
+                </div>
+                <button
+                  onClick={handleIncrement}
+                  disabled={isAtMaxStock || isProcessing}
+                  className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-zinc-900 text-white hover:bg-yellow-500 transition-colors disabled:opacity-40 flex-shrink-0"
+                >
+                  {localLoading.update
+                    ? <Loader2 size={11} className="animate-spin" />
+                    : <Plus size={13} />}
+                </button>
+              </div>
+              {isAtMaxStock && (
+                <p className="text-[9px] text-center text-orange-500 font-semibold">
+                  Max stock reached
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
-
 
 export default ProductCard;
 

@@ -2,23 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, Sparkles, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { selectAllProducts } from '../REDUX_FEATURES/REDUX_SLICES/userProductsSlice';
 
 const PriceBanners = () => {
     const [isInView, setIsInView] = useState(false);
     const sectionRef = useRef(null);
 
     // const { products  } = useSelector((state) => state.userProducts);
-    const products = useSelector((state) => state.userProducts.products);
+    // const products = useSelector((state) => state.userProducts.products);
+    const products = useSelector(selectAllProducts);
     console.log('firstssssss', JSON.stringify(products));
 
     const darkBanners = [
-        {
-            label: "Under ₹9",
-            tag: "CRAZY DEAL",
-            icon: <Sparkles size={20} />,
-            gradient: "from-[#111111] to-[#000000]",
-            accentColor: "from-[#f7a221]/20 to-transparent"
-        },
         {
             label: "Under ₹29",
             tag: "BEST VALUE",
@@ -34,21 +29,14 @@ const PriceBanners = () => {
             accentColor: "from-[#f7a221]/20 to-transparent"
         },
         {
-            label: "Under ₹99",
+            label: "Under ₹79",
             tag: "SUPER SAVER",
             icon: <Zap size={20} />,
             gradient: "from-[#1a1a1a] to-[#111111]",
             accentColor: "from-[#f7a221]/20 to-transparent"
         },
         {
-            label: "Under ₹99",
-            tag: "SUPER SAVER",
-            icon: <Zap size={20} />,
-            gradient: "from-[#1a1a1a] to-[#111111]",
-            accentColor: "from-[#f7a221]/20 to-transparent"
-        },
-        {
-            label: "Under ₹99",
+            label: "Above ₹99",
             tag: "SUPER SAVER",
             icon: <Zap size={20} />,
             gradient: "from-[#1a1a1a] to-[#111111]",

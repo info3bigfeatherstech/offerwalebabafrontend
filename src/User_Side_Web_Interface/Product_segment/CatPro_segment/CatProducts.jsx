@@ -29,6 +29,7 @@ import {
   clearCurrentCategory,
   selectCurrentCategory,
 } from "../../../components/REDUX_FEATURES/REDUX_SLICES/userCategoriesSlice";
+import Breadcrumb from "../Breadcrumb/Breadcrumb";
 
 // ── How many columns at each breakpoint ──────────────────────────────────────
 // Must match Tailwind grid classes used below
@@ -188,7 +189,8 @@ const CatProducts = () => {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+    <>
+       <div className="min-h-screen" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
 
       {/* ── STICKY BREADCRUMB ── */}
       <div className="bg-white border-b border-zinc-100 sticky top-0 z-40">
@@ -426,6 +428,8 @@ const CatProducts = () => {
         </div>
       )}
     </div>
+      
+      </>
   );
 };
 

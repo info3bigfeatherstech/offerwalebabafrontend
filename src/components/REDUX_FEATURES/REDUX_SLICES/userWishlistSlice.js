@@ -362,7 +362,7 @@ export const selectIsWishlisted = (slug) => (state) => {
   const { isLoggedIn } = state.auth;
   if (isLoggedIn) {
     return state.userWishlist.items.some(
-      (item) => item.productId?.slug === slug
+      (item) => item.product?.slug === slug
     );
   }
   return state.userWishlist.guestItems.includes(slug);

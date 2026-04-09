@@ -129,12 +129,15 @@ const ProductUI = () => {
   const currentRef = useRef({ x: 0.5, y: 0.5 });
 
   const product    = useSelector(selectCurrentProduct);
+  console.log("Product details", product);
+  
   const related    = useSelector(selectRelatedProducts);
   const loadingMap = useSelector(selectProductsLoading);
   const errorMap   = useSelector(selectProductsError);
   const isLoading  = loadingMap.product;
   const fetchError = errorMap.product;
   const wishlisted = useSelector(selectIsWishlisted(product?.slug));
+  console.log("wishlisted:", wishlisted, "slug:", product?.slug);
   const cartItem   = useSelector(selectCartItemBySlug(product?.slug));
   const isInCart   = !!cartItem;
   const { isLoggedIn } = useSelector((state) => state.auth);

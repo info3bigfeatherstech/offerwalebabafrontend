@@ -1,49 +1,81 @@
 import React, { useEffect, useState } from 'react';
-import { SlidersHorizontal, X, ChevronDown } from 'lucide-react';
-import { useParams } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, ChevronRight, SlidersHorizontal, X } from 'lucide-react';
+import { Link, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchProducts, selectAllProducts } from '../../components/REDUX_FEATURES/REDUX_SLICES/userProductsSlice';
+import { fetchProducts, clearProducts } from '../../components/REDUX_FEATURES/REDUX_SLICES/userProductsSlice';
 import ProductCard from '../Product_segment/ProductCard';
+import usePaginatedFetch from '../../components/HOOKS/usePaginatedFetch';
+import LoadMoreButton from '../../components/Common/LoadMoreButton';
+import Breadcrumb from '../Product_segment/Breadcrumb/Breadcrumb';
 
 const ShopByPrice = () => {
-  const { slug } = useParams();  
-  const slug1 = slug.match(/\d+/)?.[0] ?? "0"; 
-  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-  const [selectedPriceRanges, setSelectedPriceRanges] = useState([]);
-  console.log("slug1", slug1);
-  
+  const { slug } = useParams();
+  const slug1   = slug?.match(/\d+/)?.[0] ?? "0";
+  const isAbove = slug?.includes("above");
   const dispatch = useDispatch();
-  const priceRanges = [
-    "Under ₹500",
-    "₹500 - ₹1000",
-    "₹1000 - ₹5000",
-    "Over ₹5000"
-  ];  
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
-  const togglePriceRange = (range) => {
-    setSelectedPriceRanges(prev =>
-      prev.includes(range) ? prev.filter(r => r !== range) : [...prev, range]
-    );
-  };
+  // ✅ Slug change hone pe store clear karo
+  useEffect(() => {
+    dispatch(clearProducts());
+  }, [slug, dispatch]);
 
-  const clearFilters = () => {
-    setSelectedPriceRanges([]);
-  };
+  // ✅ usePaginatedFetch hook
+  const { data, isLoading, isFetchingMore, pagination, page, loadMore } = usePaginatedFetch({
+    fetchAction:      fetchProducts,
+    selectData:       (state) => state.userProducts.products,
+    selectLoading:    (state) => state.userProducts.loading.products,
+    selectPagination: (state) => state.userProducts.pagination,
+    limit: 13,
+  });
 
-  const activeFilterCount = selectedPriceRanges.length;
-
-  let data = useSelector((state) => state.userProducts.products);
-  const filteredData = data.filter( elem => elem.maxPrice === +slug1 )
-  console.log("filteredData", filteredData);
-  
-  useEffect( () => {
-    dispatch(fetchProducts({ page: 1, limit: 36 }));
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [])
+  // ✅ Client-side price filter
+  const filteredData = data.filter((elem) =>
+    elem.variants?.some((item) => {
+      const price = item.price?.base;
+      if (!price) return false;
+      if (isAbove) return price >= +slug1;
+      return price <= +slug1;
+    })
+  );
 
   return (
-    <div className="w-full min-h-screen bg-gray-50">
-        <div className='w-full h-48 bg-black mt-18 flex items-center justify-center relative overflow-hidden'>
+    <>
+     <div className="w-full min-h-screen bg-gray-50">
+     <div className="w-full flex items-center justify-between pt-6 px-4">
+
+  {/* ✅ Breadcrumb */}
+  <nav className="flex items-center md:px-10 gap-2 text-xs sm:text-xs font-medium uppercase tracking-widest text-zinc-400 whitespace-nowrap">
+    
+    <Link to="/" className="shrink-0">
+      <ArrowLeft size={16} />
+    </Link>
+
+    <Link to="/" className="hover:text-zinc-900 shrink-0">
+      Home
+    </Link>
+
+    <ChevronRight size={12} className="shrink-0" />
+
+    <span className="text-zinc-900 font-bold text-[10px] sm:text-xs shrink-0">
+      under {slug1}
+    </span>
+  </nav>
+
+  {/* ✅ Mobile Filter Button */}
+  <div className="md:hidden w-full">
+    <button
+      onClick={() => setIsMobileFilterOpen(true)}
+      className="w-fit flex items-center gap-2 text-xs ml-28 font-bold rounded-xl p-2 bg-white shadow-sm border"
+    >
+      <SlidersHorizontal size={14} />
+      Filters
+    </button>
+  </div>
+
+</div>
+      {/* Hero Banner */}
+      <div className="w-full h-48 bg-black mt-18 flex items-center justify-center relative overflow-hidden">
         <div className="absolute inset-0 bg-[#F7A221]/10" />
         <div className="text-center relative z-10">
           <h1 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tight">
@@ -55,69 +87,78 @@ const ShopByPrice = () => {
         </div>
       </div>
 
-         {/* Mobile Filter Button */}
-      <div className="md:hidden sticky top-16 z-40 bg-gray-50 px-4 py-3 flex items-center justify-between">
-        <button
-          onClick={() => setIsMobileFilterOpen(true)}
-          className="flex items-center gap-2 text-sm font-bold border border-gray-200 rounded-xl px-4 py-2"
-        >
-          <SlidersHorizontal size={15} />
-          Filters
-          {activeFilterCount > 0 && (
-            <span className="bg-black text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
-        </div>
-
       {/* Main Layout */}
       <div className="max-w-7xl mx-auto px-4 py-8 flex gap-8">
 
         {/* Desktop Sidebar */}
         <aside className="hidden md:block w-64 flex-shrink-0">
           <div className="sticky top-24 bg-gray-50 rounded-2xl p-6">
-            <FilterSidebar />
+            <p className="text-xs font-bold uppercase px-3 py-2 mt-10 text-gray-400 tracking-widest">
+              Filters
+            </p>
+            <p className="text-sm text-gray-400">Coming soon</p>
           </div>
         </aside>
 
         {/* Products Area */}
         <div className="flex-1">
 
-          {/* Sort + Count — desktop */}
-          <div className="hidden md:flex items-center justify-between mb-6">
+          {/* Count Bar */}
+          <div className="flex items-center justify-between mb-6">
             <p className="text-sm text-gray-500 font-medium">
-              SHOWING <span className="font-bold text-black">{filteredData.length}</span> PRODUCT
+              SHOWING{' '}
+              <span className="font-bold text-black">{filteredData.length}</span>{' '}
+              {filteredData.length === 1 ? 'PRODUCT' : 'PRODUCTS'}
             </p>
-          
-         
           </div>
 
-          {/* Active Filter Chips */}
-          {activeFilterCount > 0 && (
-            <div className="flex flex-wrap gap-2 mb-6">
-              {selectedPriceRanges.map(tag => (
-                <span
-                  key={tag}
-                  className="flex items-center gap-1.5 bg-black text-white text-[11px] font-bold px-3 py-1.5 rounded-full"
-                >
-                  {tag}
-                  <X
-                    size={11}
-                    className="cursor-pointer hover:text-[#F7A221]"
-                    onClick={() => togglePriceRange(tag)}
-                  />
-                </span>
+          {/* Initial Loading Skeleton */}
+          {isLoading && page === 1 && (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="rounded-2xl overflow-hidden">
+                  <div className="h-48 bg-gray-200 animate-pulse rounded-2xl" />
+                  <div className="mt-3 space-y-2 px-1">
+                    <div className="h-3 bg-gray-200 animate-pulse rounded-full w-3/4" />
+                    <div className="h-3 bg-gray-200 animate-pulse rounded-full w-1/2" />
+                  </div>
+                </div>
               ))}
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredData?.map((elem, index) => (
-              <>
-               <ProductCard product={elem} index={index} /></>
-            ))}
-          </div>
+          {/* Empty State */}
+          {!isLoading && filteredData.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <p className="text-5xl mb-4">🛍️</p>
+              <h2 className="text-xl font-black uppercase tracking-tight text-gray-800">
+                No Products Found
+              </h2>
+              <p className="text-gray-400 text-sm mt-2">
+                No products match this price range.
+              </p>
+            </div>
+          )}
+
+          {/* Product Grid */}
+          {filteredData.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {filteredData.map((elem, index) => (
+                <ProductCard
+                  key={elem._id ?? elem.id ?? index}
+                  product={elem}
+                  index={index}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* ✅ Reusable Load More */}
+          <LoadMoreButton
+            onLoadMore={loadMore}
+            isFetchingMore={isFetchingMore}
+            hasNextPage={pagination?.hasNextPage}
+          />
 
         </div>
       </div>
@@ -139,18 +180,18 @@ const ShopByPrice = () => {
                 <X size={18} />
               </button>
             </div>
-            <FilterSidebar />
+            <p className="text-sm text-gray-400 text-center py-8">Filters coming soon</p>
             <button
               onClick={() => setIsMobileFilterOpen(false)}
-              className="w-full mt-8 bg-black text-white font-bold py-4 rounded-2xl hover:bg-[#F7A221] transition-colors"
+              className="w-full mt-4 bg-black text-white font-bold py-4 rounded-2xl hover:bg-[#F7A221] transition-colors"
             >
-              Apply Filters
+              Close
             </button>
           </div>
         </div>
       )}
 
-    </div>
+    </div></>
   );
 };
 

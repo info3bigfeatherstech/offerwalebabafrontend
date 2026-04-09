@@ -35,6 +35,8 @@ const UserWishlist = () => {
 
   // ── Redux ─────────────────────────────────────────────────────────────────
   const items   = useSelector(selectWishlistItems);
+  console.log("Wishlist", items);
+  
   const loading = useSelector(selectWishlistLoading);
   const error   = useSelector(selectWishlistError);
 
@@ -57,9 +59,11 @@ const UserWishlist = () => {
   // ProductCard expects a `product` prop that matches the product API shape.
   // So we simply pass item.productId as the product — it's already populated.
   // ─────────────────────────────────────────────────────────────────────────
-  const products = items
-    .map((item) => item?.productId ?? item)   // unwrap populated productId
-    .filter(Boolean);                          // remove any nulls
+ // ✅ Correct
+const products = items
+  .map((item) => item?.product)   // directly product object lo
+  .filter(Boolean);               // null/undefined hata do
+    
 
   return (
     <div className="space-y-8">
