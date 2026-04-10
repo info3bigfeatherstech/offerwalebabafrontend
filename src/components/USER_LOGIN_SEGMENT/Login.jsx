@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { User, Lock, ShieldAlert } from "lucide-react";
+import { User, Lock, ShieldAlert, Eye, EyeOff } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { loginUser, googleLogin, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
@@ -41,6 +41,7 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
   // Accepts both email address and phone number
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [isOpen, setisOpen] = useState(false)
 
   // ── Lockout state ─────────────────────────────────────────────
   const [lockSecondsLeft, setLockSecondsLeft] = useState(0);
@@ -230,20 +231,32 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
           />
         </div>
 
-        <div className="relative">
-          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            disabled={isLocked}
-            className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 disabled:opacity-40 transition-all text-sm"
-            style={{ fontSize: "16px" }}
-            required
-          />
-        </div>
+       <div className="relative">
+  <Lock
+    className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none"
+    size={17}
+  />
+
+  <input
+    type={isOpen ? "text" : "password"} // ✅ fixed (removed extra space)
+    placeholder="Password"
+    value={password}
+    onChange={(e) => setPassword(e.target.value)}
+    autoComplete="current-password"
+    disabled={isLocked}
+    className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 transition-all duration-300 pl-11 pr-10 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 disabled:opacity-40 transition-all text-sm"
+    style={{ fontSize: "16px" }}
+    required
+  />
+
+  {/* 👁️ Eye Toggle */}
+  <span
+    onClick={() => setisOpen(!isOpen)}
+    className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-white/40 hover:text-white transition"
+  >
+    {isOpen ? <EyeOff size={20} /> : <Eye size={20} />}
+  </span>
+</div>
 
         <div className="flex justify-end pt-0.5">
           <button

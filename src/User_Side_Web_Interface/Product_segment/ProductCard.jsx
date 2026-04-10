@@ -321,7 +321,7 @@ const ProductCard = ({ product, index = 0 }) => {
             <button
               onClick={handleAddToCart}
               disabled={localLoading.add}
-              className={`w-full py-2 sm:py-2.5 text-[10px] sm:text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 ${
+              className={`w-full py-2 sm:py-3.5 cursor-pointer text-[10px] sm:text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 ${
                 localLoading.add
                   ? "bg-zinc-300 text-white cursor-wait"
                   : "bg-zinc-900 text-white hover:bg-yellow-500"
@@ -340,7 +340,7 @@ const ProductCard = ({ product, index = 0 }) => {
                 <button
                   onClick={handleDecrement}
                   disabled={isProcessing}
-                  className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-zinc-100 hover:bg-red-500 hover:text-white transition-colors disabled:opacity-40 flex-shrink-0"
+                  className="w-9 h-9 sm:w-10 cursor-pointer sm:h-10 flex items-center justify-center bg-zinc-100 hover:bg-red-500 hover:text-white transition-colors disabled:opacity-40 flex-shrink-0"
                 >
                   {localLoading.remove
                     ? <Loader2 size={11} className="animate-spin" />
@@ -354,7 +354,7 @@ const ProductCard = ({ product, index = 0 }) => {
                 <button
                   onClick={handleIncrement}
                   disabled={isAtMaxStock || isProcessing}
-                  className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-zinc-900 text-white hover:bg-yellow-500 transition-colors disabled:opacity-40 flex-shrink-0"
+                  className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center  cursor-pointer bg-zinc-900 text-white hover:bg-yellow-500 transition-colors disabled:opacity-40 flex-shrink-0"
                 >
                   {localLoading.update
                     ? <Loader2 size={11} className="animate-spin" />

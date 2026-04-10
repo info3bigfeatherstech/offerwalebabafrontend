@@ -503,7 +503,7 @@ const handleRemove = async (item) => {
             <div className="divide-y divide-gray-50 scrollbar-hide">
               {currentItems.map((item, index) => {
                 const loadingState = getItemLoading(item);
-                const itemKey = item._id || `${item.product.slug || item._productSlug}-${item.variantId}-${index}`;
+                const itemKey = item._id || `${item.productId.slug || item._productSlug}-${item.variantId}-${index}`;
                 const path = `/products/${item.product.slug}`
                 
                 // For guest users, use the simplified GuestCartItem component
@@ -523,7 +523,7 @@ const handleRemove = async (item) => {
                 
                 // For logged-in users, use the full CartItem component
                 return (
-                  <Link key={itemKey} to={path} className="py-2">
+                  <Link key={itemKey} onClick={onClose} to={path} className="py-2">
                     <CartItem
                       item={item}
                       isLoggedIn={isLoggedIn}
