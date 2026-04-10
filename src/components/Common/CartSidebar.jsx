@@ -260,7 +260,7 @@ const CartItem = ({ item, isLoggedIn, onUpdateQty, onRemove, isUpdating, isRemov
           <button
             onClick={() => onRemove(item)}
             disabled={isRemoving}
-            className="text-gray-300 hover:text-red-500 transition-colors p-1 disabled:opacity-40"
+            className=" text-red-400 hover:text-red-500 transition-colors p-1 disabled:opacity-40"
             aria-label="Remove item"
           >
             {isRemoving ? (

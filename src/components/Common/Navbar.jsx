@@ -161,7 +161,7 @@ const LocationDisplay = ({ isLoggedIn, onOpenAuth, userAddress }) => {
   return (
   <div className="hidden xl:flex items-center gap-3 bg-white cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-xl transition-all hover:border-gray-300 group">
 
-  <MapPin size={20} className="text-red-500" />
+  <MapPin size={20} className="text-red-500 animate-bounce" />
 
   <div onClick={handleAddress} className="flex flex-col w-44 overflow-hidden">
     
@@ -227,27 +227,43 @@ const MegaDropdown = ({ isOpen }) => {
   ];
 
   return (
-    <div className="absolute top-[100%] left-0 w-full bg-white shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] border-t-2 border-[#F7A221] animate-slideDown z-50 hidden lg:block">
-     <div className="container mx-auto px-4 py-4">
-  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-    {categories.map((category, index) => (
-      <Link
-        key={index}
-        to={category.path}
-        className="px-3 py-2 rounded-md 
-                   bg-white text-center
-                   hover:border-black hover:bg-gray-50
-                   active:scale-95
-                   transition-all duration-150"
-      >
-        <span className="text-xs sm:text-sm hover:text-yellow-500 font-semibold text-gray-800 tracking-tight">
-          {category.label}
-        </span>
-      </Link>
-    ))}
-  </div>
-</div>
+    <>
+ <div className="absolute top-full left-1/2 -translate-x-1/2 w-screen bg-white/95 backdrop-blur border-t border-gray-200 shadow-2xl z-50 hidden lg:block animate-slideDown">
+
+  {/* CENTER CONTENT */}
+  <div className="max-w-7xl mx-auto px-6 py-8">
+
+    {/* Header */}
+    <div className="flex items-center justify-between mb-6">
+      <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
+        Shop by Category
+      </p>
+      <div className="h-px flex-1 ml-4 bg-gray-200"></div>
     </div>
+
+    {/* Grid */}
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+
+      {categories.map((category, index) => (
+        <Link
+          key={index}
+          to={category.path}
+          className="group flex items-center justify-center p-4 rounded-xl bg-gray-50
+                     hover:bg-white hover:shadow-md
+                     border border-transparent hover:border-gray-200
+                     transition-all duration-200 active:scale-[.96]"
+        >
+          <span className="text-sm font-semibold text-gray-800 
+                           group-hover:text-yellow-500 transition-colors">
+            {category.label}
+          </span>
+        </Link>
+      ))}
+
+    </div>
+
+  </div>
+</div></>
   );
 };
 
@@ -683,9 +699,14 @@ useEffect(() => {
                   <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mb-4">🔥 Top Categories</p>
                   <div className="grid grid-cols-2 gap-2">
                     {mobileCategories.map((cat, i) => (
-                      <Link key={i} to={cat.path} className="p-3 bg-gray-50 rounded-xl text-[11px] font-bold text-center border border-gray-100 text-gray-800 hover:border-[#F7A221] hover:bg-orange-50 transition-all cursor-pointer">
+                      <div key={i} onClick={() => {
+    setIsMenuOpen(false);
+    setTimeout(() => {
+      navigate(cat.path);
+    }, 150);
+  }} to={cat.path} className="p-3 bg-gray-50 rounded-xl text-[11px] font-bold text-center border border-gray-100 text-gray-800 hover:border-[#F7A221] hover:bg-orange-50 transition-all cursor-pointer">
                         {cat.label}
-                      </Link>
+                      </div>
                     ))}
                   </div>
                 </div>

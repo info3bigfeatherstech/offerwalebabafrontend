@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
@@ -17,6 +17,7 @@ import {
 } from "../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice";
 
 import LazyImage from "./LazyImage";
+import { fetchCategories } from "../../components/ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/categoriesSlice";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const formatPrice = (n) => {
@@ -41,6 +42,7 @@ const logError = (ctx, err, info = {}) => {
 const ProductCard = ({ product, index = 0 }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+    const { categories } = useSelector((s) => s.categories);    
 
   const { isLoggedIn } = useSelector((state) => state.auth);
   const wishlisted     = useSelector(selectIsWishlisted(product?.slug));
@@ -51,6 +53,15 @@ const ProductCard = ({ product, index = 0 }) => {
   });
   const setL = (k, v) => setLocalLoading((p) => ({ ...p, [k]: v }));
   const isProcessing = localLoading.add || localLoading.update || localLoading.remove;
+   const getCategoryName = (productCategory) => {
+    if (!productCategory) return "Uncategorized";
+    if (typeof productCategory === "object" && productCategory.name) return productCategory.name;
+    const categoryId = typeof productCategory === "object" ? productCategory._id : productCategory;
+    const found = categories.find(
+      (cat) => cat._id === categoryId || cat._id?.toString() === categoryId?.toString()
+    );
+    return found ? found.name : "Uncategorized";
+  };
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const variant     = product?.variants?.[0] ?? {};
@@ -71,6 +82,13 @@ const ProductCard = ({ product, index = 0 }) => {
   const category = typeof product?.category === "object"
     ? product.category?.name
     : product?.category || "";
+
+    useEffect(()=>{
+      dispatch(fetchCategories());
+      console.log("I m being rendered");
+      
+    }, [dispatch])
+    
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleCardClick = () => {
@@ -225,7 +243,7 @@ const ProductCard = ({ product, index = 0 }) => {
         {/* Discount badge */}
         {discountPct && inStock && (
           <div className="absolute top-2 left-2 z-10">
-            <span className="text-[10px] font-black bg-red-500 text-white px-2 py-0.5 rounded-md shadow-sm">
+            <span className="text-[10px] font-black bg-[#EB4C4C] text-white px-2 py-0.5 rounded-md shadow-sm">
               {discountPct}% OFF
             </span>
           </div>
@@ -271,7 +289,7 @@ const ProductCard = ({ product, index = 0 }) => {
         {/* Category */}
         {category && (
           <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-zinc-400 font-medium truncate">
-            {category}
+            {getCategoryName(category)}
           </span>
         )}
 
@@ -323,8 +341,8 @@ const ProductCard = ({ product, index = 0 }) => {
               disabled={localLoading.add}
               className={`w-full py-2 sm:py-3.5 cursor-pointer text-[10px] sm:text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 ${
                 localLoading.add
-                  ? "bg-zinc-300 text-white cursor-wait"
-                  : "bg-zinc-900 text-white hover:bg-yellow-500"
+                  ? "bg-zinc-300 text-white hover:bg-[#F7A221] cursor-wait"
+                  : "bg-zinc-900 text-white hover:bg-[#F7A221]"
               } disabled:opacity-60`}
             >
               {localLoading.add ? (
@@ -334,6 +352,7 @@ const ProductCard = ({ product, index = 0 }) => {
           )}
 
           {/* Qty controls */}
+         
           {inStock && isInCart && (
             <div className="flex flex-col gap-1">
               <div className="flex items-center w-full border-2 border-zinc-900 rounded-xl overflow-hidden">
@@ -354,7 +373,7 @@ const ProductCard = ({ product, index = 0 }) => {
                 <button
                   onClick={handleIncrement}
                   disabled={isAtMaxStock || isProcessing}
-                  className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center  cursor-pointer bg-zinc-900 text-white hover:bg-yellow-500 transition-colors disabled:opacity-40 flex-shrink-0"
+                  className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center  cursor-pointer bg-zinc-900 text-white hover:bg-orange-400 transition-colors disabled:opacity-40 flex-shrink-0"
                 >
                   {localLoading.update
                     ? <Loader2 size={11} className="animate-spin" />

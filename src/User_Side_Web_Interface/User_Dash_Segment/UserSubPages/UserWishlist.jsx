@@ -108,11 +108,29 @@ const products = items
       )}
 
       {/* ── Loading skeletons — reuse SkeletonCard ── */}
-      {loading.fetch && products.length === 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
-          {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
+     {loading.fetch && products.length === 0 && (
+  <div className="grid grid-cols-2 md:grid-cols-4 gap-5 md:gap-6">
+    {[...Array(8)].map((_, i) => (
+      <div key={i} className="animate-pulse">
+        {/* Image */}
+        <div className="aspect-[4/5] bg-zinc-100 rounded-2xl mb-4 overflow-hidden relative">
+          <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
         </div>
-      )}
+        {/* Category tag */}
+        <div className="h-2.5 bg-zinc-100 rounded-full w-1/4 mb-3" />
+        {/* Title — 2 lines */}
+        <div className="h-3.5 bg-zinc-100 rounded-full w-11/12 mb-2" />
+        <div className="h-3.5 bg-zinc-100 rounded-full w-3/4 mb-4" />
+        {/* Price row */}
+        <div className="flex items-center gap-3">
+          <div className="h-4 bg-zinc-200 rounded-full w-20" />
+          <div className="h-3 bg-zinc-100 rounded-full w-12" />
+          <div className="h-3 bg-zinc-100 rounded-full w-10 ml-auto" />
+        </div>
+      </div>
+    ))}
+  </div>
+)}
 
       {/* ── Fetch failed + empty ── */}
       {error.fetch && products.length === 0 && !loading.fetch && (
@@ -132,16 +150,16 @@ const products = items
 
       {/* ── Products grid — reuse ProductCard ── */}
       {products.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-4 md:gap-6">
-          {products.map((product, idx) => (
-            <ProductCard
-              key={product._id || product.slug || idx}
-              product={product}
-              index={idx}
-            />
-          ))}
-        </div>
-      )}
+  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+    {products.map((product, idx) => (
+      <ProductCard
+        key={product._id || product.slug || idx}
+        product={product}
+        index={idx}
+      />
+    ))}
+  </div>
+)}
 
       {/* ── Empty state ── */}
       {!loading.fetch && !error.fetch && products.length === 0 && (

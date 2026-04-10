@@ -11,7 +11,7 @@ const PriceBanners = () => {
     // const { products  } = useSelector((state) => state.userProducts);
     // const products = useSelector((state) => state.userProducts.products);
     const products = useSelector(selectAllProducts);
-    console.log('firstssssss', JSON.stringify(products));
+    // console.log('firstssssss', JSON.stringify(products));
 
     const darkBanners = [
         {

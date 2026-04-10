@@ -144,22 +144,13 @@ const BestSellers = () => {
               Load More
             </button>
           ) : (
-            <p className="text-xs text-zinc-400 font-medium uppercase tracking-widest">
-              You've seen everything
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Mobile View All */}
-      {!showSkeleton && hasProducts && (
-        <div className="mt-6 sm:hidden">
-          <button
-            onClick={() => navigate('/products')}
-            className="w-full py-4 border-2 border-zinc-900 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 hover:text-white transition-all"
+           <button
+            onClick={() => navigate('/category/sports-and-fitness')}
+            className=" px-10 py-3 border-2 border-zinc-900 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 hover:text-white transition-all"
           >
             View All
           </button>
+          )}
         </div>
       )}
 
