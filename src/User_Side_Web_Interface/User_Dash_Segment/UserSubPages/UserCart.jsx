@@ -17,6 +17,7 @@ import {
   selectCartError,
   selectDisplayCartCount,
 } from '../../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice';
+import { useState } from 'react';
 // import CartComponent from './CartComponent';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -190,7 +191,7 @@ const CartComponent = ({ item, isLoggedIn,basePrice, onUpdate, onRemove, isUpdat
         onClick={() => onRemove(item)}
         disabled={isRemoving}
         aria-label="Remove item"
-        className="p-1 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40 flex-shrink-0"
+        className="p-1 text-red-400 hover:text-red-500 transition-colors disabled:opacity-40 flex-shrink-0"
       >
         {isRemoving
           ? <RefreshCw size={14} className="animate-spin" />
@@ -245,6 +246,7 @@ const UserCart = () => {
   const { isLoggedIn } = useSelector((state) => state.auth);
 
   const currentItems = isLoggedIn ? items : guestItems;
+  const [isOpen, setisOpen] = useState(false)
 
   // ── Fetch on mount (logged in) ─────────────────────────────────────────────
   useEffect(() => {
@@ -364,7 +366,7 @@ const UserCart = () => {
 
   // ── Main render ────────────────────────────────────────────────────────────
   return (
-   <div className="space-y-6 sm:space-y-8 animate-fadeIn">
+   <div className="space-y-6 relative sm:space-y-8 animate-fadeIn">
 
   {/* Header */}
 
@@ -383,6 +385,44 @@ const UserCart = () => {
       </button>
     </div>
   )}
+
+
+ { isOpen && (
+  <>
+   <div className="fixed inset-0  z-50 flex items-center justify-center px-4 bg-black/40 backdrop-blur-xs">
+  <div className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-xl">
+
+    {/* Icon */}
+    <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-4">
+      <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24">
+        <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    </div>
+
+    {/* Text */}
+    <h3 className="text-base font-bold text-zinc-900 mb-1">
+      Confirm Payment
+    </h3>
+    <p className="text-sm text-zinc-500 leading-relaxed">
+      This feature is coming soon! Payment processing is not available yet.
+    </p>
+
+    {/* Buttons */}
+    <div className="flex gap-3 mt-6">
+      <button onClick={()=>setisOpen(false)} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-sm font-semibold text-zinc-600 hover:bg-zinc-50 transition-colors">
+        Cancel
+      </button>
+      <button onClick={()=>setisOpen(false)} className="flex-1 py-2.5 rounded-xl bg-zinc-900 text-sm font-semibold text-white hover:bg-zinc-700 transition-colors">
+        OK
+      </button>
+    </div>
+
+  </div>
+</div>
+  
+  </>
+ )}
 
  <div className="flex flex-col">
 
@@ -436,10 +476,9 @@ const UserCart = () => {
 
   {/* Pay Now */}
   <Link
-    to="/checkout"
     className='w-full px-4 py-3 flex items-center justify-center rounded-xl bg-zinc-800 hover:bg-zinc-700 transition-colors active:scale-95'
   >
-    <span className='text-white font-semibold flex items-center text-base'>Checkout <ArrowRight size={16} className="ml-2" /></span>
+    <span className='text-white font-semibold flex items-center text-base' onClick={()=>setisOpen(true)}>Checkout <ArrowRight size={16} className="ml-2" /></span>
   </Link>
 
   {/* Trust badges */}
