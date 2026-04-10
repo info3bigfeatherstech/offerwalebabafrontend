@@ -55,14 +55,14 @@ export const fetchProductsByCategory = createAsyncThunk(
     try {
       const response = await axiosInstance.get(
         `/products/category/${slug}?page=${page}&limit=${limit}`,
-        { signal }
+        { signal } // axios respects AbortSignal natively
       );
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to fetch products");
       return { ...response.data, slug, fetchedAt: Date.now() };
     } catch (error) {
-      if (error.name === "AbortError" || error.name === "CanceledError")
-        return rejectWithValue({ aborted: true, slug });
+      // Ignore abort errors — not a real failure
+      if (error.name === "AbortError" || error.name === "CanceledError") return rejectWithValue({ aborted: true, slug });
       logError("fetchProductsByCategory", error, { slug, page, limit });
       return rejectWithValue({
         message: error.response?.data?.message || "Failed to load products",
@@ -72,9 +72,23 @@ export const fetchProductsByCategory = createAsyncThunk(
     }
   },
   {
-    condition: ({ slug }, { getState }) => {
-      const status = getState().userProducts.categoryStatus[slug];
-      return status !== "loading"; // ✅ sirf parallel duplicate requests rokta hai
+    // ── condition: called BEFORE the thunk body executes ─────────────────────
+    // Return false → Redux skips dispatch entirely (no pending/fulfilled/rejected)
+    // This is the correct RTK way to deduplicate — not a useEffect guard.
+    condition: ({ slug, page = 1 }, { getState }) => {
+      const state = getState().userProducts;
+      const status = state.categoryStatus[slug];
+      const fetchedAt = state.categoryFetchedAt[slug];
+      const isStale = !fetchedAt || Date.now() - fetchedAt > CACHE_TTL_MS;
+
+      // Block if already loading (prevents parallel duplicate dispatches)
+      if (status === "loading") return false;
+
+      // Block if already fetched successfully AND not stale AND it's page 1
+      // (page changes always go through — user explicitly requested new page)
+      if (status === "success" && !isStale && page === 1) return false;
+
+      return true;
     },
   }
 );
@@ -265,35 +279,40 @@ const userProductsSlice = createSlice({
         state.categoryStatus[slug] = "loading"; // NEW
       })
       .addCase(fetchProductsByCategory.fulfilled, (state, action) => {
-  const { slug }   = action.payload;
-  const page       = action.payload.page ?? action.meta.arg.page ?? 1;
-  const incoming   = action.payload.products || [];
-  const total      = action.payload.total ?? 0;
-  const limit      = action.payload.limit ?? 12;
-
-  state.categoryLoading[slug]   = false;
-  state.categoryStatus[slug]    = "success";
-  state.categoryFetchedAt[slug] = action.payload.fetchedAt ?? Date.now();
-  state.categoryError[slug]     = null;
-
-  if (page === 1) {
-    state.categoryProducts[slug] = incoming;
-  } else {
-    const existing    = state.categoryProducts[slug] || [];
-    const existingIds = new Set(existing.map((p) => p._id));
-    const fresh       = incoming.filter((p) => !existingIds.has(p._id));
-    state.categoryProducts[slug] = [...existing, ...fresh];
-  }
-
-  state.categoryPagination[slug] = {
-    total,
-    page,
-    limit,
-    totalPages:  Math.ceil(total / limit),
-    hasNextPage: action.payload.hasNextPage ?? (page * limit < total),
-    hasPrevPage: page > 1,
-  };
-})
+        const { slug, page }  = action.payload;
+        const incoming        = action.payload.products || [];
+        const total           = action.payload.total    ?? 0;
+        const limit           = action.payload.limit    ?? 12;
+ 
+        state.categoryLoading[slug]   = false;
+        state.categoryStatus[slug]    = "success";
+        state.categoryFetchedAt[slug] = action.payload.fetchedAt ?? Date.now();
+        state.categoryError[slug]     = null;
+ 
+        // ── APPEND vs REPLACE ─────────────────────────────────────────────────
+        // page === 1 → fresh load / refresh    → REPLACE (clean slate)
+        // page > 1   → Load More button click  → APPEND  (accumulate)
+        // Deduplication by _id prevents any overlap if API pages shift
+        if (page === 1) {
+          state.categoryProducts[slug] = incoming;
+          console.log(`✅ [fulfilled] REPLACED slug="${slug}" — ${incoming.length} products`);
+        } else {
+          const existing    = state.categoryProducts[slug] || [];
+          const existingIds = new Set(existing.map((p) => p._id));
+          const fresh       = incoming.filter((p) => !existingIds.has(p._id));
+          state.categoryProducts[slug] = [...existing, ...fresh];
+          console.log(`✅ [fulfilled] APPENDED slug="${slug}" page=${page} — +${fresh.length} (total: ${state.categoryProducts[slug].length})`);
+        }
+ 
+        state.categoryPagination[slug] = {
+          total,
+          page,
+          limit,
+          totalPages:  Math.ceil(total / limit),
+          hasNextPage: page * limit < total,
+          hasPrevPage: page > 1,
+        };
+      })
       // .addCase(fetchProductsByCategory.fulfilled, (state, action) => {
       //   const slug = action.payload.slug;
       //   const total = action.payload.total ?? 0;

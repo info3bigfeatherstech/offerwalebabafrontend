@@ -3,8 +3,8 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 export const searchApi = createApi({
   reducerPath: 'searchApi',
   baseQuery: fetchBaseQuery({
-    // baseUrl: import.meta.env.VITE_API_URL || 'https://offerwalebaba.onrender.com/api',
-    baseUrl: import.meta.env.VITE_API_URL || "http://localhost:8081/api",
+    baseUrl: import.meta.env.VITE_API_URL || 'https://offerwalebaba.onrender.com/api',
+    // baseUrl: import.meta.env.VITE_API_URL || "http://localhost:8081/api",
     prepareHeaders: (headers, { getState }) => {
       const token = getState()?.auth?.token;
       if (token) {

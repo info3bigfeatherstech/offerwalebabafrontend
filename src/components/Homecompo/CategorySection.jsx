@@ -140,7 +140,7 @@ const CategorySection = ({ slug, title }) => {
   const hasMore      = pagination?.hasNextPage ?? false;
 
   const triggerFetch = useCallback(() => {
-    dispatch(fetchProductsByCategory({ slug, page: 1, limit: 8 }));
+    dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 }));
   }, [slug, dispatch]);
 
   const { ref: sentinelRef } = useInViewFetch(triggerFetch, {
@@ -151,11 +151,11 @@ const CategorySection = ({ slug, title }) => {
   const handleLoadMore = useCallback(() => {
     if (loading || !hasMore) return;
     const nextPage = (pagination?.page ?? 1) + 1;
-    dispatch(fetchProductsByCategory({ slug, page: nextPage, limit: 8 }));
+    dispatch(fetchProductsByCategory({ slug, page: nextPage, limit: 12 }));
   }, [slug, dispatch, loading, hasMore, pagination]);
 
   const handleRetry = useCallback(() => {
-    dispatch(fetchProductsByCategory({ slug, page: 1, limit: 8 }));
+    dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 }));
   }, [slug, dispatch]);
 
   const waveRef = useRef(null);

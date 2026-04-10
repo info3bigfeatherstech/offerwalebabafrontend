@@ -95,7 +95,7 @@ const RelatedCard = ({ product }) => {
         </div>
         <button
           onClick={(e) => e.stopPropagation()}
-          className="w-full text-white text-xs font-semibold py-2 rounded-lg transition-all bg-gray-900 hover:bg-orange-400 active:scale-95"
+          className="w-full text-white text-xs font-semibold py-2 rounded-lg transition-all bg-gray-900 hover:bg-orange-500 active:scale-95"
         >
           Add to Cart
         </button>
@@ -410,7 +410,7 @@ const ProductUI = () => {
   <>
   <Breadcrumb product={product}/>
   <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-8 sm:space-y-z">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-8 space-y-3 sm:space-y-4">
         {isVisible && (
   <div
   className="ImageCard fixed inset-0 z-50 md:hidden bg-black/60 backdrop-blur-sm flex items-end"
@@ -444,11 +444,8 @@ const ProductUI = () => {
         {activeImg ? (
           <img
             src={activeImg}
-            loading="lazy"
-            draggable="false"
             alt={title}
             className="w-full h-full object-contain p-4"
-             onContextMenu={(e) => e.preventDefault()}
           />
         ) : (
           <Package size={48} className="text-gray-300" />
@@ -620,7 +617,6 @@ const ProductUI = () => {
         border: "1px solid rgba(0,0,0,0.2)",
         boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
       }}
-       onContextMenu={(e) => e.preventDefault()}
     />
   )}
 </div>
@@ -685,7 +681,7 @@ const ProductUI = () => {
                 {hasDisc && (
                   <>
                     <span className="text-sm text-gray-400 line-through mb-0.5">{fmt(basePrice)}</span>
-                    <span className="bg-[#79AE6F] text-white text-xs font-bold px-2.5 py-1 rounded-lg mb-0.5">
+                    <span className="bg-green-500 text-white text-xs font-bold px-2.5 py-1 rounded-lg mb-0.5">
                       {discPct}% OFF
                     </span>
                   </>
@@ -895,100 +891,48 @@ const ProductUI = () => {
               <div className="h-px bg-gray-100" />
 
               {/* ── CTAs ── */}
-            <div className="space-y-3">
+              <div className="space-y-3">
+                {!inStock && (
+                  <div className="w-full py-3.5 rounded-2xl text-sm font-bold bg-gray-100 text-gray-400 text-center">
+                    Out of Stock
+                  </div>
+                )}
 
-  {/* OUT OF STOCK */}
-  {!inStock && (
-    <div className="w-full py-3 rounded-xl text-sm font-semibold bg-gray-100 text-gray-400 text-center">
-      Out of Stock
-    </div>
-  )}
+                {inStock && isInCart && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center border-2 border-gray-200 rounded-2xl overflow-hidden">
+                      <button onClick={handleDecrement} disabled={isProcessing}
+                        className="w-11 h-11 flex items-center justify-center text-gray-600 hover:bg-red-50 hover:text-red-500 transition disabled:opacity-40">
+                        {localLoading.remove ? <Loader2 size={16} className="animate-spin" /> : <Minus size={16} />}
+                      </button>
+                      <div className="w-11 h-11 flex items-center justify-center text-base font-bold text-gray-900 border-x-2 border-gray-200">
+                        {localLoading.update ? <Loader2 size={16} className="animate-spin" /> : currentQty}
+                      </div>
+                      <button onClick={handleIncrement} disabled={isAtMaxStock || isProcessing}
+                        className="w-11 h-11 flex items-center justify-center text-gray-600 hover:bg-green-50 hover:text-green-600 transition disabled:opacity-40">
+                        {localLoading.update ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                      </button>
+                    </div>
+                    {isAtMaxStock && <p className="text-xs text-orange-500 font-medium">Max stock reached</p>}
+                  </div>
+                )}
 
-  {/* IN STOCK */}
-  {inStock && (
-    <>
-      {/* ── QTY CONTROLS (only when in cart) ── */}
-      {isInCart && (
-        <div className="flex items-center w-72 border border-zinc-200 rounded-xl overflow-hidden">
-
-          {/* Decrement */}
-          <button
-            onClick={handleDecrement}
-            disabled={isProcessing}
-            className="w-10 h-10 flex items-center justify-center bg-gray-50 hover:bg-red-500 hover:text-white transition disabled:opacity-40"
-          >
-            {localLoading.remove
-              ? <Loader2 size={14} className="animate-spin" />
-              : <Minus size={16} />}
-          </button>
-
-          {/* Qty */}
-          <div className="flex-1 text-center text-sm font-semibold">
-            {localLoading.update
-              ? <Loader2 size={14} className="animate-spin mx-auto" />
-              : currentQty}
-          </div>
-
-          {/* Increment */}
-          <button
-            onClick={handleIncrement}
-            disabled={isAtMaxStock || isProcessing}
-            className="w-10 h-10 flex items-center justify-center bg-zinc-900 text-white hover:bg-yellow-500 transition disabled:opacity-40"
-          >
-            {localLoading.update
-              ? <Loader2 size={14} className="animate-spin" />
-              : <Plus size={16} />}
-          </button>
-        </div>
-      )}
-
-      {/* Max stock */}
-      {isInCart && isAtMaxStock && (
-        <p className="text-[11px] text-center text-orange-500 font-medium">
-          Max stock reached
-        </p>
-      )}
-
-      {/* ── ACTION BUTTONS ── */}
-   <div className="flex flex-col gap-2 w-full">
-
-  {/* Add to cart — neeche */}
-  {!isInCart && (
-    <button
-      onClick={handleAddToCart}
-      disabled={localLoading.add}
-      className="w-72 px-8 py-2 h-11 sm:h-12 rounded-xl text-xs sm:text-sm font-semibold 
-      flex items-center justify-center gap-2 
-      bg-zinc-900 text-white hover:bg-[#F7A221] 
-      transition-all duration-200 active:scale-[.97] disabled:opacity-60"
-    >
-      {localLoading.add ? (
-        <>
-          <Loader2 size={15} className="animate-spin" />
-          <span className="hidden sm:inline">Adding...</span>
-        </>
-      ) : (
-        "Add to Cart"
-      )}
-    </button>
-  )}
-   {/* Buy now — upar */}
-  <button
-    className={`w-full h-11 sm:h-12 rounded-xl 
-    text-xs sm:text-sm font-semibold flex items-center justify-center 
-    transition-all duration-200 active:scale-[.97]
-    ${isInCart
-      ? "bg-zinc-800 text-white hover:bg-[#F7A221]"
-      : "bg-black text-white hover:bg-[#F7A221]"}`}
-  >
-    Buy Now
-  </button>
-
-</div>
-    </>
-  )}
-
-</div>
+                {inStock && (
+                  <div className="flex gap-3">
+                    {!isInCart && (
+                      <button onClick={handleAddToCart} disabled={localLoading.add}
+                        className="flex-1 py-3.5 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 border-2 border-gray-900 bg-white text-gray-900 hover:bg-gray-900 hover:text-white transition-all duration-200 active:scale-[.98] disabled:opacity-60">
+                        {localLoading.add
+                          ? <><Loader2 size={16} className="animate-spin" />Adding…</>
+                          : <><ShoppingCart size={16} />Add to Cart</>}
+                      </button>
+                    )}
+                    <button className="flex-1 py-3.5 rounded-2xl text-sm font-bold bg-zinc-800 text-white hover:bg-zinc-700 transition-all duration-200 active:scale-[.98] flex items-center justify-center gap-2 shadow-lg shadow-orange-100">
+                      Buy Now
+                    </button>
+                  </div>
+                )}
+              </div>
 
             </div>{/* end right */}
 
@@ -1002,7 +946,7 @@ const ProductUI = () => {
     <span className="font-semibold text-sm sm:text-base text-gray-800">
       Product Description
     </span>
-    <span className="text-2xl text-gray-400 font-light select-none">
+    <span className="text-xl text-gray-400 font-light select-none">
       {openDesc ? "−" : "+"}
     </span>
   </button>
@@ -1056,7 +1000,7 @@ const ProductUI = () => {
 
       {/* Footer */}
       <div className="pt-3 text-xs text-gray-400 border-t border-gray-100">
-        Country Of Origin: India &nbsp;|&nbsp; GST: 18%
+        Country Of Origin: China &nbsp;|&nbsp; GST: 18%
       </div>
     </div>
   )}
