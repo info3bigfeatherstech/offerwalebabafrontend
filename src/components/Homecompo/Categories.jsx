@@ -6,12 +6,26 @@ import {
   selectHierarchicalCategories,
 } from "../REDUX_FEATURES/REDUX_SLICES/userCategoriesSlice";
 import { useEffect } from "react";
+import { useState } from "react";
 
 const Categories = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [endIndex, setendIndex] = useState(5)
+  const handleCategories = (category)=>{
 
+    setcategories1([...categories1, slicedCategories])
+    setendIndex( prev => prev + 5);
+    
+    const slug =
+      category.slug || category.name?.toLowerCase().replace(/\s+/g, "-");
+    navigate(`/category/${slug}`);
+  }
   const categories = useSelector(selectHierarchicalCategories);
+const visibleCategories = categories.slice(0, endIndex);
+  console.log("categories", categories.slice(0,endIndex+1));
+  console.log("categories", categories);
+  
   const { loading, error } = useSelector((state) => state.userCategories);
 
   useEffect(() => {
@@ -71,7 +85,7 @@ const Categories = () => {
 
         {/* Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-5 md:gap-6 lg:gap-8 max-w-7xl mx-auto">
-          {categories.map((cat, idx) => (
+          {visibleCategories.map((cat, idx) => (
             <div
               key={cat._id || idx}
               onClick={() => handleCategoryClick(cat)}
@@ -95,6 +109,16 @@ const Categories = () => {
             </div>
           ))}
         </div>
+        {endIndex < categories.length && (
+  <div className="flex justify-center mt-8">
+    <button
+      onClick={() => setendIndex((prev) => prev + 5)}
+      className="px-6 py-2 rounded-xl bg-black text-white text-sm font-semibold hover:bg-[#F7A221] transition"
+    >
+      View More
+    </button>
+  </div>
+)}
 
       </section>
     </div>

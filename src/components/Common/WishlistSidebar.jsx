@@ -219,7 +219,7 @@ const GuestItem = ({ slug, onRemove }) => (
 // ─────────────────────────────────────────────────────────────────────────────
 // WishlistSidebar — Main Component
 // ─────────────────────────────────────────────────────────────────────────────
-const WishlistSidebar = ({ isOpen, onClose }) => {
+const WishlistSidebar = ({ isOpen, onClose, onOpenAuth }) => {
   const dispatch  = useDispatch();
   const navigate  = useNavigate();
 
@@ -501,7 +501,7 @@ const WishlistSidebar = ({ isOpen, onClose }) => {
                         Don't lose your favorites. Log in to sync across all your devices.
                       </p>
                       <button
-                        onClick={() => { onClose(); navigate('/login'); }}
+                        onClick={() => { onOpenAuth(); onClose(); }}
                         className="mt-3 text-[10px] font-black uppercase tracking-widest text-[#F7A221] hover:underline cursor-pointer"
                       >
                         Login Now →

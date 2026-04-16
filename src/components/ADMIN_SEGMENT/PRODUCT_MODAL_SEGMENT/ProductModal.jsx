@@ -48,6 +48,8 @@ const ProductModal = ({ onClose, brands, setBrands }) => {
   const { loading: createLoading, error: createError, success: createSuccess } =
     useSelector((s) => s.adminProductCreate);
   const { categories } = useSelector((s) => s.categories);
+  console.log(categories);
+  
 
   const [formData,             setFormData]             = useState(emptyForm);
   const [variantForm,          setVariantForm]          = useState(defaultVariant);

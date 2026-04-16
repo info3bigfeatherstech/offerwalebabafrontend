@@ -154,6 +154,8 @@
     const dropdownRef = useRef(null);
     const [isSelected1, setIsSelected1] = useState(false);
 const [isSelected2, setIsSelected2] = useState(false);
+const [isTyping1, setIsTyping1] = useState(false);
+const [isTyping2, setIsTyping2] = useState(false);
 
     // ── Autocomplete for address line fields (NOT pincode) ──
     // Only fires when 3+ chars typed
@@ -167,16 +169,15 @@ const [isSelected2, setIsSelected2] = useState(false);
     place.address?.town ||
     place.address?.village ||
     "";
+    return city.toLowerCase().includes(form.city.toLowerCase());
 
-  return city.toLowerCase().includes(form.city.toLowerCase());
 };
 
-const suggestions1 =   searchQuery1 && !isSelected1
-    ? raw1
-    : [];
-const suggestions2 =   searchQuery2 && !isSelected2
-    ? raw2
-    : [];
+const suggestions1 =
+  searchQuery1.length >= 3 && isTyping1 && !isSelected1 ? raw1 : [];
+
+const suggestions2 =
+  searchQuery2.length >= 3 && isTyping2 && !isSelected2 ? raw2 : [];
 
     // Lock body scroll
     useEffect(() => {
@@ -193,6 +194,8 @@ const suggestions2 =   searchQuery2 && !isSelected2
     if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
       setRaw1([]);
       setRaw2([]);
+       setIsSelected1(false);
+  setIsSelected2(false);
     }
   };
 
@@ -202,16 +205,22 @@ const suggestions2 =   searchQuery2 && !isSelected2
     document.removeEventListener("mousedown", handleClickOutside);
   };
 }, []);
+useEffect(() => {
+  setIsTyping1(false);
+  setIsTyping2(false);
+}, [initial]);
 
     // ── handleChange — generic field updater ──
     const handleChange = useCallback((e) => {
       const { name, value } = e.target;
      if (name === "addressLine1") {
   setIsSelected1(false);  // 🔥 allow suggestions again
+    setIsTyping1(true);   // 🔥 USER IS TYPING
 }
 
 if (name === "addressLine2") {
   setIsSelected2(false);
+    setIsTyping2(true);
 }
       if (name === "phone") {
         const v = value.replace(/\D/g, "");
@@ -259,6 +268,13 @@ if (name === "addressLine2") {
         setPincodeLoading(false);
       }
     };
+    const handleClose = () => {
+  setRaw1([]);
+  setRaw2([]);
+  setIsSelected1(false);
+  setIsSelected2(false);
+  onClose(); // parent wala close
+};
 
     // ── Suggestion select handlers ──
  const handleSuggestionSelect1 = (place) => {
@@ -268,6 +284,7 @@ if (name === "addressLine2") {
   }));
 
   setIsSelected1(true);  // 🔥 IMPORTANT
+  setIsTyping1(false);
   setRaw1([]);
 };
 
@@ -278,6 +295,7 @@ if (name === "addressLine2") {
   }));
 
   setIsSelected2(true);  // 🔥 IMPORTANT
+  setIsTyping2(false);
   setRaw2([]);
 };
 
@@ -310,17 +328,28 @@ if (name === "addressLine2") {
     };
 
     const handleFinalSubmit = (e) => {
-      e.preventDefault();
-      const err = validateStep(step);
-      if (err) { setFormError(err); return; }
-      const payload = { ...form };
-      Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
-      onSubmit(payload);
-    };
+     e.preventDefault();
+
+  const err = validateStep(step);
+  if (err) { setFormError(err); return; }
+
+  // 🔥 CLEAR SUGGESTIONS BEFORE SUBMIT
+  setRaw1([]);
+  setRaw2([]);
+  setIsSelected1(true);
+  setIsSelected2(true);
+
+  const payload = { ...form };
+  Object.keys(payload).forEach((k) => {
+    if (payload[k] === "") payload[k] = null;
+  });
+
+  onSubmit(payload);
+};
 
     return createPortal(
       <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
 
         <div className="relative bg-white rounded-[40px] w-full max-w-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
 
@@ -331,7 +360,7 @@ if (name === "addressLine2") {
                 <div key={s} className={`h-1.5 w-8 rounded-full transition-all duration-500 ${step >= s ? "bg-black" : "bg-gray-100"}`} />
               ))}
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
+            <button onClick={handleClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
               <X size={20} />
             </button>
           </div>
@@ -404,10 +433,7 @@ if (name === "addressLine2") {
                     loading={Loading1}
                     onSuggestionSelect={handleSuggestionSelect1}
                   />
-                  </div>
-
-                  {/* Address Line 2 — with LocationIQ autocomplete */}
-                  <Field
+                   <Field
                     label="Address Line 2"
                     name="addressLine2"
                     value={form.addressLine2}
@@ -417,6 +443,9 @@ if (name === "addressLine2") {
                     loading={Loading2}
                     onSuggestionSelect={handleSuggestionSelect2}
                   />
+                  </div>
+
+                  {/* Address Line 2 — with LocationIQ autocomplete */}
 
                   <div className="grid grid-cols-2 gap-4">
                     {/* City — auto-filled from pincode, still editable */}

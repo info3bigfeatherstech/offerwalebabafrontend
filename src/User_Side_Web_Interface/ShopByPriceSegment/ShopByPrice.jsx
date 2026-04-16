@@ -79,7 +79,7 @@ const ShopByPrice = () => {
       const sale      = variant?.price?.sale ?? base;
       const qty       = variant?.inventory?.quantity ?? 0;
       const discount  = base > 0 ? Math.round(((base - sale) / base) * 100) : 0;
-      const isOnSale  = sale < base;
+      const isOnSale  =sale < base || false;
 
       if (filters.availability.length > 0) {
         const match = filters.availability.some((a) => {
@@ -233,7 +233,7 @@ const ShopByPrice = () => {
         <label className="flex items-center gap-3 cursor-pointer">
           <button
             onClick={() => setFilters((prev) => ({ ...prev, onSale: !prev.onSale }))}
-            className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${
+            className={`relative w-9 h-5 rounded-full transition-colors transition-all duration-300 flex-shrink-0 ${
               filters.onSale ? "bg-zinc-900" : "bg-zinc-200"
             }`}
           >
@@ -403,6 +403,7 @@ const ShopByPrice = () => {
                       key={elem._id ?? elem.id ?? index}
                       product={elem}
                       index={index}
+                      seed={index}
                     />
                   ))}
                 </div>

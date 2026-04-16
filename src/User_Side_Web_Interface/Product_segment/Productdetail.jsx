@@ -646,7 +646,7 @@ const ProductUI = () => {
             </div>
             <div className="flex flex-col">
                  {/* ── RIGHT: Info panel ── */}
-            <div className="flex relative flex-col gap-3 p-4 sm:p-6 lg:p-7 overflow-y-auto scrollbar-hide lg:max-h-[560px]">
+            <div className="flex relative flex-col gap-3 p-4 sm:p-6 lg:p-7">
                   {showZoom && !isMobile && (
   <div
     ref={zoomRef}
@@ -699,102 +699,144 @@ const ProductUI = () => {
                <div className="w-full h-px bg-gray-200"></div>
               {/* Share */}
             {/* ── Wishlist + Share bar ── */}
-<div className="relative flex rounded-2xl overflow-visible bg-gray-50 mt-1">
+<div className="flex flex-col gap-3 mt-2">
 
-  {/* Wishlist */}
-  <button
-    onClick={handleWishlist}
-    disabled={localLoading.wishlist}
-    className={`px-3 py-2 flex items-center gap-2 text-sm font-semibold transition-all duration-200 rounded-l-2xl active:scale-[0.98]
-      ${wishlisted
-        ? "text-red-500 bg-red-50"
-        : "text-gray-600 hover:bg-gray-50 hover:text-red-400"
-      } disabled:opacity-50`}
-  >
-    {localLoading.wishlist
-      ? <Loader2 size={16} className="animate-spin" />
-      : <Heart size={16} className={wishlisted ? "fill-red-500 text-red-500" : ""} />}
-    <span className="hidden sm:inline">
-      {wishlisted ? "Wishlisted" : "Add to Wishlist"}
-    </span>
-    <span className="sm:hidden text-xs">
-      {wishlisted ? "Wishlisted" : "Wishlist"}
-    </span>
-  </button>
-
-  {/* Divider */}
-  <div className="w-px self-stretch bg-gray-200 flex-shrink-0" />
-
-  {/* Share */}
-  <div className="relative flex-shrink-0">
-    <button
-      onClick={(e) => { e.stopPropagation(); setShareOpen((v) => !v); }}
-      className={`h-full py-3.5 px-5 sm:px-7 flex items-center gap-2 text-sm font-semibold transition-all duration-200 rounded-r-2xl active:scale-[0.98]
-        ${shareOpen ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"}`}
-    >
-      <Share2 size={15} />
-      <span>Share</span>
-    </button>
-
-    {/* Desktop popover */}
-    {shareOpen && (
-      <div className="hidden sm:flex absolute bottom-[calc(100%+12px)] right-0 items-center gap-3 bg-white border border-gray-200 rounded-2xl px-5 py-3.5 shadow-xl shadow-black/5 z-50 whitespace-nowrap">
-        {/* Arrow */}
-        <div className="absolute -bottom-[6px] right-8 w-3 h-3 bg-white border-r border-b border-gray-200 rotate-45" />
-        <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest pr-1">Share via</span>
-        {[
-          { type: "whatsapp",  Icon: IoLogoWhatsapp,  cls: "bg-green-500 hover:bg-green-600" },
-          { type: "facebook",  Icon: IoLogoFacebook,  cls: "bg-blue-600 hover:bg-blue-700" },
-          { type: "instagram", Icon: IoLogoInstagram, cls: "bg-gradient-to-br from-yellow-400 via-pink-500 to-purple-600" },
-          { type: "telegram",  Icon: FaTelegram,      cls: "bg-sky-500 hover:bg-sky-600" },
-        ].map(({ type, Icon, cls }) => (
-          <button
-            key={type}
-            onClick={() => { share(type); setShareOpen(false); }}
-            className={`w-9 h-9 rounded-full ${cls} text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-150 shadow-sm`}
-          >
-            <Icon size={16} />
-          </button>
-        ))}
-      </div>
-    )}
-
-    {/* Mobile overlay */}
-    {shareOpen && (
-      <div
-        className="sm:hidden fixed inset-0 bg-black/40 z-40 backdrop-blur-[2px]"
-        onClick={() => setShareOpen(false)}
-      />
-    )}
-
-    {/* Mobile bottom sheet */}
-    <div className={`sm:hidden fixed bottom-0 left-0 right-0 bg-white z-50 px-6 pt-4 pb-10 transition-transform duration-300 ease-out
-      ${shareOpen ? "translate-y-0" : "translate-y-full"}
-      rounded-t-3xl shadow-2xl`}
-    >
-      {/* Drag handle */}
-      <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
-      <p className="text-center text-base font-bold text-gray-900 mb-6">Share this product</p>
-      <div className="flex justify-center gap-6 sm:gap-10">
-        {[
-          { type: "whatsapp",  Icon: IoLogoWhatsapp,  cls: "bg-green-500", label: "WhatsApp" },
-          { type: "facebook",  Icon: IoLogoFacebook,  cls: "bg-blue-600",  label: "Facebook" },
-          { type: "instagram", Icon: IoLogoInstagram, cls: "bg-gradient-to-br from-yellow-400 via-pink-500 to-purple-600", label: "Instagram" },
-          { type: "telegram",  Icon: FaTelegram,      cls: "bg-sky-500",   label: "Telegram" },
-        ].map(({ type, Icon, cls, label }) => (
-          <div key={type} className="flex flex-col items-center gap-2.5">
-            <button
-              onClick={() => { share(type); setShareOpen(false); }}
-              className={`w-14 h-14 rounded-2xl ${cls} text-white flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-150 shadow-md`}
-            >
-              <Icon size={24} />
-            </button>
-            <span className="text-[11px] text-gray-500 font-medium">{label}</span>
-          </div>
-        ))}
-      </div>
+  {/* OUT OF STOCK */}
+  {!inStock && (
+    <div className="w-full py-3 rounded-xl text-sm font-semibold bg-gray-100 text-gray-400 text-center">
+      Out of Stock
     </div>
-  </div>
+  )}
+
+  {/* IN STOCK */}
+  {inStock && (
+    <>
+    <div className="flex items-center">
+      {/* ── ADD TO CART (SEPARATE) ── */}
+      {!isInCart && (
+        <button
+          onClick={handleAddToCart}
+          disabled={localLoading.add}
+          className="px-18 py-3 rounded-xl text-sm font-semibold 
+          flex items-center justify-center gap-2 
+          bg-black text-white hover:bg-[#F7A221] transition active:scale-[0.97]"
+        >
+          {localLoading.add ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <>
+              <ShoppingCart size={16} />
+              Add to Cart
+            </>
+          )}
+        </button>
+      )}
+
+      {/* ── QTY CONTROLS ── */}
+      {isInCart && (
+        <div className="flex items-center w-full border border-zinc-200 rounded-xl overflow-hidden">
+          <button
+            onClick={handleDecrement}
+            disabled={isProcessing}
+            className="w-10 h-10 flex items-center justify-center bg-gray-50 hover:bg-red-500 hover:text-white transition"
+          >
+            {localLoading.remove
+              ? <Loader2 size={14} className="animate-spin" />
+              : <Minus size={16} />}
+          </button>
+
+          <div className="flex-1 text-center text-sm font-semibold">
+            {localLoading.update
+              ? <Loader2 size={14} className="animate-spin mx-auto" />
+              : currentQty}
+          </div>
+
+          <button
+            onClick={handleIncrement}
+            disabled={isAtMaxStock || isProcessing}
+            className="w-10 h-10 flex items-center justify-center bg-zinc-900 text-white hover:bg-yellow-500 transition"
+          >
+            {localLoading.update
+              ? <Loader2 size={14} className="animate-spin" />
+              : <Plus size={16} />}
+          </button>
+        </div>
+      )}
+
+      {/* ── WISHLIST + SHARE (UNCHANGED UI) ── */}
+      <div className="relative flex rounded-2xl overflow-visible bg-gray-50 mt-1">
+
+        {/* Wishlist */}
+        <button
+          onClick={handleWishlist}
+          disabled={localLoading.wishlist}
+          className={`px-3 py-2 flex items-center gap-2 text-sm font-semibold transition-all duration-200 rounded-l-2xl active:scale-[0.98]
+            ${wishlisted
+              ? "text-red-500 bg-red-50"
+              : "text-gray-600 hover:bg-gray-50 hover:text-red-400"
+            } disabled:opacity-50`}
+        >
+          {localLoading.wishlist
+            ? <Loader2 size={16} className="animate-spin" />
+            : <Heart size={16} className={wishlisted ? "fill-red-500 text-red-500" : ""} />}
+          <span className="hidden sm:inline">
+            {wishlisted ? "Wishlisted" : "Wishlist"}
+          </span>
+          <span className="sm:hidden text-xs">
+            {wishlisted ? "Wishlisted" : "Wishlist"}
+          </span>
+        </button>
+
+        {/* Divider */}
+        <div className="w-px self-stretch bg-gray-200 flex-shrink-0" />
+
+        {/* Share */}
+        <div className="relative flex-shrink-0">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShareOpen((v) => !v);
+            }}
+            className={`h-full py-3.5 px-5 sm:px-7 flex items-center gap-2 text-sm font-semibold transition-all duration-200 rounded-r-2xl active:scale-[0.98]
+              ${shareOpen ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"}`}
+          >
+            <Share2 size={15} />
+            <span>Share</span>
+          </button>
+
+          {/* ✅ FIXED: SHARE POPUP */}
+          {shareOpen && (
+            <div
+              className="absolute bottom-[calc(100%+10px)] right-0 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-lg z-50 flex gap-3"
+            >
+              {[
+  { type: "whatsapp",  Icon: IoLogoWhatsapp,  cls: "bg-green-500 hover:bg-green-600" },
+  { type: "facebook",  Icon: IoLogoFacebook,  cls: "bg-blue-600 hover:bg-blue-700" },
+  { type: "instagram", Icon: IoLogoInstagram, cls: "bg-gradient-to-br from-yellow-400 via-pink-500 to-purple-600" },
+  { type: "telegram",  Icon: FaTelegram,      cls: "bg-sky-500 hover:bg-sky-600" },
+].map(({ type, Icon, cls }) => (
+  <button
+    key={type}
+    onClick={() => { share(type); setShareOpen(false); }}
+    className={`w-9 h-9 rounded-full ${cls} text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-150 shadow-sm`}
+  >
+    <Icon size={16} />
+  </button>
+))}
+            </div>
+          )}
+        </div>
+      </div>
+      </div>
+
+      {/* ── BUY NOW ── */}
+      <button
+        className="w-full py-3 rounded-xl text-sm font-semibold bg-zinc-900 text-white hover:bg-[#F7A221] transition active:scale-[0.97]"
+      >
+        Buy Now
+      </button>
+    </>
+  )}
 </div>
  <div className="w-full h-px bg-gray-200"></div>
              </div>
@@ -895,100 +937,6 @@ const ProductUI = () => {
               <div className="h-px bg-gray-100" />
 
               {/* ── CTAs ── */}
-            <div className="space-y-3">
-
-  {/* OUT OF STOCK */}
-  {!inStock && (
-    <div className="w-full py-3 rounded-xl text-sm font-semibold bg-gray-100 text-gray-400 text-center">
-      Out of Stock
-    </div>
-  )}
-
-  {/* IN STOCK */}
-  {inStock && (
-    <>
-      {/* ── QTY CONTROLS (only when in cart) ── */}
-      {isInCart && (
-        <div className="flex items-center w-72 border border-zinc-200 rounded-xl overflow-hidden">
-
-          {/* Decrement */}
-          <button
-            onClick={handleDecrement}
-            disabled={isProcessing}
-            className="w-10 h-10 flex items-center justify-center bg-gray-50 hover:bg-red-500 hover:text-white transition disabled:opacity-40"
-          >
-            {localLoading.remove
-              ? <Loader2 size={14} className="animate-spin" />
-              : <Minus size={16} />}
-          </button>
-
-          {/* Qty */}
-          <div className="flex-1 text-center text-sm font-semibold">
-            {localLoading.update
-              ? <Loader2 size={14} className="animate-spin mx-auto" />
-              : currentQty}
-          </div>
-
-          {/* Increment */}
-          <button
-            onClick={handleIncrement}
-            disabled={isAtMaxStock || isProcessing}
-            className="w-10 h-10 flex items-center justify-center bg-zinc-900 text-white hover:bg-yellow-500 transition disabled:opacity-40"
-          >
-            {localLoading.update
-              ? <Loader2 size={14} className="animate-spin" />
-              : <Plus size={16} />}
-          </button>
-        </div>
-      )}
-
-      {/* Max stock */}
-      {isInCart && isAtMaxStock && (
-        <p className="text-[11px] text-center text-orange-500 font-medium">
-          Max stock reached
-        </p>
-      )}
-
-      {/* ── ACTION BUTTONS ── */}
-   <div className="flex flex-col gap-2 w-full">
-
-  {/* Add to cart — neeche */}
-  {!isInCart && (
-    <button
-      onClick={handleAddToCart}
-      disabled={localLoading.add}
-      className="w-72 px-8 py-2 h-11 sm:h-12 rounded-xl text-xs sm:text-sm font-semibold 
-      flex items-center justify-center gap-2 
-      bg-zinc-900 text-white hover:bg-[#F7A221] 
-      transition-all duration-200 active:scale-[.97] disabled:opacity-60"
-    >
-      {localLoading.add ? (
-        <>
-          <Loader2 size={15} className="animate-spin" />
-          <span className="hidden sm:inline">Adding...</span>
-        </>
-      ) : (
-        "Add to Cart"
-      )}
-    </button>
-  )}
-   {/* Buy now — upar */}
-  <button
-    className={`w-full h-11 sm:h-12 rounded-xl 
-    text-xs sm:text-sm font-semibold flex items-center justify-center 
-    transition-all duration-200 active:scale-[.97]
-    ${isInCart
-      ? "bg-zinc-800 text-white hover:bg-[#F7A221]"
-      : "bg-black text-white hover:bg-[#F7A221]"}`}
-  >
-    Buy Now
-  </button>
-
-</div>
-    </>
-  )}
-
-</div>
 
             </div>{/* end right */}
 
@@ -1110,7 +1058,7 @@ const ProductUI = () => {
           <div className="pb-4">
             <div className="flex items-center mt-28 justify-between mb-1">
               <h2 className="text-base sm:text-2xl font-bold text-gray-900">Customers who bought this item also bought</h2>
-              <button className="hidden sm:flex text-xs sm:text-sm text-gray-400 hover:text-orange-500 sm:items-center gap-1 transition font-medium">
+              <button onClick={() => navigate(`/category/${product?.category?.slug}`)} className="hidden sm:flex text-xs sm:text-sm text-gray-400 hover:text-orange-500 sm:items-center gap-1 transition font-medium">
                 View all <ArrowRight size={13} />
               </button>
             </div>

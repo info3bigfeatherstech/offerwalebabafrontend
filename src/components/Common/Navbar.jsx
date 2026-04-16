@@ -228,7 +228,7 @@ const MegaDropdown = ({ isOpen }) => {
 
   return (
     <>
- <div className="absolute top-full left-1/2 -translate-x-1/2 w-screen bg-white/95 backdrop-blur border-t border-gray-200 shadow-2xl z-50 hidden lg:block animate-slideDown">
+ <div className="absolute top-full left-1/2 -translate-x-1/2 w-screen bg-white border-t border-gray-200 shadow-2xl z-50 hidden lg:block animate-slideDown">
 
   {/* CENTER CONTENT */}
   <div className="max-w-7xl mx-auto px-6 py-8">
@@ -273,12 +273,14 @@ const NavItemWithDropdown = ({ link }) => {
   return (
     <div
       className="static"
-      onMouseEnter={() => setIsOpen(true)}
-      onMouseLeave={() => setIsOpen(false)}
+      onClick={()=> setIsOpen(!isOpen)}
+      onMouseEnter={()=> setIsOpen(true)}
+      onMouseLeave={()=> setIsOpen(false)}
     >
       <div className="nav-link flex items-center gap-2 group cursor-pointer">
+        <img src={homeIcon} className='w-5 h-5 object-cover' alt="" />
         <span className="font-bold text-black group-hover:text-black transition-colors">{link.label}</span>
-        <ChevronRight size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-90 text-black' : 'text-white/70'}`} />
+        <ChevronRight size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-90 text-black' : 'text-zinc-900/70'}`} />
       </div>
       <MegaDropdown isOpen={isOpen} />
     </div>
@@ -735,7 +737,8 @@ useEffect(() => {
       />
       {/* Wishlist Sidebar */}
       <WishlistSidebar 
-        isOpen={isWishCartOpen} 
+        isOpen={isWishCartOpen}
+        onOpenAuth={onOpenAuth}
         onClose={() => setIsWishCartOpen(false)} 
       />
       {/* Search Modal */}

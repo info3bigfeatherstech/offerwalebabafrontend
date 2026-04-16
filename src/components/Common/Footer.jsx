@@ -1,19 +1,61 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Facebook, Instagram, Youtube, ShieldCheck, Star, Award, 
   ChevronRight, Zap,Briefcase,Globe
 } from 'lucide-react';
 import logo from "../../assets/logo.jpg"; 
+import { Link } from 'react-router-dom';
+import google from "../.././assets/google.png"
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
+  const [isOpen, setisOpen] = useState(false)
 
   const footerSections = [
     { title: "Ecosystem", items: ["What is Drop Shipping", "Franchise", "Become Vendor", "Wholesale Signup", "VIP Customers"] },
     { title: "Assistance", items: ["Contact Us", "Shipping Policy", "Return & Refund", "Privacy Policy", "Grievance Redressal"] },
     { title: "Resources", items: ["Influencer Form", "Blogs", "FAQs", "Shipment Tracking", "Store Locator"] },
     { title: "Solutions", items: ["Brand Drop Shipping", "Shopify Website", "B2B Drop Shipping", "Reseller Plan"] }
+    
   ];
+  const socialLinks = [
+  {
+    icon: "fa-whatsapp",
+    color: "hover:bg-[#25D366]",
+    link: "https://wa.me/message/72BTQZMTQU2AG1" // replace with your number
+  },
+  {
+    icon: "fa-telegram",
+    color: "hover:bg-[#0088cc]",
+    link: "https://t.me/yourusername"
+  },
+  {
+    icon: "fa-instagram",
+    color: "hover:bg-gradient-to-tr hover:from-[#f9ce34] hover:via-[#ee2a7b] hover:to-[#6228d7]",
+    link: " https://www.instagram.com/offer_wale_baba?igsh=Mjd6aG84bXV5dmRn"
+  },
+  {
+    icon: "fa-facebook",
+    color: "hover:bg-[#1877F2]",
+    link: " https://www.facebook.com/share/1Eej9auTBB/"
+  },
+  {
+    icon: "fa-youtube",
+    color: "hover:bg-[#FF0000]",
+    link: "https://youtube.com/@offerwalebabaa?si=dyfMK956fnjZhZ1O"
+  },
+  {
+    icon: "fa-threads",
+    color: "hover:bg-black border-white/20",
+    link: "https://www.threads.net/@yourusername"
+  },
+  {
+    icon: "fa-google",
+    color: "hover:bg-[#4285F4]",
+    label: "Google",
+    link: "https://g.page/yourbusiness" // or Google Maps link
+  }
+];
 
   return (
     <footer className="relative bg-[#050505] text-gray-400 pt-32 pb-12 overflow-hidden font-sans selection:bg-[#f7a221] selection:text-black">
@@ -99,27 +141,43 @@ const Footer = () => {
                 </h2>
             </div>
 
-            <div className="mt-12 flex flex-wrap justify-center gap-3">
-                {[
-                  { icon: "fa-whatsapp", color: "hover:bg-[#25D366]" },
-                  { icon: "fa-telegram", color: "hover:bg-[#0088cc]" },
-                  { icon: "fa-instagram", color: "hover:bg-gradient-to-tr hover:from-[#f9ce34] hover:via-[#ee2a7b] hover:to-[#6228d7]" },
-                  { icon: "fa-facebook", color: "hover:bg-[#1877F2]" },
-                  { icon: "fa-youtube", color: "hover:bg-[#FF0000]" },
-                  { icon: "fa-threads", color: "hover:bg-black border-white/20" },
-                  { icon: "fa-google", color: "hover:bg-[#4285F4]", label: "Google" },
-                ].map((social, i) => (
-                  <a
-                    key={i}
-                    href="#"
-                    className={`p-4 bg-white/5 border border-white/10 rounded-2xl text-gray-400
-                                hover:text-white hover:-translate-y-2 hover:shadow-2xl
-                                transition-all duration-500 ${social.color}`}
-                  >
-                    <i className={`fa-brands ${social.icon} text-2xl`} />
-                  </a>
-                ))}
-            </div>
+         <div className="mt-12 flex flex-wrap justify-center gap-3">
+  {[
+    { icon: "fa-whatsapp", color: "hover:bg-[#25D366]", link: "https://wa.me/message/72BTQZMTQU2AG1" },
+    { icon: "fa-telegram", color: "hover:bg-[#0088cc]", link: "https://t.me/yourusername" },
+    { icon: "fa-instagram", color: "hover:from-[#f9ce34] hover:via-[#ee2a7b] hover:to-[#6228d7] hover:bg-gradient-to-tr", link: "https://www.instagram.com/offer_wale_baba" },
+    { icon: "fa-facebook", color: "hover:bg-[#1877F2]", link: "https://www.facebook.com/share/1Eej9auTBB/" },
+    { icon: "fa-youtube", color: "hover:bg-[#FF0000]", link: "https://youtube.com/@offerwalebabaa" },
+    { icon: "fa-threads", color: "hover:bg-black", link: "https://www.threads.net/@yourusername" },
+    { icon: "fa-google", color: "hover:bg-zinc-100", link: "https://g.page/yourbusiness" },
+  ].map((social, i) => (
+    <a
+      key={i}
+      href={social.link}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`group relative flex items-center justify-center p-4 bg-white/5 border border-white/10 rounded-2xl text-gray-400
+                  hover:text-white hover:-translate-y-2 hover:shadow-2xl
+                  transition-all duration-500 ${social.color}`}
+    >
+      {/* NORMAL ICON */}
+      <i
+        className={`fa-brands ${social.icon} text-2xl transition-opacity duration-300 ${
+          social.icon === "fa-google" ? "group-hover:opacity-0" : ""
+        }`}
+      />
+
+      {/* GOOGLE SVG */}
+      {social.icon === "fa-google" && (
+        <img
+          src={google}
+          alt="google"
+          className="w-6 h-6 absolute opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+        />
+      )}
+    </a>
+  ))}
+</div>
         </div>
 
         {/* MAIN FOOTER CONTENT GRID */}

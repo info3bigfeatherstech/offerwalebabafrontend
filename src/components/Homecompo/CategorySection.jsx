@@ -105,6 +105,7 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
                         key={product._id}
                         product={product}
                         index={virtualRow.index * cols + i}
+                        seed={i}
                       />
                     ))
                 }
@@ -130,6 +131,9 @@ const CategorySection = ({ slug, title }) => {
   const selectStatus     = useMemo(() => selectStatusBySlug(slug),     [slug]);
 
   const products   = useSelector(selectProducts);
+  console.log("category name", products[0].category?.name);
+  let categoryname = products[0].category?.name;
+  
   const loading    = useSelector(selectLoading);
   const error      = useSelector(selectError);
   const pagination = useSelector(selectPagination);
@@ -238,7 +242,7 @@ if (error) {
           </h3>
           <button
             onClick={() => navigate(`/category/${slug}`)}
-            className="text-[#f7a221] font-bold flex items-center gap-2 group text-sm uppercase tracking-wider transition-all whitespace-nowrap"
+            className="text-[#f7a221] hidden font-bold flex items-center gap-2 group text-sm uppercase tracking-wider transition-all whitespace-nowrap"
           >
             Explore All
             <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
@@ -280,9 +284,12 @@ if (error) {
             )}
 
             {!hasMore && products.length > 0 && status === 'success' && (
-              <p className="text-center text-[10px] font-bold uppercase tracking-widest text-zinc-300 mt-10">
-                All {products.length} products loaded
-              </p>
+              <button
+            onClick={() => navigate(`/category/${categoryname}`)}
+            className=" px-10 py-3 mx-auto block mt-10 border-2 border-zinc-900 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 hover:text-white transition-all"
+          >
+            View All
+          </button>
             )}
           </>
         ) : (

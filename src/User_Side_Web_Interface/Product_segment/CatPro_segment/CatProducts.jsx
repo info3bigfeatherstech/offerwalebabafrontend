@@ -111,9 +111,10 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
                     ))
                   : rowItems.map((product, i) => (
                       <ProductCard
-                        key={product._id || i}
-                        product={product}
-                        index={virtualRow.index * cols + i}
+                      key={product._id || i}
+                      product={product}
+                      index={virtualRow.index * cols + i}
+                      seed={i}
                       />
                     ))
                 }
@@ -190,7 +191,7 @@ const CatProducts = () => {
   // ── Derived ────────────────────────────────────────────────────────────────
   const isLoading = (catLoading || categoryLoadingState) && products.length === 0;
   const hasError  = !isLoading && !!categoryErrorState;
-  const hasMore   = pagination?.hasNextPage ?? false;
+  const hasMore   = pagination?.hasNextPage ?? false;  
 
   // ── Filter logic ───────────────────────────────────────────────────────────
  const filteredProducts = useMemo(() => {
@@ -198,6 +199,8 @@ const CatProducts = () => {
 
   return products.filter((product) => {
     const variant = product.variants?.[0];
+    console.log("data", product);
+    
 
     const base = variant?.price?.base ?? 0;
     const sale = variant?.price?.sale ?? base;
@@ -206,8 +209,7 @@ const CatProducts = () => {
     const discount =
       base > 0 ? Math.round(((base - sale) / base) * 100) : 0;
 
-    const isOnSale =
-      product.soldInfo?.enabled === true && sale < base;
+    const isOnSale = sale < base || false;
 
     // ✅ PRICE (multi-select)
     if (filters.price.length > 0) {

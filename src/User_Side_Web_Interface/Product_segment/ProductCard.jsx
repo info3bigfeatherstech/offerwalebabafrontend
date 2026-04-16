@@ -54,11 +54,9 @@ const ProductCard = ({ product, index = 0 }) => {
   const setL = (k, v) => setLocalLoading((p) => ({ ...p, [k]: v }));
   const isProcessing = localLoading.add || localLoading.update || localLoading.remove;
    const getCategoryName = (productCategory) => {
-    if (!productCategory) return "Uncategorized";
-    if (typeof productCategory === "object" && productCategory.name) return productCategory.name;
-    const categoryId = typeof productCategory === "object" ? productCategory._id : productCategory;
-    const found = categories.find(
-      (cat) => cat._id === categoryId || cat._id?.toString() === categoryId?.toString()
+     
+     if (!productCategory) return "Uncategorized";
+     const found = categories.find((cat) => cat._id === productCategory || cat.name === productCategory
     );
     return found ? found.name : "Uncategorized";
   };
@@ -137,7 +135,7 @@ const ProductCard = ({ product, index = 0 }) => {
           quantity: 1,
         }));
       }
-      toast.success("Added to cart 🛒");
+      toast.success("Added to cart");
     } catch (err) {
       logError("handleAddToCart", err, { slug: product.slug });
       toast.error(err?.message || "Failed to add to cart");
@@ -234,7 +232,7 @@ const ProductCard = ({ product, index = 0 }) => {
         {/* Out of stock overlay */}
         {!inStock && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <span className="text-white text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1 rounded-full">
+            <span className="text-white text-[10px] md:text-[15px] font-black uppercase tracking-widest bg-black/60 px-3 py-1 rounded-full">
               Out of Stock
             </span>
           </div>
@@ -243,7 +241,7 @@ const ProductCard = ({ product, index = 0 }) => {
         {/* Discount badge */}
         {discountPct && inStock && (
           <div className="absolute top-2 left-2 z-10">
-            <span className="text-[10px] font-black bg-[#EB4C4C] text-white px-2 py-0.5 rounded-md shadow-sm">
+            <span className="text-[10px] md:text-[15px] bg-[#EB4C4C] text-white px-2 py-0.5 rounded-md shadow-sm">
               {discountPct}% OFF
             </span>
           </div>
@@ -299,8 +297,8 @@ const ProductCard = ({ product, index = 0 }) => {
             {title}
           </h3>
           <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
-            <Star size={10} className="text-yellow-400 fill-yellow-400" />
-            <span className="text-[10px] font-semibold text-zinc-600">4.3</span>
+            <Star size={14} className="text-yellow-400 fill-yellow-400" />
+            <span className="text-[10px] md:text-[15px] font-semibold text-zinc-600">4.3</span>
           </div>
         </div>
 

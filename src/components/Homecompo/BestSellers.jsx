@@ -118,7 +118,7 @@ const BestSellers = () => {
                 animationFillMode: 'both',
               }}
             >
-              <ProductCard product={product} index={index} />
+              <ProductCard product={product} index={index} seed={index} />
             </div>
           ))}
         </div>

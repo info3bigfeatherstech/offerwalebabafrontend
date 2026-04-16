@@ -191,7 +191,7 @@ const CartComponent = ({ item, isLoggedIn,basePrice, onUpdate, onRemove, isUpdat
         onClick={() => onRemove(item)}
         disabled={isRemoving}
         aria-label="Remove item"
-        className="p-1 text-red-400 hover:text-red-500 transition-colors disabled:opacity-40 flex-shrink-0"
+        className="p-1 text-red-400 hover:text-red-500 transition-colors cursor-pointer disabled:opacity-40 flex-shrink-0"
       >
         {isRemoving
           ? <RefreshCw size={14} className="animate-spin" />

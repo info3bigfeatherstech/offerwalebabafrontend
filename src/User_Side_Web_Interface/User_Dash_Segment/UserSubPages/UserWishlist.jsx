@@ -156,6 +156,7 @@ const products = items
         key={product._id || product.slug || idx}
         product={product}
         index={idx}
+        seed={idx}
       />
     ))}
   </div>

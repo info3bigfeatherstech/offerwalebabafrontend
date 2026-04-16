@@ -52,6 +52,33 @@ const buildInventoryObj = (inv) => ({
 export const createProduct = createAsyncThunk(
   "adminProductCreate/createProduct",
   async (productData, { rejectWithValue }) => {
+    /* attributes: []
+barcode: "4544456546"
+brand: "Sony"
+category: "69b7993026573d44aced3b27"
+description: "dsgasdgasdg"
+fomo: {enabled: false, type: 'viewing_now', viewingNow: 0, productLeft: 0, customMessage: ''}
+hsnCode: "180987"
+images: []
+inventory: {quantity: 0, lowStockThreshold: 5, trackInventory: true}
+isFeatured: false
+isFragile: false
+isNewArrival: true
+
+isOnSale: true
+minimumOrderQuantity: 1
+name: "Boat Rockerz HeadPhones"
+price: {base: '15000', sale: '10000'}
+shipping: {weight: '', dimensions: {…}}
+soldInfo: {enabled: false, count: 0}
+status: "draft"
+taxRate: 28
+title: "fdasfsdagasd"
+variants: []
+wholesale: false
+wholesaleBase: ""
+wholesaleSale: ""*/ 
+    
     try {
       const fd = new FormData();
 
@@ -160,6 +187,8 @@ export const createProduct = createAsyncThunk(
           if (img?.file instanceof File) fd.append(`variantImages_${realIndex}`, img.file);
         });
       });
+      console.log("This is my fd", fd);
+      
 
       const response = await axiosInstance.post("/admin/products", fd, {
         headers:          { "Content-Type": "multipart/form-data" },

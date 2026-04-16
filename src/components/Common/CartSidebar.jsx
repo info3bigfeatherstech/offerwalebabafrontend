@@ -340,7 +340,7 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleUpdateQty = async (item, newQty) => {
   if (newQty < 1) return;
-  const itemId = item._id || `${item.product?.slug || item._productSlug}-${item.variantId}`;
+  const itemId = item._id || `${item.productId?.slug || item._productSlug}-${item.variantId}`;
 
   if (isLoggedIn) {
     setItemState(itemId, 'updating', true);
@@ -359,7 +359,7 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
   } else {
     setItemState(itemId, 'updating', true);
     dispatch(updateGuestCartItem({
-      productSlug: item.product?.slug || item.productSlug, // ✅
+      productSlug: item.productId?.slug || item.productSlug, // ✅
       variantId:   item.variantId,
       quantity:    newQty,
     }));
@@ -368,7 +368,7 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
 };
 
 const handleRemove = async (item) => {
-  const itemId = item._id || `${item.product?.slug || item._productSlug}-${item.variantId}`;
+  const itemId = item._id || `${item.productId?.slug || item._productSlug}-${item.variantId}`;
 
   if (isLoggedIn) {
     setItemState(itemId, 'removing', true);
@@ -376,7 +376,7 @@ const handleRemove = async (item) => {
       await dispatch(removeCartItem({
         productId:   item.productId?._id || item.productId,  // ✅
         variantId:   item.variantId,
-        productSlug: item.product?.slug || item._productSlug, // ✅
+        productSlug: item.productId?.slug || item._productSlug, // ✅
       })).unwrap();
     } catch (e) {
       logError("removeCartItem", e);
@@ -386,7 +386,7 @@ const handleRemove = async (item) => {
   } else {
     setItemState(itemId, 'removing', true);
     dispatch(removeGuestCartItem({
-      productSlug: item.product?.slug || item.productSlug, // ✅
+      productSlug: item.productId?.slug || item.productSlug, // ✅
       variantId:   item.variantId,
     }));
     setTimeout(() => setItemState(itemId, 'removing', false), 100);
@@ -504,7 +504,7 @@ const handleRemove = async (item) => {
               {currentItems.map((item, index) => {
                 const loadingState = getItemLoading(item);
                 const itemKey = item._id || `${item.productId.slug || item._productSlug}-${item.variantId}-${index}`;
-                const path = `/products/${item.product.slug}`
+                const path = `/products/${item?.productId?.slug}`
                 
                 // For guest users, use the simplified GuestCartItem component
                 if (!isLoggedIn) {
@@ -549,7 +549,7 @@ const handleRemove = async (item) => {
                         Don't lose your cart items. Log in to sync across all your devices.
                       </p>
                       <button
-                        onClick={() => { onClose(); navigate('/login'); }}
+                        onClick={() => {onOpenAuth(); onClose(); }}
                         className="mt-3 text-[10px] font-black uppercase tracking-widest text-[#F7A221] hover:underline cursor-pointer"
                       >
                         Login Now →

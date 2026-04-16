@@ -53,6 +53,8 @@ const ProductsTab = ({ onSwitchTab }) => {
     loading: productsLoading, 
     error: productsError 
   } = useSelector((s) => s.adminGetProducts);
+  console.log("This are the products that are  coming from /adminGetProducts slice", products);
+  
 
   const {
     products: lowStockProducts,
@@ -85,6 +87,7 @@ const ProductsTab = ({ onSwitchTab }) => {
   // ── Initial fetch ────────────────────────────────────────────────────────────
   useEffect(() => {
     dispatch(fetchProducts({ page: 1, limit: 15 }));  // ✅ Changed to 15 per page
+    // console.log("These are the dispatched product",dispatch(fetchProducts({ page: 1, limit: 15 })))  // ✅ Changed to 15 per page
     dispatch(fetchCategories());
     dispatch(fetchLowStockProducts({ page: 1, limit: 1 }));
       dispatch(fetchActiveProductsCount());
@@ -209,6 +212,8 @@ const ProductsTab = ({ onSwitchTab }) => {
       lowStockProducts.some((lp) => lp._id === product._id);
     return matchesSearch && matchesStatus && matchesCategory && matchesLowStock;
   });
+  console.log("product", filteredProducts);
+  
 
   // ── Loading ──────────────────────────────────────────────────────────────────
  // ── Loading ──────────────────────────────────────────────────────────────────

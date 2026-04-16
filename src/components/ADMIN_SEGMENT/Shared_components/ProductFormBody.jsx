@@ -117,15 +117,19 @@ const ProductFormBody = ({
 
   // ── Generic field handler ─────────────────────────────────────────────────
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value, type, checked } = e.target;    
     if (name.startsWith("shipping.dimensions.")) {
       const dim = name.split(".")[2];
       setFormData((p) => ({ ...p, shipping: { ...p.shipping, dimensions: { ...p.shipping.dimensions, [dim]: value } } }));
     } else if (name.includes(".")) {
       const [parent, child] = name.split(".");
       setFormData((p) => ({ ...p, [parent]: { ...p[parent], [child]: type === "checkbox" ? checked : value } }));
-    } else {
-      setFormData((p) => ({ ...p, [name]: type === "checkbox" ? checked : value }));
+    } else {      
+      setFormData((p) => {
+  const updated = { ...p, [name]: type === "checkbox" ? checked : value };
+  return updated;
+});
+      
     }
   };
 
