@@ -150,7 +150,13 @@ const products = items
 
       {/* ── Products grid — reuse ProductCard ── */}
       {products.length > 0 && (
-  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+<div className="w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6">
+  <div className="
+    grid grid-cols-2
+    md:grid-cols-[repeat(auto-fit,minmax(220px,1fr))]
+    xl:grid-cols-[repeat(auto-fit,minmax(240px,1fr))]
+    gap-2 sm:gap-4 md:gap-6
+  ">
     {products.map((product, idx) => (
       <ProductCard
         key={product._id || product.slug || idx}
@@ -160,6 +166,7 @@ const products = items
       />
     ))}
   </div>
+</div>
 )}
 
       {/* ── Empty state ── */}

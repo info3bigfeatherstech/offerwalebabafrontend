@@ -131,8 +131,7 @@ const CategorySection = ({ slug, title }) => {
   const selectStatus     = useMemo(() => selectStatusBySlug(slug),     [slug]);
 
   const products   = useSelector(selectProducts);
-  console.log("category name", products[0].category?.name);
-  let categoryname = products[0].category?.name;
+  let categoryname = products[0]?.category?.slug;
   
   const loading    = useSelector(selectLoading);
   const error      = useSelector(selectError);

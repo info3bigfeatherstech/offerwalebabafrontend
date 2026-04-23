@@ -2,6 +2,7 @@ import axios from "axios";
 
 const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_BACKEND_BASE_URL || "https://offerwalebaba.onrender.com/api",
+  // baseURL: "http://localhost:8081/api",
   // baseURL: "http://192.168.1.5:8081/api",
   // baseURL: "https://pins-pontiac-processed-spears.trycloudflare.com/api",
   timeout: 15000,
